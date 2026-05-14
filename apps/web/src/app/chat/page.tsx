@@ -110,7 +110,6 @@ export default function ChatPage() {
   const [pptFileName, setPptFileName] = useState('');
   const [activeId, setActiveId] = useState<string | null>(null);
   const [showModal, setShowModal] = useState(false);
-  const fileInputRef = useRef<HTMLInputElement>(null);
   const listRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -148,18 +147,40 @@ export default function ChatPage() {
     return s.kind === 'chat' ? String(s.room.id) : s.id;
   }
 
-  async function handleFileOpen(e: React.ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0];
-    if (!file) return;
+  async function handleFileOpen() {
     try {
-      const parsed = await parsePptx(file);
-      setPptSlides(parsed);
-      setPptFileName(file.name);
-      if (parsed.length > 0) setActiveId(parsed[0].id);
-    } catch {
-      alert('PPT 파일을 읽는 중 오류가 발생했습니다.');
+      // File System Access API - 보안 프로그램이 업로드로 인식하지 않음
+      if (typeof window !== 'undefined' && 'showOpenFilePicker' in window) {
+        const [fileHandle] = await (window as unknown as { showOpenFilePicker: (opts: object) => Promise<FileSystemFileHandle[]> }).showOpenFilePicker({
+          types: [{ description: 'PowerPoint 파일', accept: { 'application/vnd.openxmlformats-officedocument.presentationml.presentation': ['.pptx'] } }],
+          multiple: false,
+        });
+        const file = await fileHandle.getFile();
+        const parsed = await parsePptx(file);
+        setPptSlides(parsed);
+        setPptFileName(file.name);
+        if (parsed.length > 0) setActiveId(parsed[0].id);
+      } else {
+        // 폴백: 기존 input 방식
+        const input = document.createElement('input');
+        input.type = 'file';
+        input.accept = '.pptx';
+        input.onchange = async (ev) => {
+          const file = (ev.target as HTMLInputElement).files?.[0];
+          if (!file) return;
+          const parsed = await parsePptx(file);
+          setPptSlides(parsed);
+          setPptFileName(file.name);
+          if (parsed.length > 0) setActiveId(parsed[0].id);
+        };
+        input.click();
+      }
+    } catch (err: unknown) {
+      // 사용자가 취소한 경우 무시
+      if (err instanceof Error && err.name !== 'AbortError') {
+        alert('PPT 파일을 읽는 중 오류가 발생했습니다.');
+      }
     }
-    e.target.value = '';
   }
 
   function handleCreated(room: Room) {
@@ -193,7 +214,7 @@ export default function ChatPage() {
         <div style={{ flex: 1 }} />
         {/* 파일 열기 버튼 */}
         <button
-          onClick={() => fileInputRef.current?.click()}
+          onClick={handleFileOpen}
           title="PPT 파일 열기"
           style={{ height: 44, padding: '0 16px', color: '#fff', background: 'rgba(255,255,255,0.1)', border: 'none', cursor: 'pointer', fontSize: 12, display: 'flex', alignItems: 'center', gap: 6 }}
           onMouseEnter={(e) => (e.currentTarget.style.background = 'rgba(255,255,255,0.2)')}
@@ -282,9 +303,6 @@ export default function ChatPage() {
         <div style={{ flex: 1 }} />
         <span>채팅 프레젠테이션</span>
       </footer>
-
-      {/* 파일 input (숨김) */}
-      <input ref={fileInputRef} type="file" accept=".pptx" style={{ display: 'none' }} onChange={handleFileOpen} />
 
       {/* 채팅방 생성 모달 */}
       {showModal && <CreateRoomModal onClose={() => setShowModal(false)} onCreated={handleCreated} />}
