@@ -67,6 +67,7 @@ export function ChatWindow({ roomId }: Props) {
   const [isMobile, setIsMobile] = useState(false);
   const bottomRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const longPressTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const activeRoom = rooms.find((r) => r.id === roomId);
   const lockCode = (user?.chatLockCode ?? '').trim();
@@ -145,8 +146,20 @@ export function ChatWindow({ roomId }: Props) {
 
   useEffect(() => {
     function handleKeyDown(event: KeyboardEvent) {
-      if (!isLocked) return;
+      // Ctrl+Shift+L — 잠금 토글 (잠금 코드 있을 때만)
+      if (event.ctrlKey && event.shiftKey && event.key === 'L') {
+        if (!canLock) return;
+        event.preventDefault();
+        if (isLocked) {
+          // 잠금 화면에서는 코드 입력 후 해제 — 강제 해제 안 함
+        } else {
+          lockChat();
+        }
+        return;
+      }
 
+      // 잠금 화면에서 Ctrl+숫자 → 코드 입력
+      if (!isLocked) return;
       if (!event.ctrlKey) return;
       if (event.key < '0' || event.key > '9') return;
 
@@ -156,7 +169,7 @@ export function ChatWindow({ roomId }: Props) {
 
     window.addEventListener('keydown', handleKeyDown, true);
     return () => window.removeEventListener('keydown', handleKeyDown, true);
-  }, [isLocked, lockEntry]);
+  }, [isLocked, canLock, lockEntry]);
 
   useEffect(() => {
     try {
@@ -321,7 +334,21 @@ export function ChatWindow({ roomId }: Props) {
             ? <><line x1="4" y1="9" x2="20" y2="9"/><line x1="4" y1="15" x2="20" y2="15"/><line x1="10" y1="3" x2="8" y2="21"/><line x1="16" y1="3" x2="14" y2="21"/></>
             : <><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></>}
         </svg>
-        <span className="font-semibold text-sm" style={{ color: 'var(--text-primary)' }}>
+        {/* 모바일: 방 이름 길게 누르면 잠금/잠금화면표시 */}
+        <span
+          className="font-semibold text-sm select-none"
+          style={{ color: 'var(--text-primary)' }}
+          onContextMenu={isMobile ? (e) => e.preventDefault() : undefined}
+          onTouchStart={isMobile && canLock ? () => {
+            longPressTimer.current = setTimeout(() => lockChat(), 600);
+          } : undefined}
+          onTouchEnd={isMobile && canLock ? () => {
+            if (longPressTimer.current) { clearTimeout(longPressTimer.current); longPressTimer.current = null; }
+          } : undefined}
+          onTouchMove={isMobile && canLock ? () => {
+            if (longPressTimer.current) { clearTimeout(longPressTimer.current); longPressTimer.current = null; }
+          } : undefined}
+        >
           {activeRoom?.name ?? ''}
         </span>
         <div className="flex-1" />
@@ -360,15 +387,6 @@ export function ChatWindow({ roomId }: Props) {
                 메모장
               </button>
             </div>
-            <button
-              type="button"
-              onClick={isLocked ? unlockChat : lockChat}
-              disabled={!canLock && !isLocked}
-              className="ml-2 text-xs px-3 py-1 rounded-md transition-colors disabled:opacity-40"
-              style={{ background: isLocked ? '#57f287' : '#3a3f4a', color: isLocked ? '#111' : 'var(--text-muted)' }}
-            >
-              {isLocked ? '잠금 해제' : canLock ? '잠금' : 'DB 비번 없음'}
-            </button>
           </>
         )}
       </div>
@@ -408,15 +426,6 @@ export function ChatWindow({ roomId }: Props) {
               메모장
             </button>
           </div>
-          <button
-            type="button"
-            onClick={isLocked ? unlockChat : lockChat}
-            disabled={!canLock && !isLocked}
-            className="text-[11px] px-2 py-1 rounded-md disabled:opacity-40"
-            style={{ background: isLocked ? '#57f287' : '#3a3f4a', color: isLocked ? '#111' : 'var(--text-muted)' }}
-          >
-            {isLocked ? '해제' : canLock ? '잠금' : 'DB 비번 없음'}
-          </button>
         </div>
       )}
 
