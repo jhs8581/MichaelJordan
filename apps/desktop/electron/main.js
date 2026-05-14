@@ -3,7 +3,7 @@ const path = require('path');
 const fs = require('fs');
 
 // 개발 중에는 localhost:3000, 배포 시에는 Vercel URL 사용
-const START_URL = process.env.ELECTRON_START_URL || 'https://michael-jordan-web.vercel.app';
+const START_URL = process.env.ELECTRON_START_URL || 'https://mjchat.vercel.app';
 
 // ── IPC: 네이티브 파일 열기 (DLP 우회) ────────────────────
 ipcMain.handle('open-pptx-file', async () => {
@@ -17,8 +17,24 @@ ipcMain.handle('open-pptx-file', async () => {
   const buffer = fs.readFileSync(filePath);
   return {
     name: path.basename(filePath),
+    filePath,
     buffer: buffer.buffer.slice(buffer.byteOffset, buffer.byteOffset + buffer.byteLength),
   };
+});
+
+ipcMain.handle('open-file-in-default-app', async (_event, filePath) => {
+  if (!filePath || typeof filePath !== 'string') {
+    return { ok: false, error: '잘못된 파일 경로입니다.' };
+  }
+  if (!fs.existsSync(filePath)) {
+    return { ok: false, error: '파일을 찾을 수 없습니다.' };
+  }
+
+  const errorMessage = await shell.openPath(filePath);
+  if (errorMessage) {
+    return { ok: false, error: errorMessage };
+  }
+  return { ok: true };
 });
 
 function createWindow() {
@@ -121,7 +137,6 @@ app.on('activate', () => {
 });
 
 // 웹에서 Electron으로 알림 받기 (preload를 통해 ipcMain 활용)
-const { ipcMain } = require('electron');
 ipcMain.on('notify', (_event, { title, body }) => {
   if (Notification.isSupported()) {
     new Notification({ title, body }).show();

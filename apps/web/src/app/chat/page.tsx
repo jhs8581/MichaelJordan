@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef, useState, useCallback } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuthStore } from '@/store/auth';
 import { useChatStore } from '@/store/chat';
@@ -14,6 +14,49 @@ import JSZip from 'jszip';
 type PptSlide = { kind: 'ppt'; id: string; index: number; title: string; texts: string[]; thumb?: string };
 type ChatSlide = { kind: 'chat'; room: Room };
 type SlideItem = PptSlide | ChatSlide;
+
+const MOCK_PRESENTATION = [
+  {
+    title: '프로젝트 개요',
+    bullets: ['채팅 + 프레젠테이션 결합 UX', '데스크톱과 웹 동시 지원', '실시간 협업 중심 시나리오'],
+  },
+  {
+    title: '핵심 목표',
+    bullets: ['빠른 커뮤니케이션', '문서 공유 흐름 단순화', '발표 중 채팅 맥락 유지'],
+  },
+  {
+    title: '사용자 시나리오',
+    bullets: ['회의 중 슬라이드 공유', '슬라이드 단위 의견 수집', '핵심 질문 즉시 피드백'],
+  },
+  {
+    title: '화면 구성',
+    bullets: ['왼쪽: 슬라이드 목록', '가운데: 메인 슬라이드', '채팅방과 PPT를 동일 내비게이션으로 통합'],
+  },
+  {
+    title: '기능 1 - 파일 불러오기',
+    bullets: ['PPTX 선택', '텍스트 기반 슬라이드 파싱', '슬라이드 목록 자동 생성'],
+  },
+  {
+    title: '기능 2 - 원본 열기',
+    bullets: ['데스크톱 환경에서 기본 앱 호출', 'PowerPoint 원본 렌더 확인', '내부 뷰와 병행 사용'],
+  },
+  {
+    title: '기능 3 - 실시간 채팅',
+    bullets: ['방 단위 메시지', '읽음 상태 동기화', '슬라이드와 채팅 간 빠른 전환'],
+  },
+  {
+    title: '운영/배포',
+    bullets: ['웹: Next.js 배포', '서버: Fastify + Prisma', '데스크톱: Electron 패키징'],
+  },
+  {
+    title: '기대 효과',
+    bullets: ['발표 효율 향상', '의사결정 시간 단축', '회의 기록 정확도 향상'],
+  },
+  {
+    title: '다음 단계',
+    bullets: ['슬라이드 이미지 렌더 옵션 추가', '발표자 모드 도입', '주석/하이라이트 기능 확장'],
+  },
+] as const;
 
 /* ── PPT 파서 ─────────────────────────────────────────────── */
 async function parsePptx(file: File): Promise<PptSlide[]> {
@@ -38,6 +81,16 @@ async function parsePptx(file: File): Promise<PptSlide[]> {
     slides.push({ kind: 'ppt', id: `ppt-${i}`, index: i, title, texts });
   }
   return slides;
+}
+
+function buildMockSlides(): PptSlide[] {
+  return MOCK_PRESENTATION.map((item, i) => ({
+    kind: 'ppt',
+    id: `mock-ppt-${i}`,
+    index: i,
+    title: item.title,
+    texts: [item.title, ...item.bullets],
+  }));
 }
 
 /* ── 슬라이드 썸네일 ─────────────────────────────────────── */
@@ -108,6 +161,7 @@ export default function ChatPage() {
 
   const [pptSlides, setPptSlides] = useState<PptSlide[]>([]);
   const [pptFileName, setPptFileName] = useState('');
+  const [pptFilePath, setPptFilePath] = useState('');
   const [activeId, setActiveId] = useState<string | null>(null);
   const [showModal, setShowModal] = useState(false);
   const listRef = useRef<HTMLDivElement>(null);
@@ -150,7 +204,13 @@ export default function ChatPage() {
   async function handleFileOpen() {
     try {
       // Electron 앱: Node.js fs로 직접 읽기 (DLP 우회)
-      const electronAPI = (window as unknown as { electronAPI?: { isElectron?: boolean; openPptxFile?: () => Promise<{ name: string; buffer: ArrayBuffer } | null> } }).electronAPI;
+      const electronAPI = (window as unknown as {
+        electronAPI?: {
+          isElectron?: boolean;
+          openPptxFile?: () => Promise<{ name: string; filePath?: string; buffer: ArrayBuffer } | null>;
+          openFileInDefaultApp?: (filePath: string) => Promise<{ ok: boolean; error?: string }>;
+        };
+      }).electronAPI;
       if (electronAPI?.isElectron && electronAPI.openPptxFile) {
         const result = await electronAPI.openPptxFile();
         if (!result) return;
@@ -158,6 +218,7 @@ export default function ChatPage() {
         const parsed = await parsePptx(file);
         setPptSlides(parsed);
         setPptFileName(result.name);
+        setPptFilePath(result.filePath ?? '');
         if (parsed.length > 0) setActiveId(parsed[0].id);
         return;
       }
@@ -172,6 +233,7 @@ export default function ChatPage() {
         const parsed = await parsePptx(file);
         setPptSlides(parsed);
         setPptFileName(file.name);
+        setPptFilePath('');
         if (parsed.length > 0) setActiveId(parsed[0].id);
       } else {
         alert('이 기능은 데스크탑 앱에서 사용하거나, Chrome/Edge 브라우저를 이용해주세요.');
@@ -181,6 +243,39 @@ export default function ChatPage() {
         alert('PPT 파일을 읽는 중 오류가 발생했습니다.');
       }
     }
+  }
+
+  async function handleOpenOriginalPpt() {
+    const electronAPI = (window as unknown as {
+      electronAPI?: {
+        isElectron?: boolean;
+        openFileInDefaultApp?: (filePath: string) => Promise<{ ok: boolean; error?: string }>;
+      };
+    }).electronAPI;
+
+    if (!electronAPI?.isElectron || !electronAPI.openFileInDefaultApp) {
+      alert('원본 파일 열기는 데스크톱 앱에서만 지원됩니다.');
+      return;
+    }
+
+    if (!pptFilePath) {
+      alert('먼저 PPT 파일을 불러와 주세요.');
+      return;
+    }
+
+    const result = await electronAPI.openFileInDefaultApp(pptFilePath);
+    if (!result.ok) {
+      alert(`원본 PPT를 여는 중 오류가 발생했습니다.\n${result.error ?? ''}`);
+    }
+  }
+
+  function handleCreateMockPpt() {
+    const mockSlides = buildMockSlides();
+    setPptSlides(mockSlides);
+    setPptFileName('샘플_프레젠테이션_10장.pptx');
+    setPptFilePath('');
+    setActiveId(mockSlides[0]?.id ?? null);
+    listRef.current?.scrollTo({ top: 0, behavior: 'smooth' });
   }
 
   function handleCreated(room: Room) {
@@ -223,6 +318,29 @@ export default function ChatPage() {
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>
           파일 열기
         </button>
+        <button
+          onClick={handleCreateMockPpt}
+          title="가상 PPT 10장 생성"
+          style={{ height: 44, padding: '0 16px', color: '#fff', background: 'rgba(255,255,255,0.1)', border: 'none', cursor: 'pointer', fontSize: 12, display: 'flex', alignItems: 'center', gap: 6 }}
+          onMouseEnter={(e) => (e.currentTarget.style.background = 'rgba(255,255,255,0.2)')}
+          onMouseLeave={(e) => (e.currentTarget.style.background = 'rgba(255,255,255,0.1)')}
+        >
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M4 4h16v12H4z"/><path d="M8 20h8"/><path d="M12 16v4"/></svg>
+          가상 10장
+        </button>
+        <button
+          onClick={handleOpenOriginalPpt}
+          title="원본 PPT 열기"
+          style={{ height: 44, padding: '0 16px', color: '#fff', background: 'rgba(255,255,255,0.1)', border: 'none', cursor: pptFilePath ? 'pointer' : 'not-allowed', fontSize: 12, display: 'flex', alignItems: 'center', gap: 6, opacity: pptFilePath ? 1 : 0.6 }}
+          onMouseEnter={(e) => {
+            if (pptFilePath) e.currentTarget.style.background = 'rgba(255,255,255,0.2)';
+          }}
+          onMouseLeave={(e) => (e.currentTarget.style.background = 'rgba(255,255,255,0.1)')}
+          disabled={!pptFilePath}
+        >
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M14 3h7v7"/><path d="M10 14L21 3"/><path d="M21 14v7h-7"/><path d="M3 10V3h7"/><path d="M3 3l7 7"/></svg>
+          원본 열기
+        </button>
         {/* 새 채팅방 버튼 */}
         <button
           onClick={() => setShowModal(true)}
@@ -252,7 +370,7 @@ export default function ChatPage() {
         {/* 슬라이드 패널 (왼쪽) */}
         <div ref={listRef} style={{ width: 160, minWidth: 160, background: '#2d2d2d', overflowY: 'auto', padding: '8px 6px', display: 'flex', flexDirection: 'column' }}>
           {slides.length === 0 ? (
-            <p style={{ color: '#888', fontSize: 11, textAlign: 'center', marginTop: 20 }}>채팅방을 만들거나<br/>PPT 파일을 여세요</p>
+            <p style={{ color: '#888', fontSize: 11, textAlign: 'center', marginTop: 20 }}>채팅방을 만들거나<br/>PPT 파일/가상 10장을 여세요</p>
           ) : (
             slides.map((item, i) => (
               <SlideThumbnail

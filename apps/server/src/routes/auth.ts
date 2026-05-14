@@ -47,7 +47,7 @@ export async function authRoutes(app: FastifyInstance) {
 
     const { username, password } = body.data;
 
-    const user = await prisma.user.findUnique({ where: { username } });
+    const user = await prisma.user.findFirst({ where: { username } });
     if (!user) {
       return reply.status(401).send({ success: false, error: '닉네임 또는 비밀번호가 올바르지 않습니다.' });
     }
