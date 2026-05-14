@@ -28,7 +28,6 @@ function createWindow() {
     minWidth: 800,
     minHeight: 600,
     title: 'MichaelJordan Chat',
-    icon: path.join(__dirname, '../assets/icon.ico'),
     webPreferences: {
       nodeIntegration: false,
       contextIsolation: true,
