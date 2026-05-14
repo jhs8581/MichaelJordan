@@ -149,7 +149,20 @@ export default function ChatPage() {
 
   async function handleFileOpen() {
     try {
-      // File System Access API - 보안 프로그램이 업로드로 인식하지 않음
+      // Electron 앱: Node.js fs로 직접 읽기 (DLP 우회)
+      const electronAPI = (window as unknown as { electronAPI?: { isElectron?: boolean; openPptxFile?: () => Promise<{ name: string; buffer: ArrayBuffer } | null> } }).electronAPI;
+      if (electronAPI?.isElectron && electronAPI.openPptxFile) {
+        const result = await electronAPI.openPptxFile();
+        if (!result) return;
+        const file = new File([result.buffer], result.name);
+        const parsed = await parsePptx(file);
+        setPptSlides(parsed);
+        setPptFileName(result.name);
+        if (parsed.length > 0) setActiveId(parsed[0].id);
+        return;
+      }
+
+      // 웹 브라우저: File System Access API
       if (typeof window !== 'undefined' && 'showOpenFilePicker' in window) {
         const [fileHandle] = await (window as unknown as { showOpenFilePicker: (opts: object) => Promise<FileSystemFileHandle[]> }).showOpenFilePicker({
           types: [{ description: 'PowerPoint 파일', accept: { 'application/vnd.openxmlformats-officedocument.presentationml.presentation': ['.pptx'] } }],
@@ -161,22 +174,9 @@ export default function ChatPage() {
         setPptFileName(file.name);
         if (parsed.length > 0) setActiveId(parsed[0].id);
       } else {
-        // 폴백: 기존 input 방식
-        const input = document.createElement('input');
-        input.type = 'file';
-        input.accept = '.pptx';
-        input.onchange = async (ev) => {
-          const file = (ev.target as HTMLInputElement).files?.[0];
-          if (!file) return;
-          const parsed = await parsePptx(file);
-          setPptSlides(parsed);
-          setPptFileName(file.name);
-          if (parsed.length > 0) setActiveId(parsed[0].id);
-        };
-        input.click();
+        alert('이 기능은 데스크탑 앱에서 사용하거나, Chrome/Edge 브라우저를 이용해주세요.');
       }
     } catch (err: unknown) {
-      // 사용자가 취소한 경우 무시
       if (err instanceof Error && err.name !== 'AbortError') {
         alert('PPT 파일을 읽는 중 오류가 발생했습니다.');
       }

@@ -7,4 +7,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
 
   // Electron 환경 여부 감지
   isElectron: true,
+
+  // 네이티브 PPTX 파일 열기 (DLP 우회 - Node.js fs로 직접 읽음)
+  openPptxFile: () => ipcRenderer.invoke('open-pptx-file'),
 });

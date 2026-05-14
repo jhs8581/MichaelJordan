@@ -1,11 +1,25 @@
-const { app, BrowserWindow, Tray, Menu, nativeImage, shell, Notification } = require('electron');
+const { app, BrowserWindow, Tray, Menu, nativeImage, shell, Notification, ipcMain, dialog } = require('electron');
 const path = require('path');
+const fs = require('fs');
 
 // 개발 중에는 localhost:3000, 배포 시에는 Vercel URL 사용
 const START_URL = process.env.ELECTRON_START_URL || 'https://michael-jordan-web.vercel.app';
 
-let mainWindow = null;
-let tray = null;
+// ── IPC: 네이티브 파일 열기 (DLP 우회) ────────────────────
+ipcMain.handle('open-pptx-file', async () => {
+  const result = await dialog.showOpenDialog(mainWindow, {
+    title: 'PPT 파일 열기',
+    filters: [{ name: 'PowerPoint', extensions: ['pptx'] }],
+    properties: ['openFile'],
+  });
+  if (result.canceled || result.filePaths.length === 0) return null;
+  const filePath = result.filePaths[0];
+  const buffer = fs.readFileSync(filePath);
+  return {
+    name: path.basename(filePath),
+    buffer: buffer.buffer.slice(buffer.byteOffset, buffer.byteOffset + buffer.byteLength),
+  };
+});
 
 function createWindow() {
   mainWindow = new BrowserWindow({
