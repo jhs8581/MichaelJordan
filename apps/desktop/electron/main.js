@@ -2,7 +2,7 @@ const { app, BrowserWindow, Tray, Menu, nativeImage, shell, Notification } = req
 const path = require('path');
 
 // 개발 중에는 localhost:3000, 배포 시에는 Vercel URL 사용
-const START_URL = process.env.ELECTRON_START_URL || 'https://your-vercel-domain.vercel.app';
+const START_URL = process.env.ELECTRON_START_URL || 'https://michael-jordan-web.vercel.app';
 
 let mainWindow = null;
 let tray = null;
