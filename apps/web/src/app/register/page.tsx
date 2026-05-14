@@ -6,7 +6,7 @@ import { api } from '@/lib/api';
 
 export default function RegisterPage() {
   const router = useRouter();
-  const [form, setForm] = useState({ email: '', password: '', username: '' });
+  const [form, setForm] = useState({ password: '', username: '' });
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
 
@@ -47,13 +47,13 @@ export default function RegisterPage() {
         {error && <p className="mb-4 rounded-lg p-3 text-sm" style={{ background: '#ed4245', color: '#fff' }}>{error}</p>}
 
         <form onSubmit={handleSubmit} className="space-y-4">
-          {(['username', 'email', 'password'] as const).map((field) => (
+          {(['username', 'password'] as const).map((field) => (
             <div key={field}>
               <label className="block text-xs font-bold uppercase mb-1.5" style={{ color: 'var(--text-muted)' }}>
-                {field === 'username' ? '닉네임' : field === 'email' ? '이메일' : '비밀번호'}
+                {field === 'username' ? '닉네임' : '비밀번호'}
               </label>
               <input
-                type={field === 'password' ? 'password' : field === 'email' ? 'email' : 'text'}
+                type={field === 'password' ? 'password' : 'text'}
                 name={field}
                 value={form[field]}
                 onChange={handleChange}

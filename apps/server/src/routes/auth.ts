@@ -10,7 +10,7 @@ const registerSchema = z.object({
 });
 
 const loginSchema = z.object({
-  email: z.string().email(),
+  username: z.string().min(2),
   password: z.string(),
 });
 
@@ -45,16 +45,16 @@ export async function authRoutes(app: FastifyInstance) {
       return reply.status(400).send({ success: false, error: body.error.message });
     }
 
-    const { email, password } = body.data;
+    const { username, password } = body.data;
 
-    const user = await prisma.user.findUnique({ where: { email } });
+    const user = await prisma.user.findUnique({ where: { username } });
     if (!user) {
-      return reply.status(401).send({ success: false, error: '이메일 또는 비밀번호가 올바르지 않습니다.' });
+      return reply.status(401).send({ success: false, error: '닉네임 또는 비밀번호가 올바르지 않습니다.' });
     }
 
     const valid = await bcrypt.compare(password, user.passwordHash);
     if (!valid) {
-      return reply.status(401).send({ success: false, error: '이메일 또는 비밀번호가 올바르지 않습니다.' });
+      return reply.status(401).send({ success: false, error: '닉네임 또는 비밀번호가 올바르지 않습니다.' });
     }
 
     const accessToken = app.jwt.sign(

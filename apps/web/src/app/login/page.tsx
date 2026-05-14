@@ -8,7 +8,7 @@ import { api } from '@/lib/api';
 export default function LoginPage() {
   const router = useRouter();
   const setAuth = useAuthStore((s) => s.setAuth);
-  const [email, setEmail] = useState('');
+  const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
@@ -18,7 +18,7 @@ export default function LoginPage() {
     setError('');
     setLoading(true);
     try {
-      const res = await api.post('/auth/login', { email, password });
+      const res = await api.post('/auth/login', { username, password });
       const { accessToken, refreshToken, user } = res.data.data;
       setAuth({ accessToken, refreshToken, user });
       router.push('/chat');
@@ -51,8 +51,8 @@ export default function LoginPage() {
 
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
-            <label className="block text-xs font-bold uppercase mb-1.5" style={{ color: 'var(--text-muted)' }}>이메일</label>
-            <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} required
+            <label className="block text-xs font-bold uppercase mb-1.5" style={{ color: 'var(--text-muted)' }}>닉네임</label>
+            <input type="text" value={username} onChange={(e) => setUsername(e.target.value)} required
               className="w-full rounded-md px-3 py-2.5 text-sm outline-none"
               style={{ background: '#1e1f22', color: '#fff', border: '2px solid transparent' }}
               onFocus={(e) => (e.target.style.borderColor = '#5865f2')}
