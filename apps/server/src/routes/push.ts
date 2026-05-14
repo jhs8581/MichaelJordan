@@ -3,11 +3,16 @@ import webpush from 'web-push';
 import { z } from 'zod';
 import { prisma } from '../lib/prisma';
 
-webpush.setVapidDetails(
-  process.env.VAPID_SUBJECT ?? 'mailto:admin@example.com',
-  process.env.VAPID_PUBLIC_KEY ?? '',
-  process.env.VAPID_PRIVATE_KEY ?? '',
-);
+function initVapid() {
+  const pub = process.env.VAPID_PUBLIC_KEY;
+  const priv = process.env.VAPID_PRIVATE_KEY;
+  const subj = process.env.VAPID_SUBJECT ?? 'mailto:admin@example.com';
+  if (pub && priv) {
+    webpush.setVapidDetails(subj, pub, priv);
+    return true;
+  }
+  return false;
+}
 
 const subscribeSchema = z.object({
   endpoint: z.string().url(),
@@ -18,6 +23,9 @@ const subscribeSchema = z.object({
 });
 
 export async function pushRoutes(app: FastifyInstance) {
+  // VAPID 초기화 (서버 시작 후 env 로드 완료 시점에 실행)
+  initVapid();
+
   // VAPID 공개 키 반환
   app.get('/vapid-public-key', async (_req, reply) => {
     return reply.send({ key: process.env.VAPID_PUBLIC_KEY ?? '' });
@@ -58,6 +66,7 @@ export async function pushRoutes(app: FastifyInstance) {
 
 // 특정 userId들에게 푸시 알림 발송 (handlers.ts에서 사용)
 export async function sendPushToUsers(userIds: number[], payload: object) {
+  if (!initVapid()) return; // VAPID 키 없으면 푸시 스킵
   const subs = await prisma.pushSubscription.findMany({
     where: { userId: { in: userIds } },
   });
