@@ -61,7 +61,7 @@ export function ChatWindow({ roomId }: Props) {
   const [input, setInput] = useState('');
   const [settings, setSettings] = useState<ChatViewSettings>(DEFAULT_SETTINGS);
   const [settingsOpen, setSettingsOpen] = useState(false);
-  const [isLocked, setIsLocked] = useState(false);
+  const [isLocked, setIsLocked] = useState(() => (useAuthStore.getState().user?.chatLockCode ?? '').trim().length > 0);
   const [lockEntry, setLockEntry] = useState('');
   const [lockError, setLockError] = useState('');
   const [isMobile, setIsMobile] = useState(false);
@@ -452,7 +452,7 @@ export function ChatWindow({ roomId }: Props) {
 
       {/* 메시지 목록 */}
       <div className={`flex-1 overflow-y-auto px-4 py-4 ${isLocked ? 'blur-md select-none pointer-events-none' : ''}`}>
-        {renderMessages()}
+        {!isLocked && renderMessages()}
         <div ref={bottomRef} />
       </div>
 
