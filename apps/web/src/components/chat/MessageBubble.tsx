@@ -9,7 +9,8 @@ interface Props {
 
 export function MessageBubble({ message, isMine, isConsecutive, timeFormat }: Props) {
   const time = formatMessageTime(new Date(message.createdAt), timeFormat);
-  const readCount = message.reads?.length ?? 0;
+  // 보낸 사람 본인을 제외한 읽음 수 (본인 읽음은 항상 있어서 무조건 읽음으로 표시되는 버그 방지)
+  const readCount = (message.reads ?? []).filter((r) => r.userId !== message.senderId).length;
 
   return (
     <div className={`flex gap-3 ${isConsecutive ? 'mt-0.5' : 'mt-4'} ${isMine ? 'flex-row-reverse' : 'flex-row'}`}>

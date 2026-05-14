@@ -43,7 +43,7 @@ function createWindow() {
     height: 800,
     minWidth: 800,
     minHeight: 600,
-    title: 'MichaelJordan Chat',
+    title: '마이클조던',
     webPreferences: {
       nodeIntegration: false,
       contextIsolation: true,
@@ -98,7 +98,7 @@ function createTray() {
     },
   ]);
 
-  tray.setToolTip('MichaelJordan Chat');
+  tray.setToolTip('마이클조던');
   tray.setContextMenu(contextMenu);
 
   tray.on('double-click', () => {

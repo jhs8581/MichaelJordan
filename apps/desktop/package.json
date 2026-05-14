@@ -17,7 +17,7 @@
   },
   "build": {
     "appId": "com.michaeljordan.chat",
-    "productName": "MichaelJordan Chat",
+    "productName": "마이클조던",
     "directories": {
       "output": "dist"
     },
