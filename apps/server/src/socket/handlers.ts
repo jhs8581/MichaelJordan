@@ -15,7 +15,7 @@ export function registerSocketHandlers(io: ChatServer) {
     }
 
     try {
-      const payload = jwt.verify(token, process.env.JWT_SECRET ?? 'changeme-min-32-chars-secret-key!') as { sub: number };
+      const payload = jwt.verify(token, process.env.JWT_SECRET ?? 'changeme-min-32-chars-secret-key!') as unknown as { sub: number };
       (socket as ChatSocket & { userId: number }).userId = payload.sub;
       next();
     } catch {
