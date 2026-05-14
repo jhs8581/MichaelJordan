@@ -61,7 +61,7 @@ export function ChatWindow({ roomId }: Props) {
   const [input, setInput] = useState('');
   const [settings, setSettings] = useState<ChatViewSettings>(DEFAULT_SETTINGS);
   const [settingsOpen, setSettingsOpen] = useState(false);
-  const [isLocked, setIsLocked] = useState(() => (useAuthStore.getState().user?.chatLockCode ?? '').trim().length > 0);
+  const [isLocked, setIsLocked] = useState(false);
   const [lockEntry, setLockEntry] = useState('');
   const [lockError, setLockError] = useState('');
   const [isMobile, setIsMobile] = useState(false);
@@ -131,18 +131,6 @@ export function ChatWindow({ roomId }: Props) {
     media.addEventListener('change', listener);
     return () => media.removeEventListener('change', listener);
   }, []);
-
-  useEffect(() => {
-    function handleWindowBlur() {
-      if (!canLock) return;
-      setIsLocked(true);
-      setLockEntry('');
-      setLockError('');
-    }
-
-    window.addEventListener('blur', handleWindowBlur);
-    return () => window.removeEventListener('blur', handleWindowBlur);
-  }, [canLock]);
 
   useEffect(() => {
     function handleKeyDown(event: KeyboardEvent) {
