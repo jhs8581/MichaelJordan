@@ -61,7 +61,8 @@ export function ChatWindow({ roomId }: Props) {
   const [input, setInput] = useState('');
   const [settings, setSettings] = useState<ChatViewSettings>(DEFAULT_SETTINGS);
   const [settingsOpen, setSettingsOpen] = useState(false);
-  const [isLocked, setIsLocked] = useState(() => (useAuthStore.getState().user?.chatLockCode ?? '').trim().length > 0);
+  const [isLocked, setIsLocked] = useState(false); // 잠금 오버레이 표시 여부
+  const [isContentUnlocked, setIsContentUnlocked] = useState(() => !((useAuthStore.getState().user?.chatLockCode ?? '').trim().length > 0)); // 메시지 표시 여부
   const [lockEntry, setLockEntry] = useState('');
   const [lockError, setLockError] = useState('');
   const [isMobile, setIsMobile] = useState(false);
@@ -199,12 +200,14 @@ export function ChatWindow({ roomId }: Props) {
       return;
     }
     setIsLocked(true);
+    setIsContentUnlocked(false);
     setLockEntry('');
     setLockError('');
   }
 
   function unlockChat() {
     setIsLocked(false);
+    setIsContentUnlocked(true);
     setLockEntry('');
     setLockError('');
   }
@@ -451,8 +454,8 @@ export function ChatWindow({ roomId }: Props) {
       )}
 
       {/* 메시지 목록 */}
-      <div className={`flex-1 overflow-y-auto px-4 py-4 ${isLocked ? 'blur-md select-none pointer-events-none' : ''}`}>
-        {!isLocked && renderMessages()}
+      <div className="flex-1 overflow-y-auto px-4 py-4">
+        {isContentUnlocked && renderMessages()}
         <div ref={bottomRef} />
       </div>
 
@@ -521,7 +524,7 @@ export function ChatWindow({ roomId }: Props) {
       )}
 
       {/* 입력창 */}
-      <div className={`px-4 pb-5 flex-shrink-0 ${isLocked ? 'pointer-events-none opacity-40' : ''}`}>
+      <div className={`px-4 pb-5 flex-shrink-0 ${(isLocked || !isContentUnlocked) ? 'pointer-events-none opacity-40' : ''}`}>
         <form onSubmit={sendMessage} className="flex items-end gap-2 rounded-xl px-4 py-3" style={{ background: 'var(--input-bg)', padding: isMobile ? '10px 12px' : undefined }}>
           <textarea
             ref={textareaRef}
