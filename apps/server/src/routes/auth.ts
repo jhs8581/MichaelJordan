@@ -93,6 +93,40 @@ export async function authRoutes(app: FastifyInstance) {
     });
   });
 
+  // ── 내 정보 조회 (chatLockCode 포함) ───────────────────────────
+  app.get('/me', async (req, reply) => {
+    try {
+      await req.jwtVerify();
+    } catch {
+      return reply.status(401).send({ success: false, error: '인증이 필요합니다.' });
+    }
+
+    const payload = req.user as { sub?: number | string };
+    const userId = Number(payload?.sub);
+    if (!userId) {
+      return reply.status(401).send({ success: false, error: '유효하지 않은 토큰입니다.' });
+    }
+
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+      select: {
+        id: true,
+        email: true,
+        username: true,
+        chatLockCode: true,
+        avatarUrl: true,
+        isOnline: true,
+        createdAt: true,
+      },
+    });
+
+    if (!user) {
+      return reply.status(404).send({ success: false, error: '사용자를 찾을 수 없습니다.' });
+    }
+
+    return reply.send({ success: true, data: user });
+  });
+
   // ── 토큰 갱신 ─────────────────────────────────────────────────
   app.post('/refresh', async (req, reply) => {
     const body = (req.body as { refreshToken?: string });

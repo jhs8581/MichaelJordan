@@ -51,6 +51,7 @@ function loadChatViewSettings(): ChatViewSettings {
 export function ChatWindow({ roomId }: Props) {
   const user = useAuthStore((s) => s.user);
   const accessToken = useAuthStore((s) => s.accessToken);
+  const setUser = useAuthStore((s) => s.setUser);
   const rooms = useChatStore((s) => s.rooms);
   const messages = useChatStore((s) => s.messages[roomId] ?? []);
   const addMessage = useChatStore((s) => s.addMessage);
@@ -75,6 +76,17 @@ export function ChatWindow({ roomId }: Props) {
       .get<{ data: { messages: Message[] } }>(`/messages/${roomId}`)
       .then((res) => setMessages(roomId, res.data.data.messages));
   }, [roomId, setMessages]);
+
+  useEffect(() => {
+    if (!accessToken) return;
+
+    api
+      .get<{ data: { id: number; email: string; username: string; chatLockCode?: string; avatarUrl?: string; isOnline: boolean; createdAt: string } }>('/auth/me')
+      .then((res) => setUser(res.data.data))
+      .catch(() => {
+        // 인증 만료 등은 기존 인터셉터에서 처리
+      });
+  }, [accessToken, setUser]);
 
   useEffect(() => {
     if (!accessToken) return;

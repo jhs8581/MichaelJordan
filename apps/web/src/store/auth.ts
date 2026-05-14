@@ -7,6 +7,7 @@ interface AuthState {
   refreshToken: string | null;
   user: User | null;
   setAuth: (payload: { accessToken: string; refreshToken: string; user: User }) => void;
+  setUser: (user: User) => void;
   clear: () => void;
 }
 
@@ -18,6 +19,7 @@ export const useAuthStore = create<AuthState>()(
       user: null,
       setAuth: ({ accessToken, refreshToken, user }) =>
         set({ accessToken, refreshToken, user }),
+      setUser: (user) => set((state) => ({ ...state, user })),
       clear: () => set({ accessToken: null, refreshToken: null, user: null }),
     }),
     { name: 'chat-auth' }
