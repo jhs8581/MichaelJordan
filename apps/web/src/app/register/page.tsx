@@ -40,7 +40,7 @@ export default function RegisterPage() {
               <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/>
             </svg>
           </div>
-          <h1 className="text-2xl font-bold" style={{ color: '#fff' }}>회원가입</h1>
+          <h1 className="text-2xl font-bold" style={{ color: '#fff' }}>마이클조던</h1>
           <p className="mt-1 text-sm" style={{ color: 'var(--text-muted)' }}>계정을 만들어 시작하세요</p>
         </div>
 

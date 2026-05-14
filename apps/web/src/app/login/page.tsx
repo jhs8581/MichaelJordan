@@ -41,7 +41,7 @@ export default function LoginPage() {
               <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
             </svg>
           </div>
-          <h1 className="text-2xl font-bold" style={{ color: '#fff' }}>로그인</h1>
+          <h1 className="text-2xl font-bold" style={{ color: '#fff' }}>마이클조던</h1>
           <p className="mt-1 text-sm" style={{ color: 'var(--text-muted)' }}>계속하려면 로그인하세요</p>
         </div>
 
