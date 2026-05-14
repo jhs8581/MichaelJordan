@@ -9,11 +9,12 @@ module.exports = {
       name: 'chat-server',
       script: 'dist/index.js',
       cwd: '/home/ubuntu/chat/apps/server',
-      instances: 1,          // CPU 코어 수에 맞게 조정 (또는 'max')
-      exec_mode: 'cluster',
+      instances: 1,
+      exec_mode: 'fork',
       env: {
         NODE_ENV: 'production',
         PORT: 3001,
+        CORS_ORIGIN: 'http://15.164.117.143',
       },
       error_file: '/var/log/chat/error.log',
       out_file: '/var/log/chat/out.log',
