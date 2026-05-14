@@ -1,0 +1,64 @@
+import Fastify from 'fastify';
+import cors from '@fastify/cors';
+import jwt from '@fastify/jwt';
+import rateLimit from '@fastify/rate-limit';
+import { Server } from 'socket.io';
+import type { ServerToClientEvents, ClientToServerEvents } from '@chat/types';
+
+import { prisma } from './lib/prisma';
+import { authRoutes } from './routes/auth';
+import { roomRoutes } from './routes/rooms';
+import { messageRoutes } from './routes/messages';
+import { userRoutes } from './routes/users';
+import { registerSocketHandlers } from './socket/handlers';
+
+const PORT = Number(process.env.PORT ?? 4000);
+const CORS_ORIGIN = (process.env.CORS_ORIGIN ?? 'http://localhost:3000').split(',');
+
+async function main() {
+  const app = Fastify({ logger: true });
+
+  // ── Plugins ────────────────────────────────────────────────────
+  await app.register(cors, {
+    origin: CORS_ORIGIN,
+    credentials: true,
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization'],
+  });
+
+  await app.register(jwt, {
+    secret: process.env.JWT_SECRET ?? 'changeme-min-32-chars-secret-key!',
+  });
+
+  await app.register(rateLimit, {
+    max: 100,
+    timeWindow: '1 minute',
+  });
+
+  // ── Routes ─────────────────────────────────────────────────────
+  await app.register(authRoutes, { prefix: '/api/auth' });
+  await app.register(roomRoutes, { prefix: '/api/rooms' });
+  await app.register(messageRoutes, { prefix: '/api/messages' });
+  await app.register(userRoutes, { prefix: '/api/users' });
+
+  app.get('/health', async () => ({ ok: true }));
+
+  // ── ready 후 app.server로 Socket.io 연결 ──────────────────────
+  await app.ready();
+
+  const io = new Server<ClientToServerEvents, ServerToClientEvents>(app.server, {
+    cors: { origin: CORS_ORIGIN, credentials: true },
+  });
+
+  registerSocketHandlers(io);
+
+  // ── Start ──────────────────────────────────────────────────────
+  await app.listen({ port: PORT, host: '0.0.0.0' });
+  console.log(`✅  Server running on http://0.0.0.0:${PORT}`);
+}
+
+main().catch((err) => {
+  console.error(err);
+  prisma.$disconnect();
+  process.exit(1);
+});

@@ -1,0 +1,39 @@
+{
+  "name": "@chat/desktop",
+  "version": "0.0.1",
+  "private": true,
+  "main": "electron/main.js",
+  "scripts": {
+    "dev": "concurrently \"cross-env ELECTRON_START_URL=http://localhost:3000 electron .\" ",
+    "build": "electron-builder --win",
+    "pack": "electron-builder --dir"
+  },
+  "dependencies": {},
+  "devDependencies": {
+    "concurrently": "^8.2.0",
+    "cross-env": "^7.0.3",
+    "electron": "^30.0.0",
+    "electron-builder": "^24.13.0"
+  },
+  "build": {
+    "appId": "com.michaeljordan.chat",
+    "productName": "MichaelJordan Chat",
+    "directories": {
+      "output": "dist"
+    },
+    "win": {
+      "target": ["nsis", "portable"],
+      "icon": "assets/icon.ico"
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "installerLanguages": ["ko_KR", "en_US"],
+      "language": "1042"
+    },
+    "files": [
+      "electron/**/*",
+      "assets/**/*"
+    ]
+  }
+}

@@ -1,0 +1,36 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --sidebar-bg: #1e1f22;
+  --sidebar-hover: #35373c;
+  --sidebar-active: #404249;
+  --sidebar-text: #949ba4;
+  --sidebar-text-active: #ffffff;
+  --header-bg: #2b2d31;
+  --chat-bg: #313338;
+  --input-bg: #383a40;
+  --bubble-mine: #5865f2;
+  --bubble-other: #2b2d31;
+  --text-primary: #dbdee1;
+  --text-muted: #949ba4;
+  --accent: #5865f2;
+}
+
+* { box-sizing: border-box; }
+
+body {
+  background: var(--chat-bg);
+  color: var(--text-primary);
+}
+
+/* 스크롤바 */
+::-webkit-scrollbar { width: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: #1e1f22; border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: #111214; }
+
+/* 채팅 입력창 placeholder */
+.chat-input::placeholder { color: var(--text-muted); }
+
