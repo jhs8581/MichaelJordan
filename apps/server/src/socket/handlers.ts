@@ -2,6 +2,7 @@ import type { Server, Socket } from 'socket.io';
 import type { ServerToClientEvents, ClientToServerEvents } from '@chat/types';
 import { prisma } from '../lib/prisma';
 import jwt from 'jsonwebtoken';
+import { sendPushToUsers } from '../routes/push';
 
 type ChatServer = Server<ClientToServerEvents, ServerToClientEvents>;
 type ChatSocket = Socket<ClientToServerEvents, ServerToClientEvents>;
@@ -94,6 +95,28 @@ export function registerSocketHandlers(io: ChatServer) {
       };
 
       io.to(`room:${roomId}`).emit('message:new', payload);
+
+      // 오프라인 멤버에게 푸시 알림
+      const allMembers = await prisma.roomMember.findMany({
+        where: { roomId },
+        select: { userId: true },
+      });
+      const onlineSockets = await io.in(`room:${roomId}`).fetchSockets();
+      const onlineUserIds = new Set(
+        onlineSockets.map((s) => (s as unknown as { userId: number }).userId),
+      );
+      const offlineUserIds = allMembers
+        .map((m) => m.userId)
+        .filter((id) => id !== userId && !onlineUserIds.has(id));
+
+      if (offlineUserIds.length > 0) {
+        const room = await prisma.room.findUnique({ where: { id: roomId }, select: { name: true } });
+        sendPushToUsers(offlineUserIds, {
+          title: `#${room?.name ?? '채팅방'}`,
+          body: `${message.sender?.username ?? '누군가'}: ${sanitizedContent.slice(0, 80)}`,
+          data: { roomId },
+        });
+      }
     });
 
     // ── 읽음 처리 ───────────────────────────────────────────────

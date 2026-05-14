@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
 import './globals.css';
 import InstallPrompt from '@/components/InstallPrompt';
+import PushSubscriber, { PushBanner } from '@/components/PushSubscriber';
 
 export const metadata: Metadata = {
   title: '마이클조던',
@@ -21,6 +22,8 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       </head>
       <body className="bg-gray-100 text-gray-900 antialiased">
         {children}
+        <PushSubscriber />
+        <PushBanner />
         <InstallPrompt />
       </body>
     </html>

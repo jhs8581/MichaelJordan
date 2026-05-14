@@ -10,6 +10,7 @@ import { authRoutes } from './routes/auth';
 import { roomRoutes } from './routes/rooms';
 import { messageRoutes } from './routes/messages';
 import { userRoutes } from './routes/users';
+import { pushRoutes } from './routes/push';
 import { registerSocketHandlers } from './socket/handlers';
 
 const PORT = Number(process.env.PORT ?? 4000);
@@ -56,6 +57,7 @@ async function main() {
   await app.register(roomRoutes, { prefix: '/api/rooms' });
   await app.register(messageRoutes, { prefix: '/api/messages' });
   await app.register(userRoutes, { prefix: '/api/users' });
+  await app.register(pushRoutes, { prefix: '/api/push' });
 
   app.get('/health', async () => ({ ok: true }));
 

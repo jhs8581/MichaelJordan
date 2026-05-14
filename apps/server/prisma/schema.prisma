@@ -22,10 +22,11 @@ model User {
   createdAt    DateTime      @default(now())
   updatedAt    DateTime      @updatedAt
 
-  refreshTokens RefreshToken[]
-  roomMembers   RoomMember[]
-  sentMessages  Message[]      @relation("SentMessages")
-  messageReads  MessageRead[]
+  refreshTokens     RefreshToken[]
+  roomMembers       RoomMember[]
+  sentMessages      Message[]           @relation("SentMessages")
+  messageReads      MessageRead[]
+  pushSubscriptions PushSubscription[]
 }
 
 // ─────────────────────────────────────────
@@ -96,4 +97,18 @@ model MessageRead {
   user    User    @relation(fields: [userId], references: [id], onDelete: NoAction, onUpdate: NoAction)
 
   @@id([messageId, userId])
+}
+
+// ─────────────────────────────────────────
+// 웹 푸시 구독 정보
+// ─────────────────────────────────────────
+model PushSubscription {
+  id        Int      @id @default(autoincrement())
+  userId    Int
+  endpoint  String   @db.NVarChar(Max)
+  p256dh    String   @db.NVarChar(Max)
+  auth      String   @db.NVarChar(Max)
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
