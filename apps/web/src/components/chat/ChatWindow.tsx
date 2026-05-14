@@ -75,8 +75,16 @@ export function ChatWindow({ roomId }: Props) {
   useEffect(() => {
     api
       .get<{ data: { messages: Message[] } }>(`/messages/${roomId}`)
-      .then((res) => setMessages(roomId, res.data.data.messages));
-  }, [roomId, setMessages]);
+      .then((res) => {
+        const msgs = res.data.data.messages;
+        setMessages(roomId, msgs);
+        // 채팅방 열 때 마지막 메시지 읽음 처리
+        if (msgs.length > 0 && accessToken) {
+          const socket = getSocket(accessToken);
+          socket.emit('message:read', { roomId, messageId: msgs[msgs.length - 1].id });
+        }
+      });
+  }, [roomId, setMessages, accessToken]);
 
   useEffect(() => {
     if (!accessToken) return;
