@@ -48,7 +48,7 @@ export function CreateRoomModal({ onClose, onCreated }: { onClose: () => void; o
   async function handleCreate(e: React.FormEvent) {
     e.preventDefault();
     if (!name.trim() || selectedIds.length === 0) {
-      setError('채팅방 이름과 대화 상대를 선택해주세요.');
+      setError('이름과 대화 상대를 선택해주세요.');
       return;
     }
     setLoading(true);
@@ -60,7 +60,7 @@ export function CreateRoomModal({ onClose, onCreated }: { onClose: () => void; o
       onCreated(res.data.data);
       onClose();
     } catch {
-      setError('채팅방 생성에 실패했습니다.');
+      setError('생성에 실패했습니다.');
     } finally {
       setLoading(false);
     }
@@ -69,19 +69,19 @@ export function CreateRoomModal({ onClose, onCreated }: { onClose: () => void; o
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center" style={{ background: 'rgba(0,0,0,0.6)' }}>
       <div className="w-full max-w-md rounded-xl p-6 shadow-2xl" style={{ background: '#2b2d31', color: 'var(--text-primary)' }}>
-        <h2 className="mb-1 text-xl font-bold">채팅방 만들기</h2>
-        <p className="mb-5 text-sm" style={{ color: 'var(--text-muted)' }}>채팅방 이름과 대화 상대를 선택하세요.</p>
+        <h2 className="mb-1 text-xl font-bold">새 대화</h2>
+        <p className="mb-5 text-sm" style={{ color: 'var(--text-muted)' }}>이름과 대화 상대를 선택하세요.</p>
 
         {error && <p className="mb-3 rounded-lg p-2 text-sm" style={{ background: '#ed4245', color: '#fff' }}>{error}</p>}
 
         <form onSubmit={handleCreate} className="space-y-4">
           <div>
-            <label className="block text-xs font-bold uppercase mb-1.5" style={{ color: 'var(--text-muted)' }}>채팅방 이름</label>
+            <label className="block text-xs font-bold uppercase mb-1.5" style={{ color: 'var(--text-muted)' }}>이름</label>
             <input
               type="text"
               value={name}
               onChange={(e) => setName(e.target.value)}
-              placeholder="채팅방 이름 입력"
+              placeholder="이름"
               className="w-full rounded-md px-3 py-2.5 text-sm outline-none"
               style={{ background: '#1e1f22', color: 'var(--text-primary)', border: '1px solid #1e1f22' }}
             />
@@ -189,7 +189,7 @@ export function RoomList() {
         {groups.length > 0 && (
           <div>
             <p className="px-2 py-1 text-xs font-bold uppercase tracking-wider" style={{ color: 'var(--text-muted)' }}>
-              채널
+              대화방
             </p>
             {groups.map((room) => (
               <RoomItem key={room.id} room={room} isActive={room.id === activeRoomId} onClick={() => setActiveRoom(room.id)}
@@ -202,7 +202,7 @@ export function RoomList() {
         {dms.length > 0 && (
           <div>
             <p className="px-2 py-1 text-xs font-bold uppercase tracking-wider" style={{ color: 'var(--text-muted)' }}>
-              다이렉트 메시지
+              DM
             </p>
             {dms.map((room) => (
               <RoomItem key={room.id} room={room} isActive={room.id === activeRoomId} onClick={() => setActiveRoom(room.id)}
@@ -213,7 +213,7 @@ export function RoomList() {
 
         {rooms.length === 0 && (
           <div className="px-2 py-6 text-center text-xs" style={{ color: 'var(--text-muted)' }}>
-            + 버튼으로 채팅방을 만들어보세요
+            + 버튼으로 시작해보세요
           </div>
         )}
       </div>
