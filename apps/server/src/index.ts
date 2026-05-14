@@ -13,14 +13,30 @@ import { userRoutes } from './routes/users';
 import { registerSocketHandlers } from './socket/handlers';
 
 const PORT = Number(process.env.PORT ?? 4000);
-const CORS_ORIGIN = (process.env.CORS_ORIGIN ?? 'http://localhost:3000').split(',');
+const CORS_ORIGIN = (process.env.CORS_ORIGIN ?? 'http://localhost:3000').split(',').map(s => s.trim());
+
+function isAllowedOrigin(origin: string | undefined): boolean {
+  if (!origin) return true;
+  if (CORS_ORIGIN.includes(origin)) return true;
+  // vercel.app 서브도메인 전체 허용
+  if (/^https:\/\/[a-z0-9-]+\.vercel\.app$/.test(origin)) return true;
+  // localhost 허용
+  if (/^http:\/\/localhost(:\d+)?$/.test(origin)) return true;
+  return false;
+}
 
 async function main() {
   const app = Fastify({ logger: true });
 
   // ── Plugins ────────────────────────────────────────────────────
   await app.register(cors, {
-    origin: CORS_ORIGIN,
+    origin: (origin, cb) => {
+      if (isAllowedOrigin(origin)) {
+        cb(null, true);
+      } else {
+        cb(new Error(`CORS: origin ${origin} not allowed`), false);
+      }
+    },
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization'],
