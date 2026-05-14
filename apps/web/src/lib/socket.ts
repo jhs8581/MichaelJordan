@@ -5,7 +5,9 @@ let socket: Socket<ServerToClientEvents, ClientToServerEvents> | null = null;
 
 export function getSocket(token: string): Socket<ServerToClientEvents, ClientToServerEvents> {
   if (!socket) {
-    socket = io(process.env.NEXT_PUBLIC_SOCKET_URL!, {
+    // Vercel 배포: NEXT_PUBLIC_SOCKET_URL 미설정 시 같은 도메인(rewrites) 사용
+    const socketUrl = process.env.NEXT_PUBLIC_SOCKET_URL || (typeof window !== 'undefined' ? window.location.origin : '');
+    socket = io(socketUrl, {
       auth: { token },
       autoConnect: false,
       transports: ['websocket', 'polling'],
