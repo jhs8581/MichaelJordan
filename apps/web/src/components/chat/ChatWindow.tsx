@@ -61,7 +61,7 @@ export function ChatWindow({ roomId }: Props) {
   const [input, setInput] = useState('');
   const [settings, setSettings] = useState<ChatViewSettings>(DEFAULT_SETTINGS);
   const [settingsOpen, setSettingsOpen] = useState(false);
-  const [isLocked, setIsLocked] = useState(false);
+  const [isLocked, setIsLocked] = useState(() => (useAuthStore.getState().user?.chatLockCode ?? '').trim().length > 0);
   const [lockEntry, setLockEntry] = useState('');
   const [lockError, setLockError] = useState('');
   const [isMobile, setIsMobile] = useState(false);
@@ -328,7 +328,7 @@ export function ChatWindow({ roomId }: Props) {
           style={{ color: 'var(--text-primary)' }}
           onContextMenu={isMobile ? (e) => e.preventDefault() : undefined}
           onTouchStart={isMobile && canLock ? () => {
-            longPressTimer.current = setTimeout(() => lockChat(), 600);
+            longPressTimer.current = setTimeout(() => lockChat(), 2000);
           } : undefined}
           onTouchEnd={isMobile && canLock ? () => {
             if (longPressTimer.current) { clearTimeout(longPressTimer.current); longPressTimer.current = null; }
