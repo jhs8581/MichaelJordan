@@ -4,5 +4,5 @@ dist/
 .turbo/
 *.env
 *.env.local
-*.env.production
+*.env.production.local
 .DS_Store
