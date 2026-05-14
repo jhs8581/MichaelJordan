@@ -26,7 +26,7 @@ const DmIcon = () => (
 );
 
 /* ── 채팅방 생성 모달 ─────────────────────────────── */
-function CreateRoomModal({ onClose, onCreated }: { onClose: () => void; onCreated: (room: Room) => void }) {
+export function CreateRoomModal({ onClose, onCreated }: { onClose: () => void; onCreated: (room: Room) => void }) {
   const me = useAuthStore((s) => s.user);
   const [name, setName] = useState('');
   const [isGroup, setIsGroup] = useState(false);
