@@ -13,7 +13,7 @@ datasource db {
 model User {
   id           Int           @id @default(autoincrement())
   email        String        @unique @db.NVarChar(255)
-  username     String        @db.NVarChar(50)
+  username     String        @unique @db.NVarChar(50)
   passwordHash String        @db.NVarChar(255)
   avatarUrl    String?       @db.NVarChar(500)
   isOnline     Boolean       @default(false)
