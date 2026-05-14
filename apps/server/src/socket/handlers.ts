@@ -110,10 +110,9 @@ export function registerSocketHandlers(io: ChatServer) {
         .filter((id) => id !== userId && !onlineUserIds.has(id));
 
       if (offlineUserIds.length > 0) {
-        const room = await prisma.room.findUnique({ where: { id: roomId }, select: { name: true } });
         sendPushToUsers(offlineUserIds, {
-          title: `#${room?.name ?? '채팅방'}`,
-          body: `${message.sender?.username ?? '누군가'}: ${sanitizedContent.slice(0, 80)}`,
+          title: '마이클조던',
+          body: '새 메시지가 도착했습니다.',
           data: { roomId },
         });
       }
