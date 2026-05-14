@@ -40,20 +40,26 @@ export default function LoginPage() {
         {error && <p className="mb-3 text-sm" style={{ color: '#ed4245' }}>{error}</p>}
 
         <form onSubmit={handleSubmit} className="space-y-3">
-          <input type="text" value={username} onChange={(e) => setUsername(e.target.value)}
-            placeholder="닉네임" required autoFocus
-            className="w-full rounded px-3 py-2 text-sm outline-none"
-            style={{ background: '#2b2d31', color: '#fff', border: '1px solid #3f4349' }}
-          />
-          <input type="password" value={password} onChange={(e) => setPassword(e.target.value)}
-            placeholder="비밀번호" required
-            className="w-full rounded px-3 py-2 text-sm outline-none"
-            style={{ background: '#2b2d31', color: '#fff', border: '1px solid #3f4349' }}
-          />
+          <div>
+            <label className="block text-xs mb-1" style={{ color: '#b5bac1' }}>닉네임</label>
+            <input type="text" value={username} onChange={(e) => setUsername(e.target.value)}
+              required autoFocus
+              className="w-full rounded px-3 py-2 text-sm outline-none"
+              style={{ background: '#2b2d31', color: '#fff', border: '1px solid #3f4349' }}
+            />
+          </div>
+          <div>
+            <label className="block text-xs mb-1" style={{ color: '#b5bac1' }}>비밀번호</label>
+            <input type="password" value={password} onChange={(e) => setPassword(e.target.value)}
+              required
+              className="w-full rounded px-3 py-2 text-sm outline-none"
+              style={{ background: '#2b2d31', color: '#fff', border: '1px solid #3f4349' }}
+            />
+          </div>
           <button type="submit" disabled={loading}
             className="w-full rounded py-2 text-sm font-semibold disabled:opacity-50"
             style={{ background: '#5865f2', color: '#fff' }}>
-            {loading ? '...' : '로그인'}
+            {loading ? '로그인 중...' : '로그인'}
           </button>
         </form>
 
