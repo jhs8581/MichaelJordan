@@ -5,6 +5,7 @@ export interface User {
   id: number;
   username: string;
   email: string;
+  chatLockCode?: string;
   avatarUrl?: string;
   isOnline: boolean;
   createdAt: string;

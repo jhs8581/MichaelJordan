@@ -1,15 +1,14 @@
 import type { Message } from '@chat/types';
-import { format } from 'date-fns';
-import { ko } from 'date-fns/locale';
 
 interface Props {
   message: Message;
   isMine: boolean;
   isConsecutive: boolean; // 같은 사람이 연속으로 보낸 메시지
+  timeFormat: 'ampm' | '24h';
 }
 
-export function MessageBubble({ message, isMine, isConsecutive }: Props) {
-  const time = format(new Date(message.createdAt), 'a h:mm', { locale: ko });
+export function MessageBubble({ message, isMine, isConsecutive, timeFormat }: Props) {
+  const time = formatMessageTime(new Date(message.createdAt), timeFormat);
   const readCount = message.reads?.length ?? 0;
 
   return (
@@ -84,6 +83,14 @@ function stringToColor(str: string): string {
   let hash = 0;
   for (let i = 0; i < str.length; i++) hash = str.charCodeAt(i) + ((hash << 5) - hash);
   return colors[Math.abs(hash) % colors.length];
+}
+
+function formatMessageTime(date: Date, mode: 'ampm' | '24h'): string {
+  if (mode === '24h') {
+    return date.toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit', hour12: false });
+  }
+
+  return date.toLocaleTimeString('ko-KR', { hour: 'numeric', minute: '2-digit', hour12: true });
 }
 
 

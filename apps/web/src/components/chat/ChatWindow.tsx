@@ -12,6 +12,42 @@ interface Props {
   roomId: number;
 }
 
+type ChatViewMode = 'bubble' | 'memo';
+type TimeFormatMode = 'ampm' | '24h';
+type LockDigit = '0' | '1' | '2' | '3' | '4' | '5' | '6' | '7' | '8' | '9';
+
+const LOCK_DIGITS: LockDigit[] = ['1', '2', '3', '4', '5', '6', '7', '8', '9', '0'];
+
+type ChatViewSettings = {
+  viewMode: ChatViewMode;
+  timeFormat: TimeFormatMode;
+  showNickname: boolean;
+  showDateSeparator: boolean;
+};
+
+const DEFAULT_SETTINGS: ChatViewSettings = {
+  viewMode: 'bubble',
+  timeFormat: 'ampm',
+  showNickname: true,
+  showDateSeparator: true,
+};
+
+function loadChatViewSettings(): ChatViewSettings {
+  try {
+    const raw = localStorage.getItem('chat-view-settings');
+    if (!raw) return DEFAULT_SETTINGS;
+    const parsed = JSON.parse(raw) as Partial<ChatViewSettings>;
+    return {
+      viewMode: parsed.viewMode === 'memo' ? 'memo' : 'bubble',
+      timeFormat: parsed.timeFormat === '24h' ? '24h' : 'ampm',
+      showNickname: typeof parsed.showNickname === 'boolean' ? parsed.showNickname : true,
+      showDateSeparator: typeof parsed.showDateSeparator === 'boolean' ? parsed.showDateSeparator : true,
+    };
+  } catch {
+    return DEFAULT_SETTINGS;
+  }
+}
+
 export function ChatWindow({ roomId }: Props) {
   const user = useAuthStore((s) => s.user);
   const accessToken = useAuthStore((s) => s.accessToken);
@@ -22,10 +58,17 @@ export function ChatWindow({ roomId }: Props) {
   const markRead = useChatStore((s) => s.markRead);
 
   const [input, setInput] = useState('');
+  const [settings, setSettings] = useState<ChatViewSettings>(DEFAULT_SETTINGS);
+  const [settingsOpen, setSettingsOpen] = useState(false);
+  const [isLocked, setIsLocked] = useState(false);
+  const [lockEntry, setLockEntry] = useState('');
+  const [lockError, setLockError] = useState('');
   const bottomRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   const activeRoom = rooms.find((r) => r.id === roomId);
+  const lockCode = (user?.chatLockCode ?? '').trim();
+  const canLock = lockCode.length > 0;
 
   useEffect(() => {
     api
@@ -56,6 +99,119 @@ export function ChatWindow({ roomId }: Props) {
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
+
+  useEffect(() => {
+    function handleWindowBlur() {
+      if (!canLock) return;
+      setIsLocked(true);
+      setLockEntry('');
+      setLockError('');
+    }
+
+    window.addEventListener('blur', handleWindowBlur);
+    return () => window.removeEventListener('blur', handleWindowBlur);
+  }, [canLock]);
+
+  useEffect(() => {
+    function handleKeyDown(event: KeyboardEvent) {
+      if (!isLocked) return;
+
+      if (!event.ctrlKey) return;
+      if (event.key < '0' || event.key > '9') return;
+
+      event.preventDefault();
+      handleLockDigit(event.key as LockDigit);
+    }
+
+    window.addEventListener('keydown', handleKeyDown, true);
+    return () => window.removeEventListener('keydown', handleKeyDown, true);
+  }, [isLocked, lockEntry]);
+
+  useEffect(() => {
+    try {
+      setSettings(loadChatViewSettings());
+    } catch {
+      // localStorage 사용 불가 환경은 기본값 유지
+    }
+  }, []);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem('chat-view-settings', JSON.stringify(settings));
+    } catch {
+      // 저장 실패 시 무시
+    }
+  }, [settings]);
+
+  useEffect(() => {
+    function handleOutsideClick(event: MouseEvent) {
+      const target = event.target as HTMLElement | null;
+      if (target?.closest('[data-chat-settings-panel]') || target?.closest('[data-chat-settings-button]')) return;
+      setSettingsOpen(false);
+    }
+
+    if (settingsOpen) {
+      window.addEventListener('click', handleOutsideClick);
+    }
+
+    return () => window.removeEventListener('click', handleOutsideClick);
+  }, [settingsOpen]);
+
+  function updateSettings(partial: Partial<ChatViewSettings>) {
+    setSettings((current) => ({ ...current, ...partial }));
+  }
+
+  function lockChat() {
+    if (!canLock) {
+      setLockError('DB에 잠금 코드가 없습니다.');
+      return;
+    }
+    setIsLocked(true);
+    setLockEntry('');
+    setLockError('');
+  }
+
+  function unlockChat() {
+    setIsLocked(false);
+    setLockEntry('');
+    setLockError('');
+  }
+
+  function handleLockDigit(digit: LockDigit) {
+    setLockError('');
+
+    setLockEntry((current) => {
+      const next = `${current}${digit}`;
+      if (lockCode.startsWith(next)) {
+        if (next.length === lockCode.length) {
+          setTimeout(() => unlockChat(), 80);
+          return next;
+        }
+        return next;
+      }
+
+      const resetValue = digit === lockCode[0] ? digit : '';
+      if (!resetValue) {
+        setLockError('코드가 맞지 않습니다.');
+      } else if (lockCode.length === 1) {
+        setTimeout(() => unlockChat(), 80);
+      }
+      return resetValue;
+    });
+  }
+
+  function handleLockPadClick(digit: LockDigit) {
+    if (!isLocked) {
+      lockChat();
+      return;
+    }
+    handleLockDigit(digit);
+  }
+
+  function handleLockReset() {
+    setLockEntry('');
+    setLockError('');
+  }
 
   function sendMessage(e?: React.FormEvent) {
     e?.preventDefault();
@@ -88,7 +244,7 @@ export function ChatWindow({ roomId }: Props) {
 
     messages.forEach((msg, i) => {
       const date = new Date(msg.createdAt).toLocaleDateString('ko-KR', { year: 'numeric', month: 'long', day: 'numeric' });
-      if (date !== lastDate) {
+      if (settings.showDateSeparator && date !== lastDate) {
         items.push(
           <div key={`date-${i}`} className="flex items-center gap-3 my-4">
             <hr className="flex-1" style={{ borderColor: '#3f4147' }} />
@@ -101,16 +257,31 @@ export function ChatWindow({ roomId }: Props) {
       }
       const isMine = msg.senderId === user?.id;
       const isConsecutive = msg.senderId === lastSenderId;
-      items.push(
-        <MessageBubble key={msg.id} message={msg} isMine={isMine} isConsecutive={isConsecutive} />
-      );
+      if (settings.viewMode === 'memo') {
+        const senderName = msg.sender?.username ?? (isMine ? '나' : `사용자${msg.senderId}`);
+        const time = formatTime(new Date(msg.createdAt), settings.timeFormat);
+        const prefix = settings.showNickname ? `[${senderName}][${time}]` : `[${time}]`;
+        items.push(
+          <p
+            key={msg.id}
+            className="text-sm leading-7 whitespace-pre-wrap break-words"
+            style={{ color: 'var(--text-primary)', fontFamily: 'Consolas, "Courier New", monospace' }}
+          >
+            {prefix} {msg.content}
+          </p>
+        );
+      } else {
+        items.push(
+          <MessageBubble key={msg.id} message={msg} isMine={isMine} isConsecutive={isConsecutive} timeFormat={settings.timeFormat} />
+        );
+      }
       lastSenderId = msg.senderId;
     });
     return items;
   }
 
   return (
-    <div className="flex flex-col h-full" style={{ background: 'var(--chat-bg)' }}>
+    <div className="relative flex flex-col h-full" style={{ background: 'var(--chat-bg)' }}>
       {/* 채널 헤더 */}
       <div className="flex items-center gap-2 px-4 py-3 border-b shadow-md flex-shrink-0"
         style={{ borderColor: '#1e1f22', background: 'var(--chat-bg)' }}>
@@ -122,16 +293,156 @@ export function ChatWindow({ roomId }: Props) {
         <span className="font-semibold text-sm" style={{ color: 'var(--text-primary)' }}>
           {activeRoom?.name ?? ''}
         </span>
+        <div className="flex-1" />
+        <button
+          type="button"
+          data-chat-settings-button
+          onClick={() => setSettingsOpen((current) => !current)}
+          className="text-xs px-2 py-1 rounded-md transition-colors"
+          style={{ background: settingsOpen ? '#3a3f4a' : 'transparent', color: 'var(--text-muted)' }}
+        >
+          설정
+        </button>
+        <div className="flex items-center rounded-md p-1" style={{ background: '#2b2d31', gap: 4 }}>
+          <button
+            type="button"
+            onClick={() => updateSettings({ viewMode: 'bubble' })}
+            className="text-xs px-2 py-1 rounded transition-colors"
+            style={{
+              color: settings.viewMode === 'bubble' ? '#fff' : 'var(--text-muted)',
+              background: settings.viewMode === 'bubble' ? 'var(--accent)' : 'transparent',
+            }}
+          >
+            말풍선
+          </button>
+          <button
+            type="button"
+            onClick={() => updateSettings({ viewMode: 'memo' })}
+            className="text-xs px-2 py-1 rounded transition-colors"
+            style={{
+              color: settings.viewMode === 'memo' ? '#fff' : 'var(--text-muted)',
+              background: settings.viewMode === 'memo' ? 'var(--accent)' : 'transparent',
+            }}
+          >
+            메모장
+          </button>
+        </div>
+        <button
+          type="button"
+          onClick={isLocked ? unlockChat : lockChat}
+          disabled={!canLock && !isLocked}
+          className="ml-2 text-xs px-3 py-1 rounded-md transition-colors disabled:opacity-40"
+          style={{ background: isLocked ? '#57f287' : '#3a3f4a', color: isLocked ? '#111' : 'var(--text-muted)' }}
+        >
+          {isLocked ? '잠금 해제' : canLock ? '잠금' : 'DB 비번 없음'}
+        </button>
       </div>
 
+      {settingsOpen && (
+        <div
+          data-chat-settings-panel
+          className="absolute right-4 top-14 z-20 w-64 rounded-xl border p-3 shadow-2xl"
+          style={{ background: '#1f2126', borderColor: '#3a3f4a' }}
+        >
+          <div className="flex items-center justify-between mb-3">
+            <span className="text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>채팅 보기 설정</span>
+            <button type="button" className="text-xs" style={{ color: 'var(--text-muted)' }} onClick={() => setSettingsOpen(false)}>
+              닫기
+            </button>
+          </div>
+
+          <div className="space-y-3">
+            <SettingRow
+              label="시간 형식"
+              value={settings.timeFormat === '24h' ? '24시간' : '오전/오후'}
+              onToggle={() => updateSettings({ timeFormat: settings.timeFormat === '24h' ? 'ampm' : '24h' })}
+            />
+            <SettingRow
+              label="닉네임 표시"
+              value={settings.showNickname ? '켜짐' : '꺼짐'}
+              onToggle={() => updateSettings({ showNickname: !settings.showNickname })}
+            />
+            <SettingRow
+              label="날짜 구분선"
+              value={settings.showDateSeparator ? '켜짐' : '꺼짐'}
+              onToggle={() => updateSettings({ showDateSeparator: !settings.showDateSeparator })}
+            />
+          </div>
+        </div>
+      )}
+
       {/* 메시지 목록 */}
-      <div className="flex-1 overflow-y-auto px-4 py-4">
+      <div className={`flex-1 overflow-y-auto px-4 py-4 ${isLocked ? 'blur-md select-none pointer-events-none' : ''}`}>
         {renderMessages()}
         <div ref={bottomRef} />
       </div>
 
+      {isLocked && (
+        <div className="absolute inset-0 z-30 flex items-center justify-center px-6" style={{ background: 'rgba(10, 12, 16, 0.68)' }}>
+          <div className="w-full max-w-md rounded-2xl border p-5 shadow-2xl" style={{ background: '#17191d', borderColor: '#3a3f4a' }}>
+            <div className="mb-4 text-center">
+              <p className="text-lg font-semibold" style={{ color: 'var(--text-primary)' }}>잠금 상태</p>
+              <p className="mt-1 text-xs" style={{ color: 'var(--text-muted)' }}>Ctrl + 숫자키 또는 아래 버튼을 순서대로 입력하세요</p>
+            </div>
+
+            <div className="mb-4 flex items-center justify-center gap-2">
+              {Array.from({ length: lockCode.length }).map((_, index) => {
+                const filled = index < lockEntry.length;
+                return (
+                  <span
+                    key={index}
+                    className="flex h-3 w-3 rounded-full"
+                    style={{ background: filled ? '#57f287' : '#3a3f4a' }}
+                  />
+                );
+              })}
+            </div>
+
+            {lockError && (
+              <p className="mb-3 text-center text-xs font-medium" style={{ color: '#ed4245' }}>
+                {lockError}
+              </p>
+            )}
+
+            <div className="grid grid-cols-5 gap-2">
+              {LOCK_DIGITS.map((digit) => (
+                <button
+                  key={digit}
+                  type="button"
+                  onClick={() => handleLockPadClick(digit)}
+                  className="rounded-lg py-3 text-sm font-semibold transition-transform active:scale-95 disabled:opacity-40"
+                  disabled={!canLock}
+                  style={{ background: '#2b2d31', color: 'var(--text-primary)' }}
+                >
+                  {digit}
+                </button>
+              ))}
+            </div>
+
+            <div className="mt-4 flex items-center justify-between gap-2">
+              <button
+                type="button"
+                onClick={handleLockReset}
+                className="rounded-lg px-3 py-2 text-xs"
+                style={{ background: '#2b2d31', color: 'var(--text-muted)' }}
+              >
+                초기화
+              </button>
+              <button
+                type="button"
+                onClick={unlockChat}
+                className="rounded-lg px-3 py-2 text-xs font-semibold"
+                style={{ background: 'var(--accent)', color: '#fff' }}
+              >
+                강제 해제
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* 입력창 */}
-      <div className="px-4 pb-5 flex-shrink-0">
+      <div className={`px-4 pb-5 flex-shrink-0 ${isLocked ? 'pointer-events-none opacity-40' : ''}`}>
         <form onSubmit={sendMessage} className="flex items-end gap-2 rounded-xl px-4 py-3" style={{ background: 'var(--input-bg)' }}>
           <textarea
             ref={textareaRef}
@@ -159,6 +470,36 @@ export function ChatWindow({ roomId }: Props) {
         </p>
       </div>
     </div>
+  );
+}
+
+function formatTime(date: Date, mode: TimeFormatMode): string {
+  if (mode === '24h') {
+    return date.toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit', hour12: false });
+  }
+
+  return date.toLocaleTimeString('ko-KR', { hour: 'numeric', minute: '2-digit', hour12: true });
+}
+
+function SettingRow({
+  label,
+  value,
+  onToggle,
+}: {
+  label: string;
+  value: string;
+  onToggle: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onToggle}
+      className="w-full flex items-center justify-between rounded-lg px-3 py-2 text-left transition-colors"
+      style={{ background: '#2b2d31' }}
+    >
+      <span className="text-sm" style={{ color: 'var(--text-primary)' }}>{label}</span>
+      <span className="text-xs" style={{ color: 'var(--text-muted)' }}>{value}</span>
+    </button>
   );
 }
 

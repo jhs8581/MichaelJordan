@@ -15,6 +15,7 @@ model User {
   email        String        @unique @db.NVarChar(255)
   username     String        @unique @db.NVarChar(50)
   passwordHash String        @db.NVarChar(255)
+  chatLockCode String        @default("") @db.NVarChar(32)
   avatarUrl    String?       @db.NVarChar(500)
   isOnline     Boolean       @default(false)
   lastSeenAt   DateTime?

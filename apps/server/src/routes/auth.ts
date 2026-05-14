@@ -32,7 +32,7 @@ export async function authRoutes(app: FastifyInstance) {
     const passwordHash = await bcrypt.hash(password, 12);
     const user = await prisma.user.create({
       data: { email, username, passwordHash },
-      select: { id: true, email: true, username: true, createdAt: true },
+      select: { id: true, email: true, username: true, chatLockCode: true, avatarUrl: true, createdAt: true },
     });
 
     return reply.status(201).send({ success: true, data: user });
@@ -86,6 +86,7 @@ export async function authRoutes(app: FastifyInstance) {
           id: user.id,
           email: user.email,
           username: user.username,
+          chatLockCode: user.chatLockCode,
           avatarUrl: user.avatarUrl,
         },
       },
