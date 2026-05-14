@@ -64,6 +64,7 @@ export function ChatWindow({ roomId }: Props) {
   const [isLocked, setIsLocked] = useState(false);
   const [lockEntry, setLockEntry] = useState('');
   const [lockError, setLockError] = useState('');
+  const [isMobile, setIsMobile] = useState(false);
   const bottomRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
@@ -111,6 +112,16 @@ export function ChatWindow({ roomId }: Props) {
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
+
+  useEffect(() => {
+    const media = window.matchMedia('(max-width: 900px)');
+    const apply = (matches: boolean) => setIsMobile(matches);
+
+    apply(media.matches);
+    const listener = (e: MediaQueryListEvent) => apply(e.matches);
+    media.addEventListener('change', listener);
+    return () => media.removeEventListener('change', listener);
+  }, []);
 
   useEffect(() => {
     function handleWindowBlur() {
@@ -306,55 +317,106 @@ export function ChatWindow({ roomId }: Props) {
           {activeRoom?.name ?? ''}
         </span>
         <div className="flex-1" />
-        <button
-          type="button"
-          data-chat-settings-button
-          onClick={() => setSettingsOpen((current) => !current)}
-          className="text-xs px-2 py-1 rounded-md transition-colors"
-          style={{ background: settingsOpen ? '#3a3f4a' : 'transparent', color: 'var(--text-muted)' }}
-        >
-          설정
-        </button>
-        <div className="flex items-center rounded-md p-1" style={{ background: '#2b2d31', gap: 4 }}>
+        {!isMobile && (
+          <>
+            <button
+              type="button"
+              data-chat-settings-button
+              onClick={() => setSettingsOpen((current) => !current)}
+              className="text-xs px-2 py-1 rounded-md transition-colors"
+              style={{ background: settingsOpen ? '#3a3f4a' : 'transparent', color: 'var(--text-muted)' }}
+            >
+              설정
+            </button>
+            <div className="flex items-center rounded-md p-1" style={{ background: '#2b2d31', gap: 4 }}>
+              <button
+                type="button"
+                onClick={() => updateSettings({ viewMode: 'bubble' })}
+                className="text-xs px-2 py-1 rounded transition-colors"
+                style={{
+                  color: settings.viewMode === 'bubble' ? '#fff' : 'var(--text-muted)',
+                  background: settings.viewMode === 'bubble' ? 'var(--accent)' : 'transparent',
+                }}
+              >
+                말풍선
+              </button>
+              <button
+                type="button"
+                onClick={() => updateSettings({ viewMode: 'memo' })}
+                className="text-xs px-2 py-1 rounded transition-colors"
+                style={{
+                  color: settings.viewMode === 'memo' ? '#fff' : 'var(--text-muted)',
+                  background: settings.viewMode === 'memo' ? 'var(--accent)' : 'transparent',
+                }}
+              >
+                메모장
+              </button>
+            </div>
+            <button
+              type="button"
+              onClick={isLocked ? unlockChat : lockChat}
+              disabled={!canLock && !isLocked}
+              className="ml-2 text-xs px-3 py-1 rounded-md transition-colors disabled:opacity-40"
+              style={{ background: isLocked ? '#57f287' : '#3a3f4a', color: isLocked ? '#111' : 'var(--text-muted)' }}
+            >
+              {isLocked ? '잠금 해제' : canLock ? '잠금' : 'DB 비번 없음'}
+            </button>
+          </>
+        )}
+      </div>
+
+      {isMobile && (
+        <div className="flex items-center gap-2 px-3 pb-2" style={{ background: 'var(--chat-bg)', borderBottom: '1px solid #1e1f22' }}>
           <button
             type="button"
-            onClick={() => updateSettings({ viewMode: 'bubble' })}
-            className="text-xs px-2 py-1 rounded transition-colors"
-            style={{
-              color: settings.viewMode === 'bubble' ? '#fff' : 'var(--text-muted)',
-              background: settings.viewMode === 'bubble' ? 'var(--accent)' : 'transparent',
-            }}
+            data-chat-settings-button
+            onClick={() => setSettingsOpen((current) => !current)}
+            className="text-[11px] px-2 py-1 rounded-md"
+            style={{ background: settingsOpen ? '#3a3f4a' : '#2b2d31', color: 'var(--text-muted)' }}
           >
-            말풍선
+            설정
           </button>
+          <div className="flex items-center rounded-md p-1" style={{ background: '#2b2d31', gap: 4 }}>
+            <button
+              type="button"
+              onClick={() => updateSettings({ viewMode: 'bubble' })}
+              className="text-[11px] px-2 py-1 rounded"
+              style={{
+                color: settings.viewMode === 'bubble' ? '#fff' : 'var(--text-muted)',
+                background: settings.viewMode === 'bubble' ? 'var(--accent)' : 'transparent',
+              }}
+            >
+              말풍선
+            </button>
+            <button
+              type="button"
+              onClick={() => updateSettings({ viewMode: 'memo' })}
+              className="text-[11px] px-2 py-1 rounded"
+              style={{
+                color: settings.viewMode === 'memo' ? '#fff' : 'var(--text-muted)',
+                background: settings.viewMode === 'memo' ? 'var(--accent)' : 'transparent',
+              }}
+            >
+              메모장
+            </button>
+          </div>
           <button
             type="button"
-            onClick={() => updateSettings({ viewMode: 'memo' })}
-            className="text-xs px-2 py-1 rounded transition-colors"
-            style={{
-              color: settings.viewMode === 'memo' ? '#fff' : 'var(--text-muted)',
-              background: settings.viewMode === 'memo' ? 'var(--accent)' : 'transparent',
-            }}
+            onClick={isLocked ? unlockChat : lockChat}
+            disabled={!canLock && !isLocked}
+            className="text-[11px] px-2 py-1 rounded-md disabled:opacity-40"
+            style={{ background: isLocked ? '#57f287' : '#3a3f4a', color: isLocked ? '#111' : 'var(--text-muted)' }}
           >
-            메모장
+            {isLocked ? '해제' : canLock ? '잠금' : 'DB 비번 없음'}
           </button>
         </div>
-        <button
-          type="button"
-          onClick={isLocked ? unlockChat : lockChat}
-          disabled={!canLock && !isLocked}
-          className="ml-2 text-xs px-3 py-1 rounded-md transition-colors disabled:opacity-40"
-          style={{ background: isLocked ? '#57f287' : '#3a3f4a', color: isLocked ? '#111' : 'var(--text-muted)' }}
-        >
-          {isLocked ? '잠금 해제' : canLock ? '잠금' : 'DB 비번 없음'}
-        </button>
-      </div>
+      )}
 
       {settingsOpen && (
         <div
           data-chat-settings-panel
-          className="absolute right-4 top-14 z-20 w-64 rounded-xl border p-3 shadow-2xl"
-          style={{ background: '#1f2126', borderColor: '#3a3f4a' }}
+          className="absolute z-20 rounded-xl border p-3 shadow-2xl"
+          style={{ background: '#1f2126', borderColor: '#3a3f4a', right: isMobile ? 8 : 16, top: isMobile ? 84 : 56, width: isMobile ? 'calc(100% - 16px)' : 256 }}
         >
           <div className="flex items-center justify-between mb-3">
             <span className="text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>채팅 보기 설정</span>
@@ -455,7 +517,7 @@ export function ChatWindow({ roomId }: Props) {
 
       {/* 입력창 */}
       <div className={`px-4 pb-5 flex-shrink-0 ${isLocked ? 'pointer-events-none opacity-40' : ''}`}>
-        <form onSubmit={sendMessage} className="flex items-end gap-2 rounded-xl px-4 py-3" style={{ background: 'var(--input-bg)' }}>
+        <form onSubmit={sendMessage} className="flex items-end gap-2 rounded-xl px-4 py-3" style={{ background: 'var(--input-bg)', padding: isMobile ? '10px 12px' : undefined }}>
           <textarea
             ref={textareaRef}
             rows={1}

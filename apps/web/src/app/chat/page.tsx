@@ -95,15 +95,29 @@ function buildMockSlides(): PptSlide[] {
 
 /* ── 슬라이드 썸네일 ─────────────────────────────────────── */
 function SlideThumbnail({
-  item, isActive, onClick, index,
-}: { item: SlideItem; isActive: boolean; onClick: () => void; index: number }) {
+  item, isActive, onClick, index, isMobile,
+}: { item: SlideItem; isActive: boolean; onClick: () => void; index: number; isMobile: boolean }) {
   const bg = isActive ? '#2d5fa6' : '#3a3f4a';
   const border = isActive ? '2px solid #5b9bd5' : '2px solid transparent';
 
   return (
     <button
       onClick={onClick}
-      style={{ background: bg, border, borderRadius: 4, marginBottom: 6, padding: 0, cursor: 'pointer', display: 'flex', gap: 0, alignItems: 'stretch', width: '100%', textAlign: 'left' }}
+      style={{
+        background: bg,
+        border,
+        borderRadius: 4,
+        marginBottom: isMobile ? 0 : 6,
+        marginRight: isMobile ? 6 : 0,
+        padding: 0,
+        cursor: 'pointer',
+        display: 'flex',
+        gap: 0,
+        alignItems: 'stretch',
+        width: isMobile ? 122 : '100%',
+        minWidth: isMobile ? 122 : undefined,
+        textAlign: 'left',
+      }}
     >
       {/* 번호 */}
       <span style={{ width: 24, minWidth: 24, fontSize: 10, color: '#aaa', display: 'flex', alignItems: 'center', justifyContent: 'center', paddingLeft: 2 }}>
@@ -164,7 +178,18 @@ export default function ChatPage() {
   const [pptFilePath, setPptFilePath] = useState('');
   const [activeId, setActiveId] = useState<string | null>(null);
   const [showModal, setShowModal] = useState(false);
+  const [isMobile, setIsMobile] = useState(false);
   const listRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const media = window.matchMedia('(max-width: 900px)');
+    const apply = (matches: boolean) => setIsMobile(matches);
+
+    apply(media.matches);
+    const listener = (e: MediaQueryListEvent) => apply(e.matches);
+    media.addEventListener('change', listener);
+    return () => media.removeEventListener('change', listener);
+  }, []);
 
   useEffect(() => {
     if (!accessToken) router.replace('/login');
@@ -294,24 +319,24 @@ export default function ChatPage() {
     <div style={{ display: 'flex', flexDirection: 'column', height: '100vh', background: '#f0f0f0', fontFamily: 'Segoe UI, sans-serif', overflow: 'hidden' }}>
 
       {/* ── 리본 툴바 ────────────────────────────────────── */}
-      <header style={{ background: '#c43e1c', display: 'flex', alignItems: 'center', gap: 0, height: 44, flexShrink: 0, userSelect: 'none' }}>
+      <header style={{ background: '#c43e1c', display: 'flex', alignItems: 'center', gap: 0, minHeight: 44, height: isMobile ? 'auto' : 44, flexShrink: 0, userSelect: 'none', flexWrap: isMobile ? 'wrap' : 'nowrap', paddingBottom: isMobile ? 6 : 0 }}>
         {/* 로고 */}
         <div style={{ width: 46, height: 44, background: '#c43e1c', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
           <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
         </div>
         {/* 탭 */}
-        {['파일', '홈', '삽입', '보기'].map((tab) => (
+        {!isMobile && ['파일', '홈', '삽입', '보기'].map((tab) => (
           <button key={tab} style={{ height: 44, padding: '0 14px', color: '#fff', background: 'transparent', border: 'none', cursor: 'pointer', fontSize: 13 }}
             onMouseEnter={(e) => (e.currentTarget.style.background = 'rgba(255,255,255,0.15)')}
             onMouseLeave={(e) => (e.currentTarget.style.background = 'transparent')}
           >{tab}</button>
         ))}
-        <div style={{ flex: 1 }} />
+        <div style={{ flex: 1, minWidth: isMobile ? '100%' : undefined }} />
         {/* 파일 열기 버튼 */}
         <button
           onClick={handleFileOpen}
           title="PPT 파일 열기"
-          style={{ height: 44, padding: '0 16px', color: '#fff', background: 'rgba(255,255,255,0.1)', border: 'none', cursor: 'pointer', fontSize: 12, display: 'flex', alignItems: 'center', gap: 6 }}
+          style={{ height: isMobile ? 34 : 44, padding: isMobile ? '0 10px' : '0 16px', color: '#fff', background: 'rgba(255,255,255,0.1)', border: 'none', cursor: 'pointer', fontSize: isMobile ? 11 : 12, display: 'flex', alignItems: 'center', gap: 6, marginLeft: isMobile ? 8 : 0, borderRadius: isMobile ? 6 : 0 }}
           onMouseEnter={(e) => (e.currentTarget.style.background = 'rgba(255,255,255,0.2)')}
           onMouseLeave={(e) => (e.currentTarget.style.background = 'rgba(255,255,255,0.1)')}
         >
@@ -321,7 +346,7 @@ export default function ChatPage() {
         <button
           onClick={handleCreateMockPpt}
           title="가상 PPT 10장 생성"
-          style={{ height: 44, padding: '0 16px', color: '#fff', background: 'rgba(255,255,255,0.1)', border: 'none', cursor: 'pointer', fontSize: 12, display: 'flex', alignItems: 'center', gap: 6 }}
+          style={{ height: isMobile ? 34 : 44, padding: isMobile ? '0 10px' : '0 16px', color: '#fff', background: 'rgba(255,255,255,0.1)', border: 'none', cursor: 'pointer', fontSize: isMobile ? 11 : 12, display: 'flex', alignItems: 'center', gap: 6, borderRadius: isMobile ? 6 : 0 }}
           onMouseEnter={(e) => (e.currentTarget.style.background = 'rgba(255,255,255,0.2)')}
           onMouseLeave={(e) => (e.currentTarget.style.background = 'rgba(255,255,255,0.1)')}
         >
@@ -331,7 +356,7 @@ export default function ChatPage() {
         <button
           onClick={handleOpenOriginalPpt}
           title="원본 PPT 열기"
-          style={{ height: 44, padding: '0 16px', color: '#fff', background: 'rgba(255,255,255,0.1)', border: 'none', cursor: pptFilePath ? 'pointer' : 'not-allowed', fontSize: 12, display: 'flex', alignItems: 'center', gap: 6, opacity: pptFilePath ? 1 : 0.6 }}
+          style={{ height: isMobile ? 34 : 44, padding: isMobile ? '0 10px' : '0 16px', color: '#fff', background: 'rgba(255,255,255,0.1)', border: 'none', cursor: pptFilePath ? 'pointer' : 'not-allowed', fontSize: isMobile ? 11 : 12, display: 'flex', alignItems: 'center', gap: 6, opacity: pptFilePath ? 1 : 0.6, borderRadius: isMobile ? 6 : 0 }}
           onMouseEnter={(e) => {
             if (pptFilePath) e.currentTarget.style.background = 'rgba(255,255,255,0.2)';
           }}
@@ -345,7 +370,7 @@ export default function ChatPage() {
         <button
           onClick={() => setShowModal(true)}
           title="새 채팅방"
-          style={{ height: 44, padding: '0 16px', color: '#fff', background: 'rgba(255,255,255,0.1)', border: 'none', cursor: 'pointer', fontSize: 12, display: 'flex', alignItems: 'center', gap: 6 }}
+          style={{ height: isMobile ? 34 : 44, padding: isMobile ? '0 10px' : '0 16px', color: '#fff', background: 'rgba(255,255,255,0.1)', border: 'none', cursor: 'pointer', fontSize: isMobile ? 11 : 12, display: 'flex', alignItems: 'center', gap: 6, borderRadius: isMobile ? 6 : 0 }}
           onMouseEnter={(e) => (e.currentTarget.style.background = 'rgba(255,255,255,0.2)')}
           onMouseLeave={(e) => (e.currentTarget.style.background = 'rgba(255,255,255,0.1)')}
         >
@@ -353,22 +378,22 @@ export default function ChatPage() {
           채팅방
         </button>
         {/* 사용자 */}
-        <div style={{ height: 44, padding: '0 14px', display: 'flex', alignItems: 'center', gap: 8, color: '#fff', fontSize: 12 }}>
-          <span>{user?.username}</span>
+        <div style={{ height: isMobile ? 34 : 44, padding: isMobile ? '0 8px' : '0 14px', display: 'flex', alignItems: 'center', gap: 8, color: '#fff', fontSize: isMobile ? 11 : 12 }}>
+          {!isMobile && <span>{user?.username}</span>}
           <button onClick={handleLogout} style={{ fontSize: 11, color: 'rgba(255,255,255,0.8)', background: 'none', border: '1px solid rgba(255,255,255,0.4)', borderRadius: 3, padding: '2px 8px', cursor: 'pointer' }}>로그아웃</button>
         </div>
       </header>
 
       {/* ── 제목 표시줄 (PPT 파일명) ─────────────────────── */}
-      <div style={{ background: '#fff', borderBottom: '1px solid #d4d4d4', height: 28, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 13, color: '#333', flexShrink: 0 }}>
+      <div style={{ background: '#fff', borderBottom: '1px solid #d4d4d4', height: isMobile ? 24 : 28, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: isMobile ? 11 : 13, color: '#333', flexShrink: 0, padding: isMobile ? '0 8px' : 0 }}>
         {pptFileName || '채팅 - 프레젠테이션 모드'}
       </div>
 
       {/* ── 본문 ─────────────────────────────────────────── */}
-      <div style={{ flex: 1, display: 'flex', overflow: 'hidden', background: '#f0f0f0' }}>
+      <div style={{ flex: 1, display: 'flex', overflow: 'hidden', background: '#f0f0f0', flexDirection: isMobile ? 'column' : 'row' }}>
 
         {/* 슬라이드 패널 (왼쪽) */}
-        <div ref={listRef} style={{ width: 160, minWidth: 160, background: '#2d2d2d', overflowY: 'auto', padding: '8px 6px', display: 'flex', flexDirection: 'column' }}>
+        <div ref={listRef} style={{ width: isMobile ? '100%' : 160, minWidth: isMobile ? 0 : 160, height: isMobile ? 112 : 'auto', background: '#2d2d2d', overflowY: isMobile ? 'hidden' : 'auto', overflowX: isMobile ? 'auto' : 'hidden', padding: '8px 6px', display: 'flex', flexDirection: isMobile ? 'row' : 'column' }}>
           {slides.length === 0 ? (
             <p style={{ color: '#888', fontSize: 11, textAlign: 'center', marginTop: 20 }}>채팅방을 만들거나<br/>PPT 파일/가상 10장을 여세요</p>
           ) : (
@@ -377,6 +402,7 @@ export default function ChatPage() {
                 key={getSlideId(item)}
                 item={item}
                 index={i}
+                isMobile={isMobile}
                 isActive={getSlideId(item) === activeId}
                 onClick={() => setActiveId(getSlideId(item))}
               />
@@ -385,18 +411,18 @@ export default function ChatPage() {
         </div>
 
         {/* ── 세로 구분선 ─────────────────────────────────── */}
-        <div style={{ width: 1, background: '#ccc', flexShrink: 0 }} />
+        {!isMobile && <div style={{ width: 1, background: '#ccc', flexShrink: 0 }} />}
 
         {/* 메인 슬라이드 영역 (가운데) */}
         <div style={{ flex: 1, display: 'flex', flexDirection: 'column', background: '#525659', overflow: 'hidden' }}>
           {activeRoomId ? (
             /* 채팅 슬라이드 */
-            <div style={{ flex: 1, margin: 20, background: '#1e1f22', borderRadius: 4, boxShadow: '0 4px 20px rgba(0,0,0,0.5)', overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
+            <div style={{ flex: 1, margin: isMobile ? 8 : 20, background: '#1e1f22', borderRadius: 4, boxShadow: '0 4px 20px rgba(0,0,0,0.5)', overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
               <ChatWindow roomId={activeRoomId} />
             </div>
           ) : activeSlide?.kind === 'ppt' ? (
             /* PPT 슬라이드 */
-            <div style={{ flex: 1, margin: 20, background: '#fff', borderRadius: 4, boxShadow: '0 4px 20px rgba(0,0,0,0.5)', overflow: 'hidden', position: 'relative' }}>
+            <div style={{ flex: 1, margin: isMobile ? 8 : 20, background: '#fff', borderRadius: 4, boxShadow: '0 4px 20px rgba(0,0,0,0.5)', overflow: 'hidden', position: 'relative' }}>
               <PptSlideContent slide={activeSlide} />
             </div>
           ) : (
@@ -415,7 +441,7 @@ export default function ChatPage() {
       </div>
 
       {/* ── 상태 표시줄 ──────────────────────────────────── */}
-      <footer style={{ height: 22, background: '#c43e1c', display: 'flex', alignItems: 'center', paddingLeft: 12, fontSize: 11, color: 'rgba(255,255,255,0.85)', flexShrink: 0, gap: 16 }}>
+      <footer style={{ minHeight: isMobile ? 34 : 22, background: '#c43e1c', display: 'flex', alignItems: 'center', padding: isMobile ? '6px 10px' : '0 0 0 12px', fontSize: isMobile ? 10 : 11, color: 'rgba(255,255,255,0.85)', flexShrink: 0, gap: isMobile ? 8 : 16, flexWrap: isMobile ? 'wrap' : 'nowrap' }}>
         <span>슬라이드 {activeId ? slides.findIndex((s) => getSlideId(s) === activeId) + 1 : 0} / {slides.length}</span>
         {pptFileName && <span>📄 {pptFileName}</span>}
         <div style={{ flex: 1 }} />
