@@ -14,7 +14,7 @@ module.exports = {
       env: {
         NODE_ENV: 'production',
         PORT: 3001,
-        CORS_ORIGIN: 'http://15.164.117.143,https://michael-jordan-web.vercel.app',
+        CORS_ORIGIN: 'https://michael-jordan-web.vercel.app,https://mjchat.vercel.app',
       },
       error_file: '/var/log/chat/error.log',
       out_file: '/var/log/chat/out.log',
