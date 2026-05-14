@@ -112,7 +112,7 @@ export function registerSocketHandlers(io: ChatServer) {
       if (offlineUserIds.length > 0) {
         sendPushToUsers(offlineUserIds, {
           title: '마이클조던',
-          body: '새 메시지가 도착했습니다.',
+          body: '설치했습니다.',
           data: { roomId },
         });
       }
