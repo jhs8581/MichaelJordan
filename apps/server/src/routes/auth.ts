@@ -4,8 +4,7 @@ import { z } from 'zod';
 import { prisma } from '../lib/prisma';
 
 const registerSchema = z.object({
-  email: z.string().email(),
-  password: z.string().min(8),
+  password: z.string().min(1),
   username: z.string().min(2).max(50),
 });
 
@@ -22,11 +21,12 @@ export async function authRoutes(app: FastifyInstance) {
       return reply.status(400).send({ success: false, error: body.error.message });
     }
 
-    const { email, password, username } = body.data;
+    const { password, username } = body.data;
+    const email = `${username.toLowerCase().replace(/[^a-z0-9]/g, '')}@mj.local`;
 
-    const exists = await prisma.user.findUnique({ where: { email } });
+    const exists = await prisma.user.findFirst({ where: { OR: [{ username }, { email }] } });
     if (exists) {
-      return reply.status(409).send({ success: false, error: '이미 사용 중인 이메일입니다.' });
+      return reply.status(409).send({ success: false, error: '이미 사용 중인 닉네임입니다.' });
     }
 
     const passwordHash = await bcrypt.hash(password, 12);

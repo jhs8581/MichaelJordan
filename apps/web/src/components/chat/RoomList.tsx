@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useChatStore } from '@/store/chat';
 import { useAuthStore } from '@/store/auth';
 import { api } from '@/lib/api';
@@ -156,6 +156,7 @@ export function RoomList() {
   const user = useAuthStore((s) => s.user);
   const clear = useAuthStore((s) => s.clear);
   const [showModal, setShowModal] = useState(false);
+  const lockTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
     api.get<{ data: Room[] }>('/rooms').then((res) => setRooms(res.data.data));
@@ -184,7 +185,12 @@ export function RoomList() {
       </div>
 
       {/* 채널 목록 */}
-      <div className="flex-1 overflow-y-auto px-2 py-2 space-y-4">
+      <div className="flex-1 overflow-y-auto px-2 py-2 space-y-4"
+        onContextMenu={(e) => e.preventDefault()}
+        onTouchStart={() => { lockTimerRef.current = setTimeout(() => { setShowModal(false); window.dispatchEvent(new CustomEvent('mj:lock')); }, 2000); }}
+        onTouchEnd={() => { if (lockTimerRef.current) { clearTimeout(lockTimerRef.current); lockTimerRef.current = null; } }}
+        onTouchMove={() => { if (lockTimerRef.current) { clearTimeout(lockTimerRef.current); lockTimerRef.current = null; } }}
+      >
         {/* 그룹 채팅 */}
         {groups.length > 0 && (
           <div>
@@ -216,6 +222,9 @@ export function RoomList() {
             + 버튼으로 시작해보세요
           </div>
         )}
+
+        {/* 빈 공간 – 길게 누르면 잠금 트리거 */}
+        <div className="min-h-24 rounded-lg flex-1" style={{ background: 'rgba(87,242,135,0.08)', border: '1px dashed rgba(87,242,135,0.3)' }} />
       </div>
 
       {/* 하단 내 프로필 */}

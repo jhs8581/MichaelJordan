@@ -133,6 +133,13 @@ export function ChatWindow({ roomId }: Props) {
     return () => media.removeEventListener('change', listener);
   }, []);
 
+  // RoomList 빈 공간 길게 누르기 → 잠금
+  useEffect(() => {
+    function handleMjLock() { lockChat(); }
+    window.addEventListener('mj:lock', handleMjLock);
+    return () => window.removeEventListener('mj:lock', handleMjLock);
+  }, [canLock]);
+
   useEffect(() => {
     function handleKeyDown(event: KeyboardEvent) {
       // Ctrl+Shift+L — 잠금 토글 (잠금 코드 있을 때만)
@@ -504,11 +511,11 @@ export function ChatWindow({ roomId }: Props) {
               </button>
               <button
                 type="button"
-                onClick={unlockChat}
+                onClick={() => { setIsLocked(false); setLockEntry(''); setLockError(''); }}
                 className="rounded-lg px-3 py-2 text-xs font-semibold"
-                style={{ background: 'var(--accent)', color: '#fff' }}
+                style={{ background: '#3a3f4a', color: 'var(--text-muted)' }}
               >
-                강제 해제
+                닫기
               </button>
             </div>
           </div>
