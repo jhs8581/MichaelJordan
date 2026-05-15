@@ -317,23 +317,15 @@ export function ChatWindow({ roomId }: Props) {
 
   return (
     <div className="relative flex flex-col h-full" style={{ background: 'var(--chat-bg)' }}>
-      {/* 모바일 전용: 상단 슬라이드 바 꾹 누르면 잠금 */}
-      {isMobile && canLock && (
-        <div
-          className="w-full flex justify-center items-center py-2 flex-shrink-0"
-          style={{ background: 'var(--chat-bg)', touchAction: 'none' }}
-          onContextMenu={(e) => e.preventDefault()}
-          onTouchStart={() => { longPressTimer.current = setTimeout(() => lockChat(), 2000); }}
-          onTouchEnd={() => { if (longPressTimer.current) { clearTimeout(longPressTimer.current); longPressTimer.current = null; } }}
-          onTouchMove={() => { if (longPressTimer.current) { clearTimeout(longPressTimer.current); longPressTimer.current = null; } }}
-        >
-          <div className="w-10 h-1 rounded-full" style={{ background: '#3a3f4a' }} />
-        </div>
-      )}
-
-      {/* 채널 헤더 */}
-      <div className="flex items-center gap-2 px-4 py-3 border-b shadow-md flex-shrink-0"
-        style={{ borderColor: '#1e1f22', background: 'var(--chat-bg)' }}>
+      {/* 채널 헤더 — 모바일: 헤더 길게 누르면 잠금 */}
+      <div
+        className="flex items-center gap-2 px-4 py-3 border-b shadow-md flex-shrink-0"
+        style={{ borderColor: '#1e1f22', background: 'var(--chat-bg)' }}
+        onContextMenu={isMobile && canLock ? (e) => e.preventDefault() : undefined}
+        onTouchStart={isMobile && canLock ? () => { longPressTimer.current = setTimeout(() => lockChat(), 2000); } : undefined}
+        onTouchEnd={isMobile && canLock ? () => { if (longPressTimer.current) { clearTimeout(longPressTimer.current); longPressTimer.current = null; } } : undefined}
+        onTouchMove={isMobile && canLock ? () => { if (longPressTimer.current) { clearTimeout(longPressTimer.current); longPressTimer.current = null; } } : undefined}
+      >
         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--text-muted)" strokeWidth="2" strokeLinecap="round">
           {activeRoom?.isGroup
             ? <><line x1="4" y1="9" x2="20" y2="9"/><line x1="4" y1="15" x2="20" y2="15"/><line x1="10" y1="3" x2="8" y2="21"/><line x1="16" y1="3" x2="14" y2="21"/></>
