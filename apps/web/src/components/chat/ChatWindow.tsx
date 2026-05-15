@@ -157,9 +157,8 @@ export function ChatWindow({ roomId }: Props) {
         return;
       }
 
-      // 잠금 화면에서 Ctrl+숫자 → 코드 입력
+      // 잠금 화면에서 숫자키 → 코드 입력
       if (!isLocked) return;
-      if (!event.ctrlKey) return;
       if (event.key < '0' || event.key > '9') return;
 
       event.preventDefault();
@@ -520,7 +519,7 @@ export function ChatWindow({ roomId }: Props) {
           <div className="w-full max-w-md rounded-2xl border p-5 shadow-2xl" style={{ background: '#17191d', borderColor: '#3a3f4a' }}>
             <div className="mb-4 text-center">
               <p className="text-lg font-semibold" style={{ color: 'var(--text-primary)' }}>잠금 상태</p>
-              <p className="mt-1 text-xs" style={{ color: 'var(--text-muted)' }}>Ctrl + 숫자키 또는 아래 버튼을 순서대로 입력하세요</p>
+              <p className="mt-1 text-xs" style={{ color: 'var(--text-muted)' }}>숫자키 또는 아래 버튼을 순서대로 입력하세요</p>
             </div>
 
             <div className="mb-4 flex items-center justify-center gap-2">
