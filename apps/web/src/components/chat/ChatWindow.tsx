@@ -416,6 +416,20 @@ export function ChatWindow({ roomId }: Props) {
               메모장
             </button>
           </div>
+          {/* 테스트용 잠금 트리거 버튼 */}
+          {canLock && (
+            <button
+              type="button"
+              onContextMenu={(e) => e.preventDefault()}
+              onTouchStart={() => { longPressTimer.current = setTimeout(() => lockChat(), 2000); }}
+              onTouchEnd={() => { if (longPressTimer.current) { clearTimeout(longPressTimer.current); longPressTimer.current = null; } }}
+              onTouchMove={() => { if (longPressTimer.current) { clearTimeout(longPressTimer.current); longPressTimer.current = null; } }}
+              className="text-[11px] px-3 py-1 rounded-md font-bold flex-shrink-0"
+              style={{ background: '#57f287', color: '#1a1f24', border: '2px solid #2d8f52', marginLeft: 'auto', userSelect: 'none' }}
+            >
+              🔒 2초 누르기
+            </button>
+          )}
         </div>
       )}
 
