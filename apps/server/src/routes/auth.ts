@@ -162,6 +162,35 @@ export async function authRoutes(app: FastifyInstance) {
     return reply.send({ success: true, data: { accessToken, refreshToken: newRefreshToken } });
   });
 
+  // ── 잠금 코드 설정/변경 ────────────────────────────────────────
+  app.patch('/lock-code', async (req, reply) => {
+    try {
+      await req.jwtVerify();
+    } catch {
+      return reply.status(401).send({ success: false, error: '인증이 필요합니다.' });
+    }
+
+    const payload = req.user as { sub?: number | string };
+    const userId = Number(payload?.sub);
+    if (!userId) {
+      return reply.status(401).send({ success: false, error: '유효하지 않은 토큰입니다.' });
+    }
+
+    const body = (req.body as { code?: string });
+    const code = (body?.code ?? '').trim();
+    if (code.length > 0 && !/^\d{1,16}$/.test(code)) {
+      return reply.status(400).send({ success: false, error: '잠금 코드는 숫자만 입력 가능합니다.' });
+    }
+
+    const user = await prisma.user.update({
+      where: { id: userId },
+      data: { chatLockCode: code },
+      select: { id: true, email: true, username: true, chatLockCode: true, avatarUrl: true, isOnline: true, createdAt: true },
+    });
+
+    return reply.send({ success: true, data: user });
+  });
+
   // ── 로그아웃 ──────────────────────────────────────────────────
   app.post('/logout', async (req, reply) => {
     const body = (req.body as { refreshToken?: string });

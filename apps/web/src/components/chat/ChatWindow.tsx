@@ -52,6 +52,9 @@ export function ChatWindow({ roomId }: Props) {
   const user = useAuthStore((s) => s.user);
   const accessToken = useAuthStore((s) => s.accessToken);
   const setUser = useAuthStore((s) => s.setUser);
+  const [lockCodeInput, setLockCodeInput] = useState('');
+  const [lockCodeSaving, setLockCodeSaving] = useState(false);
+  const [lockCodeMsg, setLockCodeMsg] = useState('');
   const rooms = useChatStore((s) => s.rooms);
   const messages = useChatStore((s) => s.messages[roomId] ?? []);
   const addMessage = useChatStore((s) => s.addMessage);
@@ -462,6 +465,47 @@ export function ChatWindow({ roomId }: Props) {
               value={settings.showDateSeparator ? '켜짐' : '꺼짐'}
               onToggle={() => updateSettings({ showDateSeparator: !settings.showDateSeparator })}
             />
+
+            {/* 잠금 코드 설정 */}
+            <div className="pt-2 border-t" style={{ borderColor: '#3a3f4a' }}>
+              <p className="text-xs mb-2" style={{ color: 'var(--text-muted)' }}>
+                잠금 코드 {lockCode ? `(현재: ${'●'.repeat(lockCode.length)})` : '(미설정)'}
+              </p>
+              <div className="flex gap-2">
+                <input
+                  type="password"
+                  inputMode="numeric"
+                  placeholder="숫자만 입력"
+                  value={lockCodeInput}
+                  onChange={(e) => { setLockCodeInput(e.target.value.replace(/\D/g, '').slice(0, 16)); setLockCodeMsg(''); }}
+                  className="flex-1 rounded-md px-2 py-1 text-xs outline-none"
+                  style={{ background: '#2b2d31', color: 'var(--text-primary)', border: '1px solid #3a3f4a' }}
+                />
+                <button
+                  type="button"
+                  disabled={lockCodeSaving}
+                  onClick={async () => {
+                    setLockCodeSaving(true);
+                    setLockCodeMsg('');
+                    try {
+                      const res = await api.patch<{ data: typeof user }>('/auth/lock-code', { code: lockCodeInput });
+                      setUser(res.data.data!);
+                      setLockCodeMsg(lockCodeInput ? '저장됨' : '해제됨');
+                      setLockCodeInput('');
+                    } catch {
+                      setLockCodeMsg('오류');
+                    } finally {
+                      setLockCodeSaving(false);
+                    }
+                  }}
+                  className="rounded-md px-2 py-1 text-xs font-bold"
+                  style={{ background: 'var(--accent)', color: '#fff' }}
+                >
+                  {lockCodeSaving ? '…' : '저장'}
+                </button>
+              </div>
+              {lockCodeMsg && <p className="mt-1 text-xs" style={{ color: '#57f287' }}>{lockCodeMsg}</p>}
+            </div>
           </div>
         </div>
       )}
