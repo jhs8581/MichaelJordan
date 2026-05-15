@@ -224,7 +224,7 @@ export function RoomList() {
         )}
 
         {/* 빈 공간 – 길게 누르면 잠금 트리거 */}
-        <div className="min-h-24 rounded-lg flex-1" style={{ background: 'rgba(87,242,135,0.08)', border: '1px dashed rgba(87,242,135,0.3)' }} />
+        <div className="min-h-24 rounded-lg flex-1" style={{ background: 'rgba(87,242,135,0.22)', border: '2px dashed rgba(87,242,135,0.7)' }} />
       </div>
 
       {/* 하단 내 프로필 */}
