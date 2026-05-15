@@ -427,10 +427,9 @@ export function ChatWindow({ roomId }: Props) {
               onTouchStart={() => { longPressTimer.current = setTimeout(() => lockChat(), 2000); }}
               onTouchEnd={() => { if (longPressTimer.current) { clearTimeout(longPressTimer.current); longPressTimer.current = null; } }}
               onTouchMove={() => { if (longPressTimer.current) { clearTimeout(longPressTimer.current); longPressTimer.current = null; } }}
-              className="text-[11px] px-3 py-1 rounded-md font-bold flex-shrink-0"
-              style={{ background: '#57f287', color: '#1a1f24', border: '2px solid #2d8f52', marginLeft: 'auto', userSelect: 'none' }}
+              className="px-3 py-1 rounded-md flex-shrink-0"
+              style={{ background: 'transparent', border: 'none', marginLeft: 'auto', userSelect: 'none', minWidth: 48, minHeight: 26 }}
             >
-              🔒 2초 누르기
             </button>
           )}
         </div>
