@@ -224,7 +224,12 @@ export function RoomList() {
         )}
 
         {/* 빈 공간 – 길게 누르면 잠금 트리거 */}
-        <div className="min-h-24 rounded-lg flex-1" style={{ background: 'rgba(87,242,135,0.22)', border: '2px dashed rgba(87,242,135,0.7)' }} />
+        {/* 테스트용 잠금 트리거 영역 - 2초 길게 누르기 */}
+        <div className="min-h-24 rounded-lg flex-1 flex items-center justify-center" style={{ background: '#57f287', border: '3px solid #2d8f52' }}>
+          <span style={{ color: '#1a1f24', fontSize: 12, fontWeight: 700, textAlign: 'center', lineHeight: 1.4, padding: '0 8px' }}>
+            🔒 여기 2초 길게 누르기{'\n'}(잠금 트리거)
+          </span>
+        </div>
       </div>
 
       {/* 하단 내 프로필 */}
