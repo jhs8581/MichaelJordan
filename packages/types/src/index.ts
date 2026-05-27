@@ -18,6 +18,7 @@ export interface Room {
   id: number;
   name: string;
   isGroup: boolean;          // true = 그룹 채널, false = 1:1 DM
+  isMuted: boolean;          // 현재 사용자의 이 방 알림 음소거 여부
   createdAt: string;
   members: RoomMember[];
   messages?: Pick<Message, 'id' | 'content' | 'createdAt' | 'senderId'>[];
@@ -27,6 +28,7 @@ export interface RoomMember {
   userId: number;
   roomId: number;
   joinedAt: string;
+  isMuted: boolean;
   user?: User;
 }
 

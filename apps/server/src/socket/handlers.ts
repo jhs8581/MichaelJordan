@@ -156,11 +156,11 @@ export function registerSocketHandlers(io: ChatServer) {
       // 방 멤버 중 발신자 제외 + 지금 이 방을 보고 있지 않은 사람에게 푸시
       const allMembers = await prisma.roomMember.findMany({
         where: { roomId },
-        select: { userId: true },
+        select: { userId: true, isMuted: true },
       });
       const pushTargetIds = allMembers
-        .map((m) => m.userId)
-        .filter((id) => id !== userId && !viewingUserIds.has(id));
+        .filter((m) => m.userId !== userId && !viewingUserIds.has(m.userId) && !m.isMuted)
+        .map((m) => m.userId);
 
       if (pushTargetIds.length > 0) {
         sendPushToUsers(pushTargetIds, {

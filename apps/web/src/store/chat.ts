@@ -8,6 +8,7 @@ interface ChatState {
   setRooms: (rooms: Room[]) => void;
   removeRoom: (roomId: number) => void;
   setActiveRoom: (roomId: number) => void;
+  setRoomMuted: (roomId: number, isMuted: boolean) => void;
   addMessage: (roomId: number, message: Message) => void;
   setMessages: (roomId: number, messages: Message[]) => void;
   markRead: (roomId: number, userId: number, lastReadMessageId: number) => void;
@@ -27,6 +28,11 @@ export const useChatStore = create<ChatState>()((set) => ({
     })),
 
   setActiveRoom: (roomId) => set({ activeRoomId: roomId }),
+
+  setRoomMuted: (roomId, isMuted) =>
+    set((state) => ({
+      rooms: state.rooms.map((r) => r.id === roomId ? { ...r, isMuted } : r),
+    })),
 
   addMessage: (roomId, message) =>
     set((state) => ({

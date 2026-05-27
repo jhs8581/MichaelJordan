@@ -59,6 +59,7 @@ export function ChatWindow({ roomId, onLeave, onImageView }: Props) {
   const [lockCodeMsg, setLockCodeMsg] = useState('');
   const rooms = useChatStore((s) => s.rooms);
   const removeRoom = useChatStore((s) => s.removeRoom);
+  const setRoomMuted = useChatStore((s) => s.setRoomMuted);
   const messages = useChatStore((s) => s.messages[roomId] ?? []);
   const addMessage = useChatStore((s) => s.addMessage);
   const setMessages = useChatStore((s) => s.setMessages);
@@ -373,6 +374,16 @@ export function ChatWindow({ roomId, onLeave, onImageView }: Props) {
     }
   }
 
+  async function handleMuteToggle() {
+    const next = !activeRoom?.isMuted;
+    setRoomMuted(roomId, next); // 낙관적 업데이트
+    try {
+      await api.patch(`/rooms/${roomId}/mute`, { mute: next });
+    } catch {
+      setRoomMuted(roomId, !next); // 실패 시 롤백
+    }
+  }
+
   async function handleSearch() {
     if (!searchKeyword.trim() && !searchDate) return;
     setSearchLoading(true);
@@ -580,6 +591,29 @@ export function ChatWindow({ roomId, onLeave, onImageView }: Props) {
           );
         })()}
         <div className="flex-1" />
+        {/* 알림 음소거 버튼 */}
+        <button
+          type="button"
+          onClick={handleMuteToggle}
+          className="rounded-md p-1.5 transition-colors"
+          style={{ background: activeRoom?.isMuted ? '#ed424522' : 'transparent', color: activeRoom?.isMuted ? '#ed4245' : 'var(--text-muted)' }}
+          title={activeRoom?.isMuted ? '알림 켜기' : '알림 끄기'}
+        >
+          {activeRoom?.isMuted ? (
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+              <line x1="1" y1="1" x2="23" y2="23"/>
+              <path d="M9 9v3a3 3 0 0 0 5.12 2.12M15 9.34V4a3 3 0 0 0-5.94-.6"/>
+              <path d="M17 16.95A7 7 0 0 1 5 12v-2m14 0v2a7 7 0 0 1-.11 1.23"/>
+              <line x1="12" y1="19" x2="12" y2="23"/>
+              <line x1="8" y1="23" x2="16" y2="23"/>
+            </svg>
+          ) : (
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+              <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/>
+              <path d="M13.73 21a2 2 0 0 1-3.46 0"/>
+            </svg>
+          )}
+        </button>
         {/* 새로고침 버튼 */}
         <button
           type="button"
