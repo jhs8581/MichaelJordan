@@ -33,6 +33,16 @@ export function registerSocketHandlers(io: ChatServer) {
     await prisma.user.update({ where: { id: userId }, data: { isOnline: true } });
     io.emit('user:status', { userId, isOnline: true });
 
+    // 이 소켓에게 현재 온라인인 사용자 목록을 전송
+    // (연결 시점 이전에 이미 온라인인 사용자 상태를 놓치지 않도록)
+    const onlineUsers = await prisma.user.findMany({
+      where: { isOnline: true, id: { not: userId } },
+      select: { id: true },
+    });
+    for (const u of onlineUsers) {
+      socket.emit('user:status', { userId: u.id, isOnline: true });
+    }
+
     // 사용자가 속한 모든 채팅방에 자동 join
     const rooms = await prisma.roomMember.findMany({ where: { userId }, select: { roomId: true } });
     for (const { roomId } of rooms) {
