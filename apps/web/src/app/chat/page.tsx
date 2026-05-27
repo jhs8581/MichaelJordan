@@ -164,8 +164,8 @@ export default function ChatPage() {
   const scrollRef = useRef<HTMLDivElement>(null);
   const galleryClickCount = useRef(0);
   const galleryClickTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  // popstate 핸들러를 ref로 관리 → 에펍트 1회만 등록, 의존성 변경으로 인한 중복 pushState 방지
-  const popStateHandlerRef = useRef<() => void>(() => {});
+  // popstate 핸들러를 ref로 관리 → capture phase로 等록해 Next.js router보다 먼저 실행
+  const popStateHandlerRef = useRef<(() => void) | null>(null);
 
   function handleGalleryClick() {
     galleryClickCount.current += 1;
@@ -183,8 +183,10 @@ export default function ChatPage() {
     if (!accessToken) router.replace('/login');
   }, [accessToken, router]);
 
-  // 브라우저 뒤로가기 인터셉트: 핸들러를 ref로 유지 → 마운트 시 1회만 등록
-  // 기존 방식(의존성 배열)은 상태 변화마다 history.pushState를 추가 누적시켜 뒤로가기가 /login까지 가는 문제 발생
+  // ───────── 브라우저 뒤로가기 인터셉트 ─────────
+  // 문제 원인: Next.js App Router는 bubble phase에서 popstate를 수신 → history 상태에 따라
+  //   /login 으로 이동해버림. capture phase로 먼저 잡고 stopImmediatePropagation으로 차단.
+  // 각 상태 진입시 별도 history 항목을 push → 뒤로가기 1회 = 상태 1단계 닫기
   popStateHandlerRef.current = () => {
     if (viewingImage) {
       setViewingImage(null);
@@ -193,16 +195,34 @@ export default function ChatPage() {
     } else if (showChatList) {
       setShowChatList(false);
     }
-    // 항상 센티넬을 다시 쌓아 다음 뒤로가기도 가로챔
-    history.pushState(null, '', window.location.href);
+    // 다음 뒤로가기도 가로채기 위해 센티넬 재push
+    history.pushState({ _chat: true }, '', window.location.href);
   };
 
+  // 마운트 1회: 초기 센티넬 + capture phase 리스너 등록
   useEffect(() => {
-    history.pushState(null, '', window.location.href);
-    function handler() { popStateHandlerRef.current(); }
-    window.addEventListener('popstate', handler);
-    return () => window.removeEventListener('popstate', handler);
-  }, []); // 마운트 1회만 — 의존성 변화 시 중복 pushState 없음
+    history.pushState({ _chat: true }, '', window.location.href);
+    function handler(e: PopStateEvent) {
+      // _chat 마커가 없는 항목(Next.js 자체 항목)은 가로채지 않음
+      if (!e.state?._chat) return;
+      // Next.js의 bubble phase 핸들러가 실행되지 않도록 차단
+      e.stopImmediatePropagation();
+      popStateHandlerRef.current?.();
+    }
+    window.addEventListener('popstate', handler, true); // capture phase
+    return () => window.removeEventListener('popstate', handler, true);
+  }, []);
+
+  // 각 상태 진입시 별도 history 항목 push (레이어별 1개)
+  useEffect(() => {
+    if (showChatList) history.pushState({ _chat: true }, '', window.location.href);
+  }, [showChatList]);
+  useEffect(() => {
+    if (selectedRoom) history.pushState({ _chat: true }, '', window.location.href);
+  }, [selectedRoom]);
+  useEffect(() => {
+    if (viewingImage) history.pushState({ _chat: true }, '', window.location.href);
+  }, [viewingImage]);
 
   useEffect(() => {
     if (accessToken) {
