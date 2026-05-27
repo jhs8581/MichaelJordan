@@ -83,6 +83,7 @@ export function ChatWindow({ roomId, onLeave, onImageView }: Props) {
   const [uploading, setUploading] = useState(false);
   const [uploadError, setUploadError] = useState('');
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const [socketDisconnected, setSocketDisconnected] = useState(false);
   // 타이핑 중인 사용자 목록 { userId, username }
   const [typingUsers, setTypingUsers] = useState<{ userId: number; username: string }[]>([]);
   // 온라인 사용자 ID 세트
@@ -105,7 +106,7 @@ export function ChatWindow({ roomId, onLeave, onImageView }: Props) {
         setMessages(roomId, msgs);
         // 채팅방 열 때 마지막 메시지 읽음 처리
         if (msgs.length > 0 && accessToken) {
-          const socket = getSocket(accessToken);
+          const socket = getSocket();
           socket.emit('message:read', { roomId, messageId: msgs[msgs.length - 1].id });
         }
       });
@@ -124,11 +125,35 @@ export function ChatWindow({ roomId, onLeave, onImageView }: Props) {
 
   useEffect(() => {
     if (!accessToken) return;
-    const socket = getSocket(accessToken);
+    const socket = getSocket();
     if (!socket.connected) socket.connect();
     socket.emit('room:join', roomId);
     // 이 채팅방을 보고 있다고 서버에 알림 → 이 방의 푸시 알림 수신 제외
     socket.emit('room:viewing', roomId);
+
+    // 재연결 성공 → 방 재입장 + 연결 끊김 배너 숨김
+    function onConnect() {
+      setSocketDisconnected(false);
+      socket.emit('room:join', roomId);
+      socket.emit('room:viewing', roomId);
+    }
+    // 연결 끊김 → 배너 표시
+    function onDisconnect() {
+      setSocketDisconnected(true);
+    }
+    // 인증 오류로 연결 실패 → HTTP 호출로 토큰 갱신 트리거
+    function onConnectError(err: Error) {
+      const msg = err.message ?? '';
+      const isAuthError = msg.includes('토큰') || msg.includes('auth') || msg.includes('jwt') || msg.includes('expired') || msg.includes('인증');
+      if (isAuthError) {
+        // HTTP 인터셉터가 자동으로 토큰 갱신 → socket auth 콜백이 새 토큰을 사용해 재연결
+        api.get('/auth/me').catch(() => { /* refresh 실패 시 /login 리다이렉트는 인터셉터가 처리 */ });
+      }
+    }
+
+    socket.on('connect', onConnect);
+    socket.on('disconnect', onDisconnect);
+    socket.on('connect_error', onConnectError);
 
     socket.on('message:new', (msg) => {
       if (msg.roomId !== roomId) return;
@@ -156,6 +181,9 @@ export function ChatWindow({ roomId, onLeave, onImageView }: Props) {
     return () => {
       // 채팅창 닫힘 → 더 이상 이 방을 보고 있지 않음, 푸시 다시 받기
       socket.emit('room:stop-viewing', roomId);
+      socket.off('connect', onConnect);
+      socket.off('disconnect', onDisconnect);
+      socket.off('connect_error', onConnectError);
       socket.off('message:new');
       socket.off('message:read');
       socket.off('typing:update');
@@ -383,7 +411,7 @@ export function ChatWindow({ roomId, onLeave, onImageView }: Props) {
     e?.preventDefault();
     const content = input.trim();
     if (!content || !accessToken) return;
-    const socket = getSocket(accessToken);
+    const socket = getSocket();
     // 보낼 때 타이핑 중지
     socket.emit('typing:stop', { roomId });
     if (typingTimer.current) { clearTimeout(typingTimer.current); typingTimer.current = null; }
@@ -407,7 +435,7 @@ export function ChatWindow({ roomId, onLeave, onImageView }: Props) {
     e.target.style.height = Math.min(e.target.scrollHeight, 160) + 'px';
     // 타이핑 이벤트
     if (!accessToken) return;
-    const socket = getSocket(accessToken);
+    const socket = getSocket();
     socket.emit('typing:start', { roomId });
     if (typingTimer.current) clearTimeout(typingTimer.current);
     typingTimer.current = setTimeout(() => {
@@ -436,7 +464,7 @@ export function ChatWindow({ roomId, onLeave, onImageView }: Props) {
       }
       const json = await res.json() as { success: boolean; data?: { url: string } };
       if (json.success && json.data?.url) {
-        const socket = getSocket(accessToken);
+        const socket = getSocket();
         socket.emit('message:send', { roomId, content: '', fileUrl: json.data.url });
       } else {
         setUploadError('업로드에 실패했습니다.');
@@ -754,6 +782,16 @@ export function ChatWindow({ roomId, onLeave, onImageView }: Props) {
               {lockCodeMsg && <p className="mt-1 text-xs" style={{ color: '#57f287' }}>{lockCodeMsg}</p>}
             </div>
           </div>
+        </div>
+      )}
+
+      {/* 연결 끊김 배너 */}
+      {socketDisconnected && (
+        <div className="flex-shrink-0 flex items-center justify-center gap-2 px-4 py-1.5 text-xs font-medium"
+          style={{ background: '#ed424533', color: '#ed4245', borderBottom: '1px solid #ed424555' }}>
+          <span style={{ width: 7, height: 7, borderRadius: '50%', background: '#ed4245', display: 'inline-block', flexShrink: 0,
+            animation: 'pulse 1s ease-in-out infinite' }} />
+          연결이 끊겼습니다. 재연결 중...
         </div>
       )}
 
