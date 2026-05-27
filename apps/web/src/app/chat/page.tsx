@@ -159,6 +159,7 @@ export default function ChatPage() {
 
   const [selectedRoom, setSelectedRoom] = useState<Room | null>(null);
   const [showChatList, setShowChatList] = useState(false);
+  const [showCreateModal, setShowCreateModal] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
   const galleryClickCount = useRef(0);
   const galleryClickTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -319,7 +320,7 @@ export default function ChatPage() {
             </div>
           </div>
         ) : showChatList ? (
-          <div>
+          <div style={{ position: 'relative', minHeight: '100%' }}>
             <div style={{
               background: '#fff', borderBottom: '1px solid #e0e0e0',
               padding: '9px 14px', display: 'flex', alignItems: 'center', gap: 8,
@@ -354,6 +355,44 @@ export default function ChatPage() {
                 </div>
               </div>
             ))}
+
+            {/* 채팅방 만들기 FAB */}
+            <button
+              onClick={() => setShowCreateModal(true)}
+              style={{
+                position: 'fixed',
+                bottom: 100,
+                right: '50%',
+                transform: 'translateX(50%) translateX(195px)',
+                width: 52, height: 52,
+                borderRadius: 26,
+                background: '#1a76c8',
+                color: '#fff',
+                border: 'none',
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                boxShadow: '0 4px 14px rgba(0,0,0,0.25)',
+                fontSize: 28,
+                fontWeight: 300,
+                zIndex: 50,
+              }}
+              title="새 채팅방 만들기"
+            >
+              +
+            </button>
+
+            {showCreateModal && (
+              <CreateRoomModal
+                onClose={() => setShowCreateModal(false)}
+                onCreated={(room) => {
+                  setRooms([room, ...rooms]);
+                  setShowCreateModal(false);
+                  setSelectedRoom(room);
+                }}
+              />
+            )}
           </div>
         ) : (
           <>
