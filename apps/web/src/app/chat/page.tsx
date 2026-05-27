@@ -123,11 +123,11 @@ function AdBlock() {
         <span style={{ marginLeft: 'auto', fontSize: 11, color: '#aaa' }}>광고신청</span>
       </div>
       <div style={{ fontSize: 14, fontWeight: 700, color: '#c0392b', marginBottom: 2 }}>
-        채팅방을 만들어 대화해보세요
+        미러리스 카메라 최대 30% 할인
       </div>
-      <div style={{ fontSize: 11, color: '#999', marginBottom: 3 }}>chat.example.com</div>
+      <div style={{ fontSize: 11, color: '#999', marginBottom: 3 }}>www.photomall.co.kr</div>
       <div style={{ fontSize: 12, color: '#555' }}>
-        실시간 채팅으로 빠르게 소통하세요
+        소니, 캐논, 니콘 최신 카메라 특가 판매
       </div>
     </div>
   );
@@ -158,6 +158,7 @@ export default function ChatPage() {
   const setRooms = useChatStore((s) => s.setRooms);
 
   const [selectedRoom, setSelectedRoom] = useState<Room | null>(null);
+  const [selectedTitle, setSelectedTitle] = useState('');
   const [showModal, setShowModal] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
 
@@ -183,17 +184,39 @@ export default function ChatPage() {
 
   if (!accessToken) return null;
 
-  const groupRooms = rooms.filter((r) => r.isGroup);
-  const dmRooms    = rooms.filter((r) => !r.isGroup);
-  const popular = [...groupRooms].sort((a, b) => b.members.length - a.members.length).slice(0, 5);
-  const recommended = [...rooms].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()).slice(0, 5);
-  const latestByMsg = [...rooms].sort((a, b) => {
-    const aT = a.messages?.[a.messages.length - 1]?.createdAt ?? a.createdAt;
-    const bT = b.messages?.[b.messages.length - 1]?.createdAt ?? b.createdAt;
-    return new Date(bT).getTime() - new Date(aT).getTime();
-  }).slice(0, 8);
+  const HOT_POSTS = [
+    { category: '자유게시판', title: '정말 좋으네요', count: 11 },
+    { category: '소니포럼', title: '지금 온라인샵에서a7m5 구입하면 정품등록이벤트 있나요?', count: 3 },
+    { category: '자유게시판', title: '한국 핵잠수함 기본설계, 올해 마무리', count: 21 },
+    { category: '정치게시판', title: '조국.ㅋㅋㅋㅋㅋ 잘 가라.', count: 14 },
+    { category: '자유게시판', title: '주식으로 돈 벌면 부모님 용돈 드릴려구요', count: 8 },
+  ];
+  const BEST_POSTS = [
+    { category: '자유게시판', title: '한국 핵잠수함 기본설계, 올해 마무리', count: 21 },
+    { category: '자유게시판', title: '민폐 스토커 피고소충들 정신 못차리네', count: 35 },
+    { category: '자유게시판', title: '내일 삼닉 예상', count: 39 },
+    { category: '자유게시판', title: '대구 여론조사 놀랍네요.;; (유)', count: 45 },
+    { category: '자유게시판', title: '좌파 없는 나라 살고파', count: 40 },
+  ];
+  const LATEST_POSTS = [
+    { category: '정치게시판', title: 'X의글, 감옥 아방궁' },
+    { category: '자유게시판', title: '알리 만원짜리 와이파이 CCTV 주문' },
+    { category: '소니갤러리', title: 'ZV-E1 + 35.4GM 점수용' },
+    { category: '니콘포럼', title: '니콘 24-70/4S 시리얼번호' },
+    { category: '해외직구', title: 'ETENWOLF S1 휴대용 타이어 공기 주입기 160PSI 자동차 타이어 자전거 오토바이' },
+  ];
+  const MARKET_POSTS = [
+    { category: '기타', title: '자동차 햇빛가리개 앞유리 썬가드 (7,900원/무료)', count: 1 },
+    { category: '패션/잡화', title: '[지마켓]에어홀 쿨스카프 4개+쿨토시 8개 세트 (12,670원/무배)', count: 1 },
+    { category: '식품', title: '[지마켓_슈퍼딜] 행복한명태가 취향대로 골라먹는 명태강정(5,300/유배)', count: 1 },
+    { category: '식품', title: '[지마켓]K2 히말라야 숙취해소제 젤리형 10개입(6,900원/무배)', count: 1 },
+    { category: '식품', title: '[옥션]1++ 투뿔 한우 골라담기(18,610원~/무배)', count: 1 },
+  ];
 
-  function cat(r: Room) { return r.isGroup ? '그룹' : 'DM'; }
+  function getRoom(globalIdx: number) {
+    if (rooms.length === 0) return undefined;
+    return rooms[globalIdx % rooms.length];
+  }
 
   const HEADER_H = 48;
   const NAV_H    = 80;
@@ -258,14 +281,11 @@ export default function ChatPage() {
               padding: '9px 14px', display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0,
             }}>
               <button onClick={() => setSelectedRoom(null)}
-                style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#1a76c8', fontSize: 14, fontWeight: 700, padding: '2px 8px 2px 0' }}
+                style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#1a76c8', fontSize: 14, fontWeight: 700, padding: '2px 8px 2px 0', flexShrink: 0 }}
               >
                 ← 목록
               </button>
-              <span style={{ fontWeight: 700, fontSize: 15, color: '#111' }}>{selectedRoom.name}</span>
-              <span style={{ fontSize: 12, color: '#aaa', marginLeft: 2 }}>
-                {selectedRoom.isGroup ? `${selectedRoom.members.length}명` : 'DM'}
-              </span>
+              <span style={{ fontWeight: 700, fontSize: 14, color: '#111', flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{selectedTitle || selectedRoom.name}</span>
             </div>
             <div style={{ flex: 1, overflow: 'hidden' }}>
               <ChatWindow roomId={selectedRoom.id} />
@@ -280,35 +300,35 @@ export default function ChatPage() {
             </div>
             <div style={{ background: '#fff' }}>
               <SectionHeader title='인기글' />
-              {popular.length === 0
-                ? <PostRow category='안내' title='채팅방을 만들어보세요' />
-                : popular.map((r) => <PostRow key={r.id} category={cat(r)} title={r.name} count={r.members.length} onClick={() => setSelectedRoom(r)} />)
-              }
+              {HOT_POSTS.map((p, i) => (
+                <PostRow key={i} category={p.category} title={p.title} count={p.count}
+                  onClick={rooms.length > 0 ? () => { const r = getRoom(i); if (r) { setSelectedTitle(p.title); setSelectedRoom(r); } } : undefined} />
+              ))}
             </div>
             <SectionGap />
             <div style={{ background: '#fff' }}>
               <SectionHeader title='추천인기글' />
-              {recommended.length === 0
-                ? <PostRow category='안내' title='채팅방이 없습니다' />
-                : recommended.map((r) => <PostRow key={r.id} category={cat(r)} title={r.name} count={r.members.length} onClick={() => setSelectedRoom(r)} />)
-              }
+              {BEST_POSTS.map((p, i) => (
+                <PostRow key={i} category={p.category} title={p.title} count={p.count}
+                  onClick={rooms.length > 0 ? () => { const r = getRoom(5 + i); if (r) { setSelectedTitle(p.title); setSelectedRoom(r); } } : undefined} />
+              ))}
             </div>
             <AdBlock />
             <SectionGap />
             <div style={{ background: '#fff' }}>
               <SectionHeader title='최신글' />
-              {latestByMsg.length === 0
-                ? <PostRow category='안내' title='채팅방이 없습니다' />
-                : latestByMsg.map((r) => <PostRow key={r.id} category={cat(r)} title={r.name} count={r.members.length} onClick={() => setSelectedRoom(r)} />)
-              }
+              {LATEST_POSTS.map((p, i) => (
+                <PostRow key={i} category={p.category} title={p.title}
+                  onClick={rooms.length > 0 ? () => { const r = getRoom(10 + i); if (r) { setSelectedTitle(p.title); setSelectedRoom(r); } } : undefined} />
+              ))}
             </div>
             <SectionGap />
             <div style={{ background: '#fff' }}>
               <SectionHeader title='시장정보' />
-              {dmRooms.length === 0
-                ? <PostRow category='안내' title='1:1 채팅방이 없습니다' />
-                : dmRooms.map((r) => <PostRow key={r.id} category={cat(r)} title={r.name} count={r.members.length} onClick={() => setSelectedRoom(r)} />)
-              }
+              {MARKET_POSTS.map((p, i) => (
+                <PostRow key={i} category={p.category} title={p.title} count={p.count}
+                  onClick={rooms.length > 0 ? () => { const r = getRoom(15 + i); if (r) { setSelectedTitle(p.title); setSelectedRoom(r); } } : undefined} />
+              ))}
             </div>
             <SectionGap />
           </>
