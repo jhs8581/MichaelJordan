@@ -82,13 +82,13 @@ function PostRow({ category, title, count, onClick }: {
         fontSize: 13.5, color: '#333', flex: 1,
         overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', lineHeight: 1.4,
       }}>
-        <span style={{ color: '#555' }}>[{category}]</span>
+        <span style={{ color: '#333' }}>[{category}]</span>
         {' '}{title}
       </span>
       {count !== undefined && count > 0 && (
         <span style={{
           marginLeft: 8, minWidth: 22, height: 22, borderRadius: 11,
-          background: '#f0f0f0', color: '#666', fontSize: 11, fontWeight: 600,
+          background: '#1a76c8', color: '#fff', fontSize: 11, fontWeight: 600,
           display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
           padding: '0 5px', flexShrink: 0,
         }}>
@@ -102,8 +102,8 @@ function PostRow({ category, title, count, onClick }: {
 function SectionHeader({ title }: { title: string }) {
   return (
     <div style={{
-      padding: '11px 14px 9px', background: '#fff', borderBottom: '1px solid #ddd',
-      fontSize: 15, fontWeight: 700, color: '#111',
+      padding: '10px 14px 9px', background: '#f4f4f4', borderBottom: '1px solid #e0e0e0',
+      fontSize: 14, fontWeight: 700, color: '#222',
     }}>
       {title}
     </div>
@@ -144,7 +144,7 @@ function ScrollToTopBtn({ containerRef }: { containerRef: RefObject<HTMLDivEleme
         userSelect: 'none', zIndex: 200,
       }}
     >
-      ↑ 맸위로
+      ↑ 맨위로
     </div>
   );
 }
@@ -196,7 +196,7 @@ export default function ChatPage() {
   function cat(r: Room) { return r.isGroup ? '그룹' : 'DM'; }
 
   const HEADER_H = 48;
-  const NAV_H    = 90;
+  const NAV_H    = 80;
 
   return (
     <div style={{
@@ -229,12 +229,13 @@ export default function ChatPage() {
         position: 'sticky', top: HEADER_H, zIndex: 99,
         background: '#fff', borderBottom: '1px solid #e0e0e0',
       }}>
-        <div style={{ display: 'flex', borderBottom: '1px solid #f2f2f2' }}>
+        <div style={{ display: 'flex' }}>
           {([
             { icon: <IconCommunity />, label: '커뮤니티' },
             { icon: <IconForum />,     label: '포럼', action: () => setShowModal(true) },
-            { icon: <IconGallery />,   label: '깔러리' },
+            { icon: <IconGallery />,   label: '갤러리' },
             { icon: <IconInfo />,      label: '인포메이션' },
+            { icon: <IconCart />,      label: '마켓' },
           ] as { icon: React.ReactNode; label: string; action?: () => void }[]).map(({ icon, label, action }) => (
             <button key={label} onClick={action} style={{
               flex: 1, display: 'flex', flexDirection: 'column',
@@ -246,16 +247,6 @@ export default function ChatPage() {
               <span>{label}</span>
             </button>
           ))}
-        </div>
-        <div style={{ display: 'flex' }}>
-          <button style={{
-            display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
-            padding: '8px 0 7px', background: 'none', border: 'none',
-            cursor: 'default', fontSize: 10.5, color: '#444', gap: 4, width: '25%',
-          }}>
-            <IconCart />
-            <span>마켓</span>
-          </button>
         </div>
       </nav>
 
@@ -282,6 +273,11 @@ export default function ChatPage() {
           </div>
         ) : (
           <>
+            <div style={{ background: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '8px 0', borderBottom: '1px solid #e8e8e8' }}>
+              <div style={{ width: '92%', height: 72, background: '#f0f0f0', display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: 3, color: '#bbb', fontSize: 13, letterSpacing: 1 }}>
+                AD
+              </div>
+            </div>
             <div style={{ background: '#fff' }}>
               <SectionHeader title='인기글' />
               {popular.length === 0
