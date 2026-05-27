@@ -935,8 +935,8 @@ export function ChatWindow({ roomId, onLeave, onImageView }: Props) {
             onChange={handleInput}
             onKeyDown={handleKeyDown}
             placeholder=""
-            className="chat-input flex-1 bg-transparent resize-none outline-none text-sm leading-relaxed"
-            style={{ color: 'var(--text-primary)', maxHeight: '160px' }}
+            className="chat-input flex-1 bg-transparent resize-none outline-none leading-relaxed"
+            style={{ color: 'var(--text-primary)', maxHeight: '160px', fontSize: 16 }}
           />
           <button
             type="submit"
