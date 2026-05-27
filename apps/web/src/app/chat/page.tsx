@@ -316,7 +316,7 @@ export default function ChatPage() {
               <span style={{ fontWeight: 700, fontSize: 14, color: '#111', flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{selectedRoom.name}</span>
             </div>
             <div style={{ flex: 1, overflow: 'hidden' }}>
-              <ChatWindow roomId={selectedRoom.id} />
+              <ChatWindow roomId={selectedRoom.id} onLeave={() => setSelectedRoom(null)} />
             </div>
           </div>
         ) : showChatList ? (

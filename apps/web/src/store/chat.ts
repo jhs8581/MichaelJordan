@@ -6,6 +6,7 @@ interface ChatState {
   activeRoomId: number | null;
   messages: Record<number, Message[]>; // roomId -> messages
   setRooms: (rooms: Room[]) => void;
+  removeRoom: (roomId: number) => void;
   setActiveRoom: (roomId: number) => void;
   addMessage: (roomId: number, message: Message) => void;
   setMessages: (roomId: number, messages: Message[]) => void;
@@ -18,6 +19,12 @@ export const useChatStore = create<ChatState>()((set) => ({
   messages: {},
 
   setRooms: (rooms) => set({ rooms }),
+
+  removeRoom: (roomId) =>
+    set((state) => ({
+      rooms: state.rooms.filter((r) => r.id !== roomId),
+      activeRoomId: state.activeRoomId === roomId ? null : state.activeRoomId,
+    })),
 
   setActiveRoom: (roomId) => set({ activeRoomId: roomId }),
 

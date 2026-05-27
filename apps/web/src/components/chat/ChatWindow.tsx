@@ -10,6 +10,7 @@ import { MessageBubble } from './MessageBubble';
 
 interface Props {
   roomId: number;
+  onLeave?: () => void;
 }
 
 type ChatViewMode = 'bubble' | 'memo';
@@ -48,7 +49,7 @@ function loadChatViewSettings(): ChatViewSettings {
   }
 }
 
-export function ChatWindow({ roomId }: Props) {
+export function ChatWindow({ roomId, onLeave }: Props) {
   const user = useAuthStore((s) => s.user);
   const accessToken = useAuthStore((s) => s.accessToken);
   const setUser = useAuthStore((s) => s.setUser);
@@ -56,6 +57,7 @@ export function ChatWindow({ roomId }: Props) {
   const [lockCodeSaving, setLockCodeSaving] = useState(false);
   const [lockCodeMsg, setLockCodeMsg] = useState('');
   const rooms = useChatStore((s) => s.rooms);
+  const removeRoom = useChatStore((s) => s.removeRoom);
   const messages = useChatStore((s) => s.messages[roomId] ?? []);
   const addMessage = useChatStore((s) => s.addMessage);
   const setMessages = useChatStore((s) => s.setMessages);
@@ -64,12 +66,21 @@ export function ChatWindow({ roomId }: Props) {
   const [input, setInput] = useState('');
   const [settings, setSettings] = useState<ChatViewSettings>(DEFAULT_SETTINGS);
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [showLeaveConfirm, setShowLeaveConfirm] = useState(false);
+  const [leaveLoading, setLeaveLoading] = useState(false);
+  // 검색 패널
+  const [searchOpen, setSearchOpen] = useState(false);
+  const [searchKeyword, setSearchKeyword] = useState('');
+  const [searchDate, setSearchDate] = useState('');
+  const [searchResults, setSearchResults] = useState<Message[] | null>(null);
+  const [searchLoading, setSearchLoading] = useState(false);
   const [isLocked, setIsLocked] = useState(false);
   const [isContentUnlocked, setIsContentUnlocked] = useState(() => !((useAuthStore.getState().user?.chatLockCode ?? '').trim().length > 0));
   const [lockEntry, setLockEntry] = useState('');
   const [lockError, setLockError] = useState('');
   const [isMobile, setIsMobile] = useState(false);
   const [uploading, setUploading] = useState(false);
+  const [uploadError, setUploadError] = useState('');
   // 타이핑 중인 사용자 목록 { userId, username }
   const [typingUsers, setTypingUsers] = useState<{ userId: number; username: string }[]>([]);
   // 온라인 사용자 ID 세트
@@ -146,9 +157,22 @@ export function ChatWindow({ roomId }: Props) {
     };
   }, [roomId, accessToken, addMessage, markRead]);
 
+  // 새 메시지가 오면 맨 아래로 (단, 이미 거의 아래에 있을 때만 → 위 스크롤 중에는 유지)
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
   useEffect(() => {
-    bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
+    const el = scrollContainerRef.current;
+    if (!el) return;
+    const distFromBottom = el.scrollHeight - el.scrollTop - el.clientHeight;
+    // 200px 이내에 있으면 부드럽게, 처음 로드(0이면)면 즉시
+    if (distFromBottom < 200) {
+      bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
+    }
   }, [messages]);
+
+  // 말풍선/메모장 전환 시 맨 아래로 즉시 이동
+  useEffect(() => {
+    bottomRef.current?.scrollIntoView({ behavior: 'auto' });
+  }, [settings.viewMode]);
 
   useEffect(() => {
     const media = window.matchMedia('(max-width: 900px)');
@@ -281,6 +305,40 @@ export function ChatWindow({ roomId }: Props) {
     setLockError('');
   }
 
+  async function handleLeave() {
+    setLeaveLoading(true);
+    try {
+      await api.delete(`/rooms/${roomId}/leave`);
+      removeRoom(roomId);
+      onLeave?.();
+    } catch {
+      // 실패 시 모달만 닫기
+    } finally {
+      setLeaveLoading(false);
+      setShowLeaveConfirm(false);
+    }
+  }
+
+  async function handleSearch() {
+    if (!searchKeyword.trim() && !searchDate) return;
+    setSearchLoading(true);
+    try {
+      const params = new URLSearchParams();
+      if (searchKeyword.trim()) params.set('keyword', searchKeyword.trim());
+      if (searchDate) params.set('date', searchDate);
+      const res = await api.get<{ data: { messages: Message[] } }>(
+        `/messages/${roomId}/search?${params.toString()}`
+      );
+      setSearchResults(res.data.data.messages);
+    } finally {
+      setSearchLoading(false);
+    }
+  }
+
+  function handleSearchKeyDown(e: React.KeyboardEvent<HTMLInputElement>) {
+    if (e.key === 'Enter') handleSearch();
+  }
+
   function sendMessage(e?: React.FormEvent) {
     e?.preventDefault();
     const content = input.trim();
@@ -321,6 +379,7 @@ export function ChatWindow({ roomId }: Props) {
     if (!file || !accessToken) return;
     e.target.value = '';
     setUploading(true);
+    setUploadError('');
     try {
       const formData = new FormData();
       formData.append('file', file);
@@ -329,11 +388,23 @@ export function ChatWindow({ roomId }: Props) {
         headers: { Authorization: `Bearer ${accessToken}` },
         body: formData,
       });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({})) as { error?: string };
+        setUploadError(err.error ?? `업로드 실패 (${res.status})`);
+        setTimeout(() => setUploadError(''), 4000);
+        return;
+      }
       const json = await res.json() as { success: boolean; data?: { url: string } };
       if (json.success && json.data?.url) {
         const socket = getSocket(accessToken);
         socket.emit('message:send', { roomId, content: '', fileUrl: json.data.url });
+      } else {
+        setUploadError('업로드에 실패했습니다.');
+        setTimeout(() => setUploadError(''), 4000);
       }
+    } catch {
+      setUploadError('네트워크 오류로 업로드 실패');
+      setTimeout(() => setUploadError(''), 4000);
     } finally {
       setUploading(false);
     }
@@ -414,6 +485,32 @@ export function ChatWindow({ roomId }: Props) {
           );
         })()}
         <div className="flex-1" />
+        {/* 검색 버튼 */}
+        <button
+          type="button"
+          onClick={() => { setSearchOpen((v) => !v); setSearchResults(null); setSearchKeyword(''); setSearchDate(''); }}
+          className="rounded-md p-1.5 transition-colors"
+          style={{ background: searchOpen ? '#3a3f4a' : 'transparent', color: 'var(--text-muted)' }}
+          title="채팅 검색"
+        >
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+            <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
+          </svg>
+        </button>
+        {/* 나가기 버튼 */}
+        <button
+          type="button"
+          onClick={() => setShowLeaveConfirm(true)}
+          className="rounded-md p-1.5 transition-colors"
+          style={{ background: 'transparent', color: '#ed4245' }}
+          title="채팅방 나가기"
+        >
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+            <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/>
+            <polyline points="16 17 21 12 16 7"/>
+            <line x1="21" y1="12" x2="9" y2="12"/>
+          </svg>
+        </button>
         {!isMobile && (
           <>
             <button
@@ -578,25 +675,111 @@ export function ChatWindow({ roomId }: Props) {
         </div>
       )}
 
-      {/* 타이핑 인디케이터 */}
-      {typingUsers.length > 0 && (
-        <div className="px-4 py-1 text-xs" style={{ color: 'var(--text-muted)' }}>
-          {typingUsers.map((u) => u.username).join(', ')}님이 입력 중
-          <span className="inline-flex gap-0.5 ml-1 align-middle">
-            {[0, 1, 2].map((i) => (
-              <span key={i} style={{
-                width: 4, height: 4, borderRadius: '50%', background: 'var(--text-muted)',
-                display: 'inline-block',
-                animation: `bounce 1.2s ease-in-out ${i * 0.2}s infinite`,
-              }} />
-            ))}
-          </span>
+      {/* 검색 패널 */}
+      {searchOpen && (
+        <div className="flex-shrink-0 border-b" style={{ background: '#1f2126', borderColor: '#3a3f4a' }}>
+          <div className="flex gap-2 items-center px-3 py-2">
+            <input
+              type="text"
+              value={searchKeyword}
+              onChange={(e) => setSearchKeyword(e.target.value)}
+              onKeyDown={handleSearchKeyDown}
+              placeholder="단어로 찾기"
+              className="flex-1 rounded-md px-2 py-1.5 text-xs outline-none"
+              style={{ background: '#2b2d31', color: 'var(--text-primary)', border: '1px solid #3a3f4a' }}
+            />
+            <input
+              type="date"
+              value={searchDate}
+              onChange={(e) => setSearchDate(e.target.value)}
+              className="rounded-md px-2 py-1.5 text-xs outline-none"
+              style={{ background: '#2b2d31', color: 'var(--text-primary)', border: '1px solid #3a3f4a', colorScheme: 'dark' }}
+            />
+            <button
+              type="button"
+              onClick={handleSearch}
+              disabled={searchLoading || (!searchKeyword.trim() && !searchDate)}
+              className="rounded-md px-3 py-1.5 text-xs font-bold disabled:opacity-40"
+              style={{ background: 'var(--accent)', color: '#fff' }}
+            >
+              {searchLoading ? '...' : '검색'}
+            </button>
+            <button type="button" onClick={() => { setSearchOpen(false); setSearchResults(null); }}
+              className="text-xs" style={{ color: 'var(--text-muted)' }}>✕</button>
+          </div>
+          {searchResults !== null && (
+            <div className="max-h-64 overflow-y-auto px-3 pb-2 space-y-1">
+              {searchResults.length === 0 ? (
+                <p className="py-4 text-center text-xs" style={{ color: 'var(--text-muted)' }}>결과 없음</p>
+              ) : searchResults.map((msg) => {
+                const isMine = msg.senderId === user?.id;
+                const name = msg.sender?.username ?? (isMine ? '나' : `사용자${msg.senderId}`);
+                const time = new Date(msg.createdAt).toLocaleString('ko-KR', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+                return (
+                  <div key={msg.id} className="rounded-lg px-3 py-2" style={{ background: '#2b2d31' }}>
+                    <div className="flex items-center gap-2 mb-0.5">
+                      <span className="text-xs font-semibold" style={{ color: isMine ? '#5865f2' : 'var(--text-primary)' }}>{name}</span>
+                      <span className="text-xs" style={{ color: 'var(--text-muted)' }}>{time}</span>
+                    </div>
+                    {msg.fileUrl
+                      ? <span className="text-xs" style={{ color: 'var(--text-muted)' }}>[이미지]</span>
+                      : <p className="text-xs whitespace-pre-wrap break-words" style={{ color: 'var(--text-primary)' }}>
+                          {searchKeyword.trim()
+                            ? msg.content.split(new RegExp(`(${searchKeyword.trim()})`, 'gi')).map((part, i) =>
+                                part.toLowerCase() === searchKeyword.trim().toLowerCase()
+                                  ? <mark key={i} style={{ background: '#fde047', color: '#111', borderRadius: 2 }}>{part}</mark>
+                                  : part
+                              )
+                            : msg.content
+                          }
+                        </p>
+                    }
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* 나가기 확인 모달 */}
+      {showLeaveConfirm && (
+        <div className="absolute inset-0 z-40 flex items-center justify-center px-6" style={{ background: 'rgba(10,12,16,0.7)' }}>
+          <div className="w-full max-w-xs rounded-2xl border p-5 shadow-2xl" style={{ background: '#17191d', borderColor: '#3a3f4a' }}>
+            <p className="text-base font-bold mb-2" style={{ color: 'var(--text-primary)' }}>채팅방 나가기</p>
+            <p className="text-sm mb-5" style={{ color: 'var(--text-muted)' }}>나가면 채팅 목록에서 삭제됩니다.<br/>대화 내용은 유지됩니다.</p>
+            <div className="flex gap-2">
+              <button type="button" onClick={() => setShowLeaveConfirm(false)}
+                className="flex-1 rounded-lg py-2.5 text-sm font-medium"
+                style={{ background: '#3a3f4a', color: 'var(--text-muted)' }}>취소</button>
+              <button type="button" onClick={handleLeave} disabled={leaveLoading}
+                className="flex-1 rounded-lg py-2.5 text-sm font-bold disabled:opacity-50"
+                style={{ background: '#ed4245', color: '#fff' }}>
+                {leaveLoading ? '나가는 중...' : '나가기'}
+              </button>
+            </div>
+          </div>
         </div>
       )}
 
       {/* 메시지 목록 */}
-      <div className="flex-1 overflow-y-auto px-4 py-4">
+      <div ref={scrollContainerRef} className="flex-1 overflow-y-auto px-4 py-4" style={{ position: 'relative' }}>
         {isContentUnlocked && renderMessages()}
+        {/* 타이핑 인디케이터 — 스크롤 레이아웃에 영향 안 주도록 sticky 배치 */}
+        {typingUsers.length > 0 && (
+          <div className="sticky bottom-0 left-0 pb-1 text-xs" style={{ color: 'var(--text-muted)', pointerEvents: 'none' }}>
+            {typingUsers.map((u) => u.username).join(', ')}님이 입력 중
+            <span className="inline-flex gap-0.5 ml-1 align-middle">
+              {[0, 1, 2].map((i) => (
+                <span key={i} style={{
+                  width: 4, height: 4, borderRadius: '50%', background: 'var(--text-muted)',
+                  display: 'inline-block',
+                  animation: `bounce 1.2s ease-in-out ${i * 0.2}s infinite`,
+                }} />
+              ))}
+            </span>
+          </div>
+        )}
         <div ref={bottomRef} />
       </div>
 
@@ -667,6 +850,11 @@ export function ChatWindow({ roomId }: Props) {
       {/* 입력창 */}
       <div className={`px-4 pb-5 flex-shrink-0 ${(isLocked || !isContentUnlocked) ? 'pointer-events-none opacity-40' : ''}`}
         style={{ borderTop: '2px solid #1e1f22' }}>
+        {uploadError && (
+          <div className="mt-2 mb-1 px-3 py-1.5 rounded-lg text-xs font-medium" style={{ background: '#ed424522', color: '#ed4245', border: '1px solid #ed424544' }}>
+            ⚠ {uploadError}
+          </div>
+        )}
         <input ref={fileInputRef} type="file" accept="image/*" className="hidden" onChange={handleFileChange} />
         <form onSubmit={sendMessage} className="flex items-end gap-2 rounded-xl px-4 py-3" style={{ background: 'var(--input-bg)', padding: isMobile ? '10px 12px' : undefined }}>
           {/* 이미지 체널 버튼 */}

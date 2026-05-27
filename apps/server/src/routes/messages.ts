@@ -86,4 +86,45 @@ export async function messageRoutes(app: FastifyInstance) {
       data: { messages: messages.reverse(), nextCursor },
     });
   });
+
+  // ── 메시지 검색 ──────────────────────────────────────────────
+  app.get('/:roomId/search', async (req, reply) => {
+    const userId = (req.user as { sub: number }).sub;
+    const { roomId } = req.params as { roomId: string };
+    const { keyword, date } = req.query as { keyword?: string; date?: string };
+
+    const member = await prisma.roomMember.findUnique({
+      where: { userId_roomId: { userId, roomId: Number(roomId) } },
+    });
+    if (!member) {
+      return reply.status(403).send({ success: false, error: '접근 권한이 없습니다.' });
+    }
+
+    // 날짜 필터: date = 'YYYY-MM-DD'
+    let dateFilter: { gte?: Date; lt?: Date } | undefined;
+    if (date) {
+      const d = new Date(date);
+      if (!isNaN(d.getTime())) {
+        const next = new Date(d);
+        next.setDate(next.getDate() + 1);
+        dateFilter = { gte: d, lt: next };
+      }
+    }
+
+    const messages = await prisma.message.findMany({
+      where: {
+        roomId: Number(roomId),
+        ...(keyword?.trim() ? { content: { contains: keyword.trim() } } : {}),
+        ...(dateFilter ? { createdAt: dateFilter } : {}),
+      },
+      include: {
+        sender: { select: { id: true, username: true, avatarUrl: true } },
+        reads: { select: { userId: true, readAt: true } },
+      },
+      orderBy: { id: 'asc' },
+      take: 100,
+    });
+
+    return reply.send({ success: true, data: { messages } });
+  });
 }

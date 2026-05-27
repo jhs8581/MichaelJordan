@@ -78,4 +78,23 @@ export async function roomRoutes(app: FastifyInstance) {
 
     return reply.send({ success: true, data: room });
   });
+
+  // ── 채팅방 나가기 ──────────────────────────────────────────────
+  app.delete('/:roomId/leave', async (req, reply) => {
+    const userId = (req.user as { sub: number }).sub;
+    const { roomId } = req.params as { roomId: string };
+
+    const member = await prisma.roomMember.findUnique({
+      where: { userId_roomId: { userId, roomId: Number(roomId) } },
+    });
+    if (!member) {
+      return reply.status(404).send({ success: false, error: '채팅방 멤버가 아닙니다.' });
+    }
+
+    await prisma.roomMember.delete({
+      where: { userId_roomId: { userId, roomId: Number(roomId) } },
+    });
+
+    return reply.send({ success: true });
+  });
 }
