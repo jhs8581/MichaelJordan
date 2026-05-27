@@ -58,6 +58,7 @@ export interface ServerToClientEvents {
   'message:read': (payload: { roomId: number; userId: number; lastReadMessageId: number }) => void;
   'user:status': (payload: { userId: number; isOnline: boolean }) => void;
   'room:joined': (room: Room) => void;
+  'typing:update': (payload: { roomId: number; userId: number; username: string; isTyping: boolean }) => void;
 }
 
 export interface ClientToServerEvents {
@@ -65,6 +66,8 @@ export interface ClientToServerEvents {
   'message:read': (payload: { roomId: number; messageId: number }) => void;
   'room:join': (roomId: number) => void;
   'room:leave': (roomId: number) => void;
+  'typing:start': (payload: { roomId: number }) => void;
+  'typing:stop': (payload: { roomId: number }) => void;
 }
 
 // ──────────────────────────────────────────────

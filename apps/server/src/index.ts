@@ -2,6 +2,7 @@ import Fastify from 'fastify';
 import cors from '@fastify/cors';
 import jwt from '@fastify/jwt';
 import rateLimit from '@fastify/rate-limit';
+import multipart from '@fastify/multipart';
 import { Server } from 'socket.io';
 import type { ServerToClientEvents, ClientToServerEvents } from '@chat/types';
 
@@ -50,6 +51,10 @@ async function main() {
   await app.register(rateLimit, {
     max: 100,
     timeWindow: '1 minute',
+  });
+
+  await app.register(multipart, {
+    limits: { fileSize: 10 * 1024 * 1024 }, // 10MB
   });
 
   // ── Routes ─────────────────────────────────────────────────────

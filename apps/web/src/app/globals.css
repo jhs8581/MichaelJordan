@@ -28,6 +28,12 @@ body {
 /* 스크롤바 */
 ::-webkit-scrollbar { width: 6px; }
 ::-webkit-scrollbar-track { background: transparent; }
+
+/* 타이핑 인디케이터 애니메이션 */
+@keyframes bounce {
+  0%, 60%, 100% { transform: translateY(0); }
+  30% { transform: translateY(-4px); }
+}
 ::-webkit-scrollbar-thumb { background: #1e1f22; border-radius: 3px; }
 ::-webkit-scrollbar-thumb:hover { background: #111214; }
 

@@ -52,6 +52,37 @@ export function registerSocketHandlers(io: ChatServer) {
       socket.leave(`room:${roomId}`);
     });
 
+    // ── 타이핑 표시 ─────────────────────────────────────────────
+    const typingTimers = new Map<number, ReturnType<typeof setTimeout>>();
+
+    async function broadcastTyping(roomId: number, isTyping: boolean) {
+      const member = await prisma.roomMember.findUnique({
+        where: { userId_roomId: { userId, roomId } },
+      });
+      if (!member) return;
+      const userInfo = await prisma.user.findUnique({ where: { id: userId }, select: { username: true } });
+      socket.to(`room:${roomId}`).emit('typing:update', {
+        roomId, userId, username: userInfo?.username ?? '', isTyping,
+      });
+    }
+
+    socket.on('typing:start', ({ roomId }) => {
+      // 기존 타이머 초기화 후 3초 후 자동 종료
+      const existing = typingTimers.get(roomId);
+      if (existing) clearTimeout(existing);
+      broadcastTyping(roomId, true);
+      typingTimers.set(roomId, setTimeout(() => {
+        broadcastTyping(roomId, false);
+        typingTimers.delete(roomId);
+      }, 3000));
+    });
+
+    socket.on('typing:stop', ({ roomId }) => {
+      const existing = typingTimers.get(roomId);
+      if (existing) { clearTimeout(existing); typingTimers.delete(roomId); }
+      broadcastTyping(roomId, false);
+    });
+
     // ── 메시지 전송 ─────────────────────────────────────────────
     socket.on('message:send', async ({ roomId, content, fileUrl }) => {
       // 멤버 권한 검증
@@ -63,7 +94,8 @@ export function registerSocketHandlers(io: ChatServer) {
       // XSS 방지: 클라이언트 렌더링 시 dangerouslySetInnerHTML 사용 금지
       // 메시지는 텍스트로만 저장하고 렌더링은 이스케이프된 텍스트로 처리
       const sanitizedContent = content.trim();
-      if (!sanitizedContent) return;
+      // 이미지 전용 메시지는 빈 content 허용
+      if (!sanitizedContent && !fileUrl) return;
 
       const message = await prisma.message.create({
         data: { roomId, senderId: userId, content: sanitizedContent, fileUrl },

@@ -179,6 +179,23 @@ export default function ChatPage() {
     if (!accessToken) router.replace('/login');
   }, [accessToken, router]);
 
+  // 브라우저 뒤로가기 인터셉트: 채팅창 → 목록 → 게시판 순으로 단계 이동
+  useEffect(() => {
+    function handlePopState() {
+      if (selectedRoom) {
+        setSelectedRoom(null);
+        history.pushState(null, '', window.location.href);
+      } else if (showChatList) {
+        setShowChatList(false);
+        history.pushState(null, '', window.location.href);
+      }
+    }
+    // 현재 상태를 히스토리에 추가해서 뒤로가기를 가로챌 수 있게 함
+    history.pushState(null, '', window.location.href);
+    window.addEventListener('popstate', handlePopState);
+    return () => window.removeEventListener('popstate', handlePopState);
+  }, [selectedRoom, showChatList]);
+
   useEffect(() => {
     if (accessToken) {
       api.get<{ data: Room[] }>('/rooms').then((res) => setRooms(res.data.data));

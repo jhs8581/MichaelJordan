@@ -64,11 +64,18 @@ export function ChatWindow({ roomId }: Props) {
   const [input, setInput] = useState('');
   const [settings, setSettings] = useState<ChatViewSettings>(DEFAULT_SETTINGS);
   const [settingsOpen, setSettingsOpen] = useState(false);
-  const [isLocked, setIsLocked] = useState(false); // 잠금 오버레이 표시 여부
-  const [isContentUnlocked, setIsContentUnlocked] = useState(() => !((useAuthStore.getState().user?.chatLockCode ?? '').trim().length > 0)); // 메시지 표시 여부
+  const [isLocked, setIsLocked] = useState(false);
+  const [isContentUnlocked, setIsContentUnlocked] = useState(() => !((useAuthStore.getState().user?.chatLockCode ?? '').trim().length > 0));
   const [lockEntry, setLockEntry] = useState('');
   const [lockError, setLockError] = useState('');
   const [isMobile, setIsMobile] = useState(false);
+  const [uploading, setUploading] = useState(false);
+  // 타이핑 중인 사용자 목록 { userId, username }
+  const [typingUsers, setTypingUsers] = useState<{ userId: number; username: string }[]>([]);
+  // 온라인 사용자 ID 세트
+  const [onlineUserIds, setOnlineUserIds] = useState<Set<number>>(new Set());
+  const typingTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const longPressTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -116,9 +123,26 @@ export function ChatWindow({ roomId }: Props) {
     socket.on('message:read', ({ roomId: rId, userId, lastReadMessageId }) => {
       markRead(rId, userId, lastReadMessageId);
     });
+    socket.on('typing:update', ({ roomId: rId, userId: uid, username, isTyping }) => {
+      if (rId !== roomId || uid === user?.id) return;
+      setTypingUsers((prev) =>
+        isTyping
+          ? prev.some((u) => u.userId === uid) ? prev : [...prev, { userId: uid, username }]
+          : prev.filter((u) => u.userId !== uid)
+      );
+    });
+    socket.on('user:status', ({ userId: uid, isOnline }) => {
+      setOnlineUserIds((prev) => {
+        const next = new Set(prev);
+        if (isOnline) next.add(uid); else next.delete(uid);
+        return next;
+      });
+    });
     return () => {
       socket.off('message:new');
       socket.off('message:read');
+      socket.off('typing:update');
+      socket.off('user:status');
     };
   }, [roomId, accessToken, addMessage, markRead]);
 
@@ -262,6 +286,9 @@ export function ChatWindow({ roomId }: Props) {
     const content = input.trim();
     if (!content || !accessToken) return;
     const socket = getSocket(accessToken);
+    // 보낼 때 타이핑 중지
+    socket.emit('typing:stop', { roomId });
+    if (typingTimer.current) { clearTimeout(typingTimer.current); typingTimer.current = null; }
     socket.emit('message:send', { roomId, content });
     setInput('');
     if (textareaRef.current) textareaRef.current.style.height = 'auto';
@@ -278,6 +305,38 @@ export function ChatWindow({ roomId }: Props) {
     setInput(e.target.value);
     e.target.style.height = 'auto';
     e.target.style.height = Math.min(e.target.scrollHeight, 160) + 'px';
+    // 타이핑 이벤트
+    if (!accessToken) return;
+    const socket = getSocket(accessToken);
+    socket.emit('typing:start', { roomId });
+    if (typingTimer.current) clearTimeout(typingTimer.current);
+    typingTimer.current = setTimeout(() => {
+      socket.emit('typing:stop', { roomId });
+      typingTimer.current = null;
+    }, 2500);
+  }
+
+  async function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file || !accessToken) return;
+    e.target.value = '';
+    setUploading(true);
+    try {
+      const formData = new FormData();
+      formData.append('file', file);
+      const res = await fetch(`${(process.env.NEXT_PUBLIC_API_URL ?? '')}/api/messages/upload`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${accessToken}` },
+        body: formData,
+      });
+      const json = await res.json() as { success: boolean; data?: { url: string } };
+      if (json.success && json.data?.url) {
+        const socket = getSocket(accessToken);
+        socket.emit('message:send', { roomId, content: '', fileUrl: json.data.url });
+      }
+    } finally {
+      setUploading(false);
+    }
   }
 
   // 날짜 구분선 렌더링
@@ -343,6 +402,17 @@ export function ChatWindow({ roomId }: Props) {
         <span className="font-semibold text-sm" style={{ color: 'var(--text-primary)' }}>
           {activeRoom?.name ?? ''}
         </span>
+        {/* 온라인 상태 (담화망 DM 방) */}
+        {activeRoom && !activeRoom.isGroup && (() => {
+          const otherMember = activeRoom.members.find((m) => m.userId !== user?.id);
+          const isOnline = otherMember ? onlineUserIds.has(otherMember.userId) : false;
+          return (
+            <span className="flex items-center gap-1 text-xs" style={{ color: isOnline ? '#57f287' : 'var(--text-muted)' }}>
+              <span style={{ width: 7, height: 7, borderRadius: '50%', background: isOnline ? '#57f287' : '#72767d', display: 'inline-block', flexShrink: 0 }} />
+              {isOnline ? '온라인' : '오프라인'}
+            </span>
+          );
+        })()}
         <div className="flex-1" />
         {!isMobile && (
           <>
@@ -508,6 +578,22 @@ export function ChatWindow({ roomId }: Props) {
         </div>
       )}
 
+      {/* 타이핑 인디케이터 */}
+      {typingUsers.length > 0 && (
+        <div className="px-4 py-1 text-xs" style={{ color: 'var(--text-muted)' }}>
+          {typingUsers.map((u) => u.username).join(', ')}님이 입력 중
+          <span className="inline-flex gap-0.5 ml-1 align-middle">
+            {[0, 1, 2].map((i) => (
+              <span key={i} style={{
+                width: 4, height: 4, borderRadius: '50%', background: 'var(--text-muted)',
+                display: 'inline-block',
+                animation: `bounce 1.2s ease-in-out ${i * 0.2}s infinite`,
+              }} />
+            ))}
+          </span>
+        </div>
+      )}
+
       {/* 메시지 목록 */}
       <div className="flex-1 overflow-y-auto px-4 py-4">
         {isContentUnlocked && renderMessages()}
@@ -581,7 +667,22 @@ export function ChatWindow({ roomId }: Props) {
       {/* 입력창 */}
       <div className={`px-4 pb-5 flex-shrink-0 ${(isLocked || !isContentUnlocked) ? 'pointer-events-none opacity-40' : ''}`}
         style={{ borderTop: '2px solid #1e1f22' }}>
+        <input ref={fileInputRef} type="file" accept="image/*" className="hidden" onChange={handleFileChange} />
         <form onSubmit={sendMessage} className="flex items-end gap-2 rounded-xl px-4 py-3" style={{ background: 'var(--input-bg)', padding: isMobile ? '10px 12px' : undefined }}>
+          {/* 이미지 체널 버튼 */}
+          <button
+            type="button"
+            disabled={uploading}
+            onClick={() => fileInputRef.current?.click()}
+            className="flex-shrink-0 rounded-lg p-1.5 transition-all"
+            style={{ color: uploading ? '#57f287' : 'var(--text-muted)', background: 'transparent' }}
+            title="사진 첨부"
+          >
+            {uploading
+              ? <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"/></svg>
+              : <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
+            }
+          </button>
           <textarea
             ref={textareaRef}
             rows={1}

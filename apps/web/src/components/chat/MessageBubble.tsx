@@ -63,9 +63,32 @@ export function MessageBubble({ message, isMine, isConsecutive, timeFormat }: Pr
               borderRadius: isMine
                 ? (isConsecutive ? '18px 4px 18px 18px' : '18px 4px 18px 18px')
                 : (isConsecutive ? '4px 18px 18px 18px' : '4px 18px 18px 18px'),
+              padding: message.fileUrl ? '4px' : undefined,
             }}
           >
-            {message.content}
+            {message.fileUrl ? (
+              <div style={{ position: 'relative' }}>
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src={message.fileUrl}
+                  alt="이미지"
+                  style={{ maxWidth: 220, maxHeight: 260, borderRadius: 14, display: 'block', objectFit: 'cover' }}
+                />
+                <a
+                  href={message.fileUrl}
+                  download
+                  onClick={(e) => e.stopPropagation()}
+                  style={{
+                    position: 'absolute', bottom: 6, right: 6,
+                    background: 'rgba(0,0,0,0.55)', borderRadius: 8, padding: '3px 6px',
+                    color: '#fff', fontSize: 11, textDecoration: 'none', lineHeight: 1,
+                  }}
+                  title="다운로드"
+                >
+                  ↓
+                </a>
+              </div>
+            ) : message.content}
           </div>
 
           {/* 읽음/시간 (상대 메시지 오른쪽) */}
