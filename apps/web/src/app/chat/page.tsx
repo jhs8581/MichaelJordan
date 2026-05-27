@@ -196,7 +196,7 @@ export default function ChatPage() {
     { category: '자유게시판', title: '정말 좋으네요', count: 11 },
     { category: '소니포럼', title: '지금 온라인샵에서a7m5 구입하면 정품등록이벤트 있나요?', count: 3 },
     { category: '자유게시판', title: '한국 핵잠수함 기본설계, 올해 마무리', count: 21 },
-    { category: '정치게시판', title: '조국.ㅋㅋㅋㅋㅋ 잘 가라.', count: 14 },
+    { category: '정치게시판', title: '이번 지방선거 투표율 예상이 어떻게 될까요?', count: 14 },
     { category: '자유게시판', title: '주식으로 돈 벌면 부모님 용돈 드릴려구요', count: 8 },
   ];
   const BEST_POSTS = [
@@ -204,7 +204,7 @@ export default function ChatPage() {
     { category: '자유게시판', title: '민폐 스토커 피고소충들 정신 못차리네', count: 35 },
     { category: '자유게시판', title: '내일 삼닉 예상', count: 39 },
     { category: '자유게시판', title: '대구 여론조사 놀랍네요.;; (유)', count: 45 },
-    { category: '자유게시판', title: '좌파 없는 나라 살고파', count: 40 },
+    { category: '자유게시판', title: '요즘 주변에 카메라 입문하는 사람 많아졌네요', count: 40 },
   ];
   const LATEST_POSTS = [
     { category: '정치게시판', title: 'X의글, 감옥 아방궁' },
