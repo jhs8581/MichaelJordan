@@ -160,6 +160,20 @@ export default function ChatPage() {
   const [selectedRoom, setSelectedRoom] = useState<Room | null>(null);
   const [showChatList, setShowChatList] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
+  const galleryClickCount = useRef(0);
+  const galleryClickTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  function handleGalleryClick() {
+    galleryClickCount.current += 1;
+    if (galleryClickTimer.current) clearTimeout(galleryClickTimer.current);
+    galleryClickTimer.current = setTimeout(() => { galleryClickCount.current = 0; }, 350);
+    if (galleryClickCount.current >= 2) {
+      galleryClickCount.current = 0;
+      if (galleryClickTimer.current) clearTimeout(galleryClickTimer.current);
+      setSelectedRoom(null);
+      setShowChatList(true);
+    }
+  }
 
   useEffect(() => {
     if (!accessToken) router.replace('/login');
@@ -243,20 +257,24 @@ export default function ChatPage() {
       }}>
         <div style={{ display: 'flex' }}>
           {([
-            { icon: <IconCommunity />, label: '커뮤니티' },
-            { icon: <IconForum />,     label: '포럼' },
-            { icon: <IconGallery />,   label: '갤러리', dbl: true },
-            { icon: <IconInfo />,      label: '인포메이션' },
-            { icon: <IconCart />,      label: '마켓' },
-          ] as { icon: React.ReactNode; label: string; dbl?: boolean }[]).map(({ icon, label, dbl }) => (
+            { icon: <IconCommunity />, label: '커뮤니티', home: true },
+            { icon: <IconForum />,     label: '포럼', home: true },
+            { icon: <IconGallery />,   label: '갤러리', gallery: true },
+            { icon: <IconInfo />,      label: '인포메이션', home: true },
+            { icon: <IconCart />,      label: '마켓', home: true },
+          ] as { icon: React.ReactNode; label: string; home?: boolean; gallery?: boolean }[]).map(({ icon, label, home, gallery }) => (
             <button key={label}
-              onDoubleClick={dbl ? () => { setSelectedRoom(null); setShowChatList(true); } : undefined}
+              onClick={
+                gallery ? handleGalleryClick
+                : home ? () => { setSelectedRoom(null); setShowChatList(false); }
+                : undefined
+              }
               style={{
                 flex: 1, display: 'flex', flexDirection: 'column',
                 alignItems: 'center', justifyContent: 'center',
                 padding: '10px 0 8px', background: 'none', border: 'none',
-                cursor: dbl ? 'pointer' : 'default', fontSize: 10.5,
-                color: (showChatList && dbl) ? '#1a76c8' : '#444', gap: 4,
+                cursor: 'pointer', fontSize: 10.5,
+                color: (showChatList && gallery) ? '#1a76c8' : '#444', gap: 4,
               }}>
               {icon}
               <span>{label}</span>

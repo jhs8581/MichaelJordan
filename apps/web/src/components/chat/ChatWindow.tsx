@@ -579,7 +579,8 @@ export function ChatWindow({ roomId }: Props) {
       )}
 
       {/* 입력창 */}
-      <div className={`px-4 pb-5 flex-shrink-0 ${(isLocked || !isContentUnlocked) ? 'pointer-events-none opacity-40' : ''}`}>
+      <div className={`px-4 pb-5 flex-shrink-0 ${(isLocked || !isContentUnlocked) ? 'pointer-events-none opacity-40' : ''}`}
+        style={{ borderTop: '2px solid #1e1f22' }}>
         <form onSubmit={sendMessage} className="flex items-end gap-2 rounded-xl px-4 py-3" style={{ background: 'var(--input-bg)', padding: isMobile ? '10px 12px' : undefined }}>
           <textarea
             ref={textareaRef}
