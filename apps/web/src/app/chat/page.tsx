@@ -189,6 +189,9 @@ export default function ChatPage() {
       } else if (showChatList) {
         setShowChatList(false);
         history.pushState(null, '', window.location.href);
+      } else {
+        // 베이스 상태에서도 뒤로가기 차단 (로그인 페이지로 이동 방지)
+        history.pushState(null, '', window.location.href);
       }
     }
     // 현재 상태를 히스토리에 추가해서 뒤로가기를 가로챌 수 있게 함

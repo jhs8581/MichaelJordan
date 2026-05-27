@@ -14,30 +14,31 @@ const EXT_MIME: Record<string, string> = {
 
 export async function messageRoutes(app: FastifyInstance) {
   // ── 정적 이미지 서빙 (인증 불필요) ─────────────────────────────
-  // NOTE: 별도 register 스코프로 분리해야 Fastify의 addHook이 이 라우트에 적용되지 않음
-  await app.register(async (publicApp) => {
-    publicApp.get('/file/:filename', async (req, reply) => {
-      const { filename } = req.params as { filename: string };
-      // 경로 순회 방지
-      if (!/^[a-zA-Z0-9_\-]+\.[a-zA-Z]{2,5}$/.test(filename)) {
-        return reply.status(400).send({ error: 'Invalid filename' });
-      }
-      const filePath = path.join(process.cwd(), 'uploads', filename);
-      try {
-        const ext = path.extname(filename).toLowerCase();
-        reply.type(EXT_MIME[ext] ?? 'application/octet-stream');
-        return reply.send(fs.createReadStream(filePath));
-      } catch {
-        return reply.status(404).send({ error: 'File not found' });
-      }
-    });
+  // app 스코프 직접 등록: addHook은 아래 자식 스코프에만 있으므로 여기엔 인증 없음
+  app.get('/file/:filename', async (req, reply) => {
+    const { filename } = req.params as { filename: string };
+    // 경로 순회 방지
+    if (!/^[a-zA-Z0-9_\-]+\.[a-zA-Z]{2,5}$/.test(filename)) {
+      return reply.status(400).send({ error: 'Invalid filename' });
+    }
+    const filePath = path.join(process.cwd(), 'uploads', filename);
+    try {
+      const ext = path.extname(filename).toLowerCase();
+      reply.type(EXT_MIME[ext] ?? 'application/octet-stream');
+      return reply.send(fs.createReadStream(filePath));
+    } catch {
+      return reply.status(404).send({ error: 'File not found' });
+    }
   });
 
-  // ── 이하 모든 라우트는 인증 필요 ─────────────────────────────
-  app.addHook('preHandler', requireAuth);
+  // ── 이하 모든 인증 필요 라우트를 별도 자식 스코프에 격리 ─────
+  // 핵심: app (부모) 에 addHook 하면 /file 라우트에도 적용됨.
+  // 자식 스코프에서만 addHook 하면 해당 스코프 라우트에만 인증 적용.
+  await app.register(async (auth) => {
+    auth.addHook('preHandler', requireAuth);
 
   // ── 이미지 업로드 ─────────────────────────────────────────────
-  app.post('/upload', async (req, reply) => {
+  auth.post('/upload', async (req, reply) => {
     const userId = (req.user as { sub: number }).sub;
     const data = await req.file();
     if (!data) return reply.status(400).send({ success: false, error: 'No file' });
@@ -57,7 +58,7 @@ export async function messageRoutes(app: FastifyInstance) {
   });
 
   // ── 메시지 목록 (무한 스크롤: cursor 기반) ─────────────────────
-  app.get('/:roomId', async (req, reply) => {
+  auth.get('/:roomId', async (req, reply) => {
     const userId = (req.user as { sub: number }).sub;
     const { roomId } = req.params as { roomId: string };
     const { cursor } = req.query as { cursor?: string };
@@ -92,7 +93,7 @@ export async function messageRoutes(app: FastifyInstance) {
   });
 
   // ── 메시지 검색 ──────────────────────────────────────────────
-  app.get('/:roomId/search', async (req, reply) => {
+  auth.get('/:roomId/search', async (req, reply) => {
     const userId = (req.user as { sub: number }).sub;
     const { roomId } = req.params as { roomId: string };
     const { keyword, date } = req.query as { keyword?: string; date?: string };
@@ -131,4 +132,5 @@ export async function messageRoutes(app: FastifyInstance) {
 
     return reply.send({ success: true, data: { messages } });
   });
+  }); // ── end auth scope
 }
