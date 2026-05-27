@@ -82,6 +82,7 @@ export function ChatWindow({ roomId, onLeave, onImageView }: Props) {
   const [isMobile, setIsMobile] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [uploadError, setUploadError] = useState('');
+  const [isRefreshing, setIsRefreshing] = useState(false);
   // 타이핑 중인 사용자 목록 { userId, username }
   const [typingUsers, setTypingUsers] = useState<{ userId: number; username: string }[]>([]);
   // 온라인 사용자 ID 세트
@@ -388,14 +389,16 @@ export function ChatWindow({ roomId, onLeave, onImageView }: Props) {
     if (typingTimer.current) { clearTimeout(typingTimer.current); typingTimer.current = null; }
     socket.emit('message:send', { roomId, content });
     setInput('');
-    if (textareaRef.current) textareaRef.current.style.height = 'auto';
+    if (textareaRef.current) {
+      textareaRef.current.style.height = 'auto';
+      // 전송 후 포커스 유지 (모바일 키패드 닫힘 방지)
+      textareaRef.current.focus();
+    }
   }
 
-  function handleKeyDown(e: React.KeyboardEvent<HTMLTextAreaElement>) {
-    if (e.key === 'Enter' && !e.shiftKey) {
-      e.preventDefault();
-      sendMessage();
-    }
+  // Enter 키 = 줄바꿈 (전송은 버튼으로만)
+  function handleKeyDown(_e: React.KeyboardEvent<HTMLTextAreaElement>) {
+    // 기본 동작(줄바꿈) 유지 — 아무것도 하지 않음
   }
 
   function handleInput(e: React.ChangeEvent<HTMLTextAreaElement>) {
@@ -413,10 +416,8 @@ export function ChatWindow({ roomId, onLeave, onImageView }: Props) {
     }, 2500);
   }
 
-  async function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0];
-    if (!file || !accessToken) return;
-    e.target.value = '';
+  async function uploadFile(file: File) {
+    if (!accessToken) return;
     setUploading(true);
     setUploadError('');
     try {
@@ -446,6 +447,33 @@ export function ChatWindow({ roomId, onLeave, onImageView }: Props) {
       setTimeout(() => setUploadError(''), 4000);
     } finally {
       setUploading(false);
+    }
+  }
+
+  async function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    e.target.value = '';
+    await uploadFile(file);
+  }
+
+  async function handlePaste(e: React.ClipboardEvent<HTMLTextAreaElement>) {
+    const items = Array.from(e.clipboardData?.items ?? []);
+    const imageItem = items.find((item) => item.type.startsWith('image/'));
+    if (!imageItem) return;
+    e.preventDefault();
+    const file = imageItem.getAsFile();
+    if (!file) return;
+    await uploadFile(file);
+  }
+
+  async function handleRefresh() {
+    setIsRefreshing(true);
+    try {
+      const res = await api.get<{ data: { messages: Message[] } }>(`/messages/${roomId}`);
+      setMessages(roomId, res.data.data.messages);
+    } finally {
+      setIsRefreshing(false);
     }
   }
 
@@ -524,6 +552,21 @@ export function ChatWindow({ roomId, onLeave, onImageView }: Props) {
           );
         })()}
         <div className="flex-1" />
+        {/* 새로고침 버튼 */}
+        <button
+          type="button"
+          onClick={handleRefresh}
+          disabled={isRefreshing}
+          className="rounded-md p-1.5 transition-colors"
+          style={{ background: 'transparent', color: 'var(--text-muted)' }}
+          title="새로고침"
+        >
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"
+            className={isRefreshing ? 'animate-spin' : ''}>
+            <path d="M1 4v6h6"/><path d="M23 20v-6h-6"/>
+            <path d="M20.49 9A9 9 0 0 0 5.64 5.64L1 10m22 4l-4.64 4.36A9 9 0 0 1 3.51 15"/>
+          </svg>
+        </button>
         {/* 검색 버튼 */}
         <button
           type="button"
@@ -934,13 +977,16 @@ export function ChatWindow({ roomId, onLeave, onImageView }: Props) {
             value={input}
             onChange={handleInput}
             onKeyDown={handleKeyDown}
+            onPaste={handlePaste}
             placeholder=""
             className="chat-input flex-1 bg-transparent resize-none outline-none leading-relaxed"
             style={{ color: 'var(--text-primary)', maxHeight: '160px', fontSize: 16 }}
           />
           <button
-            type="submit"
+            type="button"
             disabled={!input.trim()}
+            onMouseDown={(e) => e.preventDefault()}
+            onClick={sendMessage}
             className="flex-shrink-0 rounded-lg p-2 transition-all disabled:opacity-30"
             style={{ background: input.trim() ? 'var(--accent)' : 'transparent', color: input.trim() ? '#fff' : 'var(--text-muted)' }}
           >
