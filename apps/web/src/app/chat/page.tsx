@@ -160,6 +160,7 @@ export default function ChatPage() {
   const [selectedRoom, setSelectedRoom] = useState<Room | null>(null);
   const [showChatList, setShowChatList] = useState(false);
   const [showCreateModal, setShowCreateModal] = useState(false);
+  const [viewingImage, setViewingImage] = useState<string | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
   const galleryClickCount = useRef(0);
   const galleryClickTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -183,7 +184,11 @@ export default function ChatPage() {
   // 브라우저 뒤로가기 인터셉트: 채팅창 → 목록 → 게시판 순으로 단계 이동
   useEffect(() => {
     function handlePopState() {
-      if (selectedRoom) {
+      if (viewingImage) {
+        // 이미지 라이트박스 닫기 (채팅방에서 사진 보는 중)
+        setViewingImage(null);
+        history.pushState(null, '', window.location.href);
+      } else if (selectedRoom) {
         setSelectedRoom(null);
         history.pushState(null, '', window.location.href);
       } else if (showChatList) {
@@ -198,7 +203,7 @@ export default function ChatPage() {
     history.pushState(null, '', window.location.href);
     window.addEventListener('popstate', handlePopState);
     return () => window.removeEventListener('popstate', handlePopState);
-  }, [selectedRoom, showChatList]);
+  }, [selectedRoom, showChatList, viewingImage]);
 
   useEffect(() => {
     if (accessToken) {
@@ -319,7 +324,11 @@ export default function ChatPage() {
               <span style={{ fontWeight: 700, fontSize: 14, color: '#111', flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{selectedRoom.name}</span>
             </div>
             <div style={{ flex: 1, overflow: 'hidden' }}>
-              <ChatWindow roomId={selectedRoom.id} onLeave={() => setSelectedRoom(null)} />
+              <ChatWindow
+                roomId={selectedRoom.id}
+                onLeave={() => setSelectedRoom(null)}
+                onImageView={(url) => { setViewingImage(url); history.pushState(null, '', window.location.href); }}
+              />
             </div>
           </div>
         ) : showChatList ? (
@@ -386,7 +395,47 @@ export default function ChatPage() {
               +
             </button>
 
-            {showCreateModal && (
+            {/* 이미지 라이트박스 오버레이 */}
+      {viewingImage && (
+        <div
+          onClick={() => setViewingImage(null)}
+          style={{
+            position: 'fixed', inset: 0, zIndex: 9999,
+            background: 'rgba(0,0,0,0.92)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+          }}
+        >
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src={viewingImage}
+            alt="이미지"
+            onClick={(e) => e.stopPropagation()}
+            style={{ maxWidth: '95vw', maxHeight: '90vh', borderRadius: 8, objectFit: 'contain' }}
+          />
+          <button
+            onClick={() => setViewingImage(null)}
+            style={{
+              position: 'absolute', top: 16, right: 16,
+              background: 'rgba(255,255,255,0.15)', border: 'none', borderRadius: '50%',
+              width: 36, height: 36, color: '#fff', fontSize: 20, cursor: 'pointer',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+            }}
+          >✕</button>
+          <a
+            href={viewingImage}
+            download
+            onClick={(e) => e.stopPropagation()}
+            style={{
+              position: 'absolute', bottom: 24, left: '50%', transform: 'translateX(-50%)',
+              background: 'rgba(255,255,255,0.15)', border: '1px solid rgba(255,255,255,0.3)',
+              borderRadius: 20, padding: '8px 20px',
+              color: '#fff', fontSize: 13, textDecoration: 'none',
+            }}
+          >⬇ 저장</a>
+        </div>
+      )}
+
+      {showCreateModal && (
               <CreateRoomModal
                 onClose={() => setShowCreateModal(false)}
                 onCreated={(room) => {

@@ -11,6 +11,7 @@ import { MessageBubble } from './MessageBubble';
 interface Props {
   roomId: number;
   onLeave?: () => void;
+  onImageView?: (url: string) => void;
 }
 
 type ChatViewMode = 'bubble' | 'memo';
@@ -49,7 +50,7 @@ function loadChatViewSettings(): ChatViewSettings {
   }
 }
 
-export function ChatWindow({ roomId, onLeave }: Props) {
+export function ChatWindow({ roomId, onLeave, onImageView }: Props) {
   const user = useAuthStore((s) => s.user);
   const accessToken = useAuthStore((s) => s.accessToken);
   const setUser = useAuthStore((s) => s.setUser);
@@ -464,7 +465,7 @@ export function ChatWindow({ roomId, onLeave }: Props) {
         );
       } else {
         items.push(
-          <MessageBubble key={msg.id} message={msg} isMine={isMine} isConsecutive={isConsecutive} timeFormat={settings.timeFormat} />
+          <MessageBubble key={msg.id} message={msg} isMine={isMine} isConsecutive={isConsecutive} timeFormat={settings.timeFormat} onImageClick={onImageView} />
         );
       }
       lastSenderId = msg.senderId;

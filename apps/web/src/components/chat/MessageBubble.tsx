@@ -4,10 +4,9 @@ interface Props {
   message: Message;
   isMine: boolean;
   isConsecutive: boolean; // 같은 사람이 연속으로 보낸 메시지
-  timeFormat: 'ampm' | '24h';
-}
+  timeFormat: 'ampm' | '24h';  onImageClick?: (url: string) => void;}
 
-export function MessageBubble({ message, isMine, isConsecutive, timeFormat }: Props) {
+export function MessageBubble({ message, isMine, isConsecutive, timeFormat, onImageClick }: Props) {
   const time = formatMessageTime(new Date(message.createdAt), timeFormat);
   // 보낸 사람 본인을 제외한 읽음 수 (본인 읽음은 항상 있어서 무조건 읽음으로 표시되는 버그 방지)
   const readCount = (message.reads ?? []).filter((r) => r.userId !== message.senderId).length;
@@ -72,7 +71,8 @@ export function MessageBubble({ message, isMine, isConsecutive, timeFormat }: Pr
                 <img
                   src={message.fileUrl}
                   alt="이미지"
-                  style={{ maxWidth: 220, maxHeight: 260, borderRadius: 14, display: 'block', objectFit: 'cover' }}
+                  onClick={() => onImageClick?.(message.fileUrl!)}
+                  style={{ maxWidth: 220, maxHeight: 260, borderRadius: 14, display: 'block', objectFit: 'cover', cursor: onImageClick ? 'zoom-in' : 'default' }}
                 />
                 <a
                   href={message.fileUrl}
