@@ -66,6 +66,8 @@ export interface ClientToServerEvents {
   'message:read': (payload: { roomId: number; messageId: number }) => void;
   'room:join': (roomId: number) => void;
   'room:leave': (roomId: number) => void;
+  'room:viewing': (roomId: number) => void;
+  'room:stop-viewing': (roomId: number) => void;
   'typing:start': (payload: { roomId: number }) => void;
   'typing:stop': (payload: { roomId: number }) => void;
 }

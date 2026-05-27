@@ -53,6 +53,14 @@ export function registerSocketHandlers(io: ChatServer) {
       socket.leave(`room:${roomId}`);
     });
 
+    // ── 채팅방 화면 보기 시작/종료 (푸시 제외 기준) ──────────────
+    socket.on('room:viewing', (roomId) => {
+      socket.join(`viewing:${roomId}`);
+    });
+    socket.on('room:stop-viewing', (roomId) => {
+      socket.leave(`viewing:${roomId}`);
+    });
+
     // ── 타이핑 표시 ─────────────────────────────────────────────
     const typingTimers = new Map<number, ReturnType<typeof setTimeout>>();
 
@@ -129,24 +137,30 @@ export function registerSocketHandlers(io: ChatServer) {
 
       io.to(`room:${roomId}`).emit('message:new', payload);
 
-      // 오프라인 멤버에게 푸시 알림
+      // 지금 이 채팅방을 화면에 띄워서 보고 있는 유저 (실시간으로 읽는 중)
+      const viewingSockets = await io.in(`viewing:${roomId}`).fetchSockets();
+      const viewingUserIds = new Set(
+        viewingSockets.map((s) => Number((s as unknown as { userId: number }).userId)),
+      );
+
+      // 방 멤버 중 발신자 제외 + 지금 이 방을 보고 있지 않은 사람에게 푸시
       const allMembers = await prisma.roomMember.findMany({
         where: { roomId },
         select: { userId: true },
       });
-      const onlineSockets = await io.in(`room:${roomId}`).fetchSockets();
-      const onlineUserIds = new Set(
-        onlineSockets.map((s) => Number((s as unknown as { userId: number }).userId)),
-      );
-      // 발신자 제외 + 오프라인 유저만 푸시 (Number 강제 변환으로 타입 불일치 방지)
-      const offlineUserIds = allMembers
+      const pushTargetIds = allMembers
         .map((m) => m.userId)
-        .filter((id) => id !== userId && !onlineUserIds.has(id));
+        .filter((id) => id !== userId && !viewingUserIds.has(id));
 
-      if (offlineUserIds.length > 0) {
-        sendPushToUsers(offlineUserIds, {
+      if (pushTargetIds.length > 0) {
+        const sender = await prisma.user.findUnique({ where: { id: userId }, select: { username: true } });
+        const senderName = sender?.username ?? '누군가';
+        const pushBody = payload.fileUrl
+          ? `${senderName}: 📷 이미지`
+          : `${senderName}: ${payload.content.slice(0, 60)}`;
+        sendPushToUsers(pushTargetIds, {
           title: '마이클조던',
-          body: '설치했습니다.',
+          body: pushBody,
           data: { roomId },
         });
       }

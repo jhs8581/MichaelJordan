@@ -125,6 +125,8 @@ export function ChatWindow({ roomId, onLeave }: Props) {
     const socket = getSocket(accessToken);
     if (!socket.connected) socket.connect();
     socket.emit('room:join', roomId);
+    // 이 채팅방을 보고 있다고 서버에 알림 → 이 방의 푸시 알림 수신 제외
+    socket.emit('room:viewing', roomId);
 
     socket.on('message:new', (msg) => {
       if (msg.roomId !== roomId) return;
@@ -150,6 +152,8 @@ export function ChatWindow({ roomId, onLeave }: Props) {
       });
     });
     return () => {
+      // 채팅창 닫힘 → 더 이상 이 방을 보고 있지 않음, 푸시 다시 받기
+      socket.emit('room:stop-viewing', roomId);
       socket.off('message:new');
       socket.off('message:read');
       socket.off('typing:update');
