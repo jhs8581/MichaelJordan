@@ -31,15 +31,19 @@ export default function PushSubscriber() {
   async function subscribe() {
     try {
       const sw = await navigator.serviceWorker.ready;
-      const existing = await sw.pushManager.getSubscription();
-      if (existing) return; // 이미 구독 중
-
       const { data } = await api.get('/push/vapid-public-key');
-      const sub = await sw.pushManager.subscribe({
-        userVisibleOnly: true,
-        applicationServerKey: urlBase64ToUint8Array(data.key),
-      });
+
+      // 기존 구독이 있으면 그대로 사용, 없으면 새로 구독
+      // 중요: 계정이 바뀌어도 현재 로그인한 계정으로 서버에 재등록해야 알림이 옴
+      let sub = await sw.pushManager.getSubscription();
+      if (!sub) {
+        sub = await sw.pushManager.subscribe({
+          userVisibleOnly: true,
+          applicationServerKey: urlBase64ToUint8Array(data.key),
+        });
+      }
       const json = sub.toJSON();
+      // 항상 현재 계정(userId)으로 서버에 등록 (push.ts에서 중복 방지 처리)
       await api.post('/push/subscribe', {
         endpoint: json.endpoint,
         keys: { p256dh: json.keys?.p256dh, auth: json.keys?.auth },
