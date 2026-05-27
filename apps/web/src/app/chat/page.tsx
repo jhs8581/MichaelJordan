@@ -393,57 +393,6 @@ export default function ChatPage() {
             >
               +
             </button>
-
-            {/* 이미지 라이트박스 오버레이 */}
-      {viewingImage && (
-        <div
-          onClick={() => setViewingImage(null)}
-          style={{
-            position: 'fixed', inset: 0, zIndex: 9999,
-            background: 'rgba(0,0,0,0.92)',
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-          }}
-        >
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img
-            src={viewingImage}
-            alt="이미지"
-            onClick={(e) => e.stopPropagation()}
-            style={{ maxWidth: '95vw', maxHeight: '90vh', borderRadius: 8, objectFit: 'contain' }}
-          />
-          <button
-            onClick={() => setViewingImage(null)}
-            style={{
-              position: 'absolute', top: 16, right: 16,
-              background: 'rgba(255,255,255,0.15)', border: 'none', borderRadius: '50%',
-              width: 36, height: 36, color: '#fff', fontSize: 20, cursor: 'pointer',
-              display: 'flex', alignItems: 'center', justifyContent: 'center',
-            }}
-          >✕</button>
-          <a
-            href={viewingImage}
-            download
-            onClick={(e) => e.stopPropagation()}
-            style={{
-              position: 'absolute', bottom: 24, left: '50%', transform: 'translateX(-50%)',
-              background: 'rgba(255,255,255,0.15)', border: '1px solid rgba(255,255,255,0.3)',
-              borderRadius: 20, padding: '8px 20px',
-              color: '#fff', fontSize: 13, textDecoration: 'none',
-            }}
-          >⬇ 저장</a>
-        </div>
-      )}
-
-      {showCreateModal && (
-              <CreateRoomModal
-                onClose={() => setShowCreateModal(false)}
-                onCreated={(room) => {
-                  setRooms([room, ...rooms]);
-                  setShowCreateModal(false);
-                  setSelectedRoom(room);
-                }}
-              />
-            )}
           </div>
         ) : (
           <>
@@ -486,6 +435,57 @@ export default function ChatPage() {
       </div>
 
       {!selectedRoom && !showChatList && <ScrollToTopBtn containerRef={scrollRef} />}
+
+      {/* 이미지 라이트박스 오버레이 — 어떤 상태에서도 렌더럁 되도록 최상단에 배치 */}
+      {viewingImage && (
+        <div
+          onClick={() => setViewingImage(null)}
+          style={{
+            position: 'fixed', inset: 0, zIndex: 9999,
+            background: 'rgba(0,0,0,0.92)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+          }}
+        >
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src={viewingImage}
+            alt="이미지"
+            onClick={(e) => e.stopPropagation()}
+            style={{ maxWidth: '95vw', maxHeight: '90vh', borderRadius: 8, objectFit: 'contain' }}
+          />
+          <button
+            onClick={() => setViewingImage(null)}
+            style={{
+              position: 'absolute', top: 16, right: 16,
+              background: 'rgba(255,255,255,0.15)', border: 'none', borderRadius: '50%',
+              width: 36, height: 36, color: '#fff', fontSize: 20, cursor: 'pointer',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+            }}
+          >✕</button>
+          <a
+            href={viewingImage}
+            download
+            onClick={(e) => e.stopPropagation()}
+            style={{
+              position: 'absolute', bottom: 24, left: '50%', transform: 'translateX(-50%)',
+              background: 'rgba(255,255,255,0.15)', border: '1px solid rgba(255,255,255,0.3)',
+              borderRadius: 20, padding: '8px 20px',
+              color: '#fff', fontSize: 13, textDecoration: 'none',
+            }}
+          >⬇ 저장</a>
+        </div>
+      )}
+
+      {showCreateModal && (
+        <CreateRoomModal
+          onClose={() => setShowCreateModal(false)}
+          onCreated={(room) => {
+            setRooms([room, ...rooms]);
+            setShowCreateModal(false);
+            setSelectedRoom(room);
+          }}
+        />
+      )}
     </div>
   );
 }
