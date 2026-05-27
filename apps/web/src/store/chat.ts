@@ -11,6 +11,7 @@ interface ChatState {
   setRoomMuted: (roomId: number, isMuted: boolean) => void;
   addMessage: (roomId: number, message: Message) => void;
   setMessages: (roomId: number, messages: Message[]) => void;
+  removeMessage: (roomId: number, messageId: number) => void;
   markRead: (roomId: number, userId: number, lastReadMessageId: number) => void;
 }
 
@@ -61,6 +62,14 @@ export const useChatStore = create<ChatState>()((set) => ({
               }
             : m
         ),
+      },
+    })),
+
+  removeMessage: (roomId, messageId) =>
+    set((state) => ({
+      messages: {
+        ...state.messages,
+        [roomId]: (state.messages[roomId] ?? []).filter((m) => m.id !== messageId),
       },
     })),
 }));

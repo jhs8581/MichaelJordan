@@ -5,7 +5,7 @@ import { useChatStore } from '@/store/chat';
 import { useAuthStore } from '@/store/auth';
 import { getSocket } from '@/lib/socket';
 import { api } from '@/lib/api';
-import type { Message } from '@chat/types';
+import type { Message, Room } from '@chat/types';
 import { MessageBubble } from './MessageBubble';
 
 interface Props {
@@ -64,6 +64,8 @@ export function ChatWindow({ roomId, onLeave, onImageView }: Props) {
   const addMessage = useChatStore((s) => s.addMessage);
   const setMessages = useChatStore((s) => s.setMessages);
   const markRead = useChatStore((s) => s.markRead);
+  const removeMessage = useChatStore((s) => s.removeMessage);
+  const setRooms = useChatStore((s) => s.setRooms);
 
   const [input, setInput] = useState('');
   const [settings, setSettings] = useState<ChatViewSettings>(DEFAULT_SETTINGS);
@@ -85,6 +87,8 @@ export function ChatWindow({ roomId, onLeave, onImageView }: Props) {
   const [uploadError, setUploadError] = useState('');
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [socketDisconnected, setSocketDisconnected] = useState(false);
+  const [contextMenu, setContextMenu] = useState<Message | null>(null);
+  const [archiveRoomId, setArchiveRoomId] = useState<number | null>(null);
   // 타이핑 중인 사용자 목록 { userId, username }
   const [typingUsers, setTypingUsers] = useState<{ userId: number; username: string }[]>([]);
   // 온라인 사용자 ID 세트
@@ -179,6 +183,9 @@ export function ChatWindow({ roomId, onLeave, onImageView }: Props) {
         return next;
       });
     });
+    socket.on('message:deleted', ({ messageId, roomId: rId }) => {
+      if (rId === roomId) removeMessage(rId, messageId);
+    });
     return () => {
       // 채팅창 닫힘 → 더 이상 이 방을 보고 있지 않음, 푸시 다시 받기
       socket.emit('room:stop-viewing', roomId);
@@ -189,6 +196,7 @@ export function ChatWindow({ roomId, onLeave, onImageView }: Props) {
       socket.off('message:read');
       socket.off('typing:update');
       socket.off('user:status');
+      socket.off('message:deleted');
     };
   }, [roomId, accessToken, addMessage, markRead]);
 
@@ -516,6 +524,38 @@ export function ChatWindow({ roomId, onLeave, onImageView }: Props) {
     }
   }
 
+  function handleDeleteMessage(msg: Message) {
+    setContextMenu(null);
+    removeMessage(msg.roomId, msg.id); // 낙관적 삭제
+    const socket = getSocket();
+    socket.emit('message:delete', { messageId: msg.id });
+  }
+
+  async function handleSaveToArchive(msg: Message) {
+    setContextMenu(null);
+    try {
+      let aRoomId = archiveRoomId;
+      if (!aRoomId) {
+        const res = await api.get<{ data: Room }>('/rooms/archive');
+        const archRoom = res.data.data;
+        aRoomId = archRoom.id;
+        setArchiveRoomId(archRoom.id);
+        const existing = rooms.find((r) => r.id === archRoom.id);
+        if (!existing) setRooms([...rooms, archRoom]);
+        const socket = getSocket();
+        socket.emit('room:join', archRoom.id);
+      }
+      const socket = getSocket();
+      if (msg.fileUrl) {
+        socket.emit('message:send', { roomId: aRoomId, content: '', fileUrl: msg.fileUrl });
+      } else {
+        socket.emit('message:send', { roomId: aRoomId, content: msg.content });
+      }
+    } catch {
+      // 실패 무시
+    }
+  }
+
   // 날짜 구분선 렌더링
   function renderMessages() {
     const items: React.ReactNode[] = [];
@@ -552,7 +592,7 @@ export function ChatWindow({ roomId, onLeave, onImageView }: Props) {
         );
       } else {
         items.push(
-          <MessageBubble key={msg.id} message={msg} isMine={isMine} isConsecutive={isConsecutive} timeFormat={settings.timeFormat} onImageClick={onImageView} />
+          <MessageBubble key={msg.id} message={msg} isMine={isMine} isConsecutive={isConsecutive} timeFormat={settings.timeFormat} onImageClick={onImageView} onLongPress={setContextMenu} />
         );
       }
       lastSenderId = msg.senderId;
@@ -916,6 +956,53 @@ export function ChatWindow({ roomId, onLeave, onImageView }: Props) {
         </div>
       )}
 
+      {/* 메시지 컨텍스트 메뉴 (말풍선 길게 누르기) */}
+      {contextMenu && (
+        <div
+          className="absolute inset-0 z-40 flex items-end justify-center"
+          style={{ background: 'rgba(0,0,0,0.55)' }}
+          onClick={() => setContextMenu(null)}
+        >
+          <div
+            className="w-full max-w-sm rounded-t-2xl border p-4"
+            style={{ background: '#17191d', borderColor: '#3a3f4a' }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <p className="text-xs text-center mb-4 truncate px-2" style={{ color: 'var(--text-muted)' }}>
+              {contextMenu.fileUrl ? '[파일]' : contextMenu.content.slice(0, 60)}
+            </p>
+            <button
+              type="button"
+              onClick={() => handleSaveToArchive(contextMenu)}
+              className="w-full flex items-center gap-3 rounded-xl px-4 py-3 mb-2"
+              style={{ background: '#2b2d31', color: 'var(--text-primary)' }}
+            >
+              <span style={{ fontSize: 18 }}>🔖</span>
+              <span className="text-sm font-medium">보관함에 저장</span>
+            </button>
+            {contextMenu.senderId === user?.id && (
+              <button
+                type="button"
+                onClick={() => handleDeleteMessage(contextMenu)}
+                className="w-full flex items-center gap-3 rounded-xl px-4 py-3 mb-2"
+                style={{ background: '#ed424522', color: '#ed4245' }}
+              >
+                <span style={{ fontSize: 18 }}>🗑️</span>
+                <span className="text-sm font-medium">삭제</span>
+              </button>
+            )}
+            <button
+              type="button"
+              onClick={() => setContextMenu(null)}
+              className="w-full rounded-xl px-4 py-2.5 text-sm"
+              style={{ background: '#2b2d31', color: 'var(--text-muted)' }}
+            >
+              취소
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* 메시지 목록 */}
       <div ref={scrollContainerRef} className="flex-1 overflow-y-auto px-4 py-4" style={{ position: 'relative' }}
         onScroll={handleScrollContainerScroll}
@@ -1027,7 +1114,7 @@ export function ChatWindow({ roomId, onLeave, onImageView }: Props) {
             ⚠ {uploadError}
           </div>
         )}
-        <input ref={fileInputRef} type="file" accept="image/*" className="hidden" onChange={handleFileChange} />
+        <input ref={fileInputRef} type="file" accept="image/*,video/*" className="hidden" onChange={handleFileChange} />
         <form onSubmit={sendMessage} className="flex items-end gap-2 rounded-xl px-4 py-3" style={{ background: 'var(--input-bg)', padding: isMobile ? '10px 12px' : undefined }}>
           {/* 이미지 체널 버튼 */}
           <button

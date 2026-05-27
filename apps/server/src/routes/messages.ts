@@ -6,10 +6,11 @@ import fs from 'node:fs';
 import path from 'node:path';
 
 const PAGE_SIZE = 50;
-const ALLOWED_EXTS = new Set(['.jpg', '.jpeg', '.png', '.gif', '.webp']);
+const ALLOWED_EXTS = new Set(['.jpg', '.jpeg', '.png', '.gif', '.webp', '.mp4', '.webm', '.mov', '.m4v']);
 const EXT_MIME: Record<string, string> = {
   '.jpg': 'image/jpeg', '.jpeg': 'image/jpeg',
   '.png': 'image/png', '.gif': 'image/gif', '.webp': 'image/webp',
+  '.mp4': 'video/mp4', '.webm': 'video/webm', '.mov': 'video/quicktime', '.m4v': 'video/mp4',
 };
 
 export async function messageRoutes(app: FastifyInstance) {
@@ -45,7 +46,7 @@ export async function messageRoutes(app: FastifyInstance) {
 
     const ext = path.extname(data.filename).toLowerCase();
     if (!ALLOWED_EXTS.has(ext)) {
-      return reply.status(400).send({ success: false, error: '이미지 파일만 업로드 가능합니다' });
+      return reply.status(400).send({ success: false, error: '이미지 또는 동영상 파일만 업로드 가능합니다' });
     }
 
     const uploadDir = path.join(process.cwd(), 'uploads');

@@ -12,7 +12,33 @@ const createRoomSchema = z.object({
 export async function roomRoutes(app: FastifyInstance) {
   // 인증 필요
   app.addHook('preHandler', requireAuth);
+  // ── 나의 보관함 조회 또는 생성 ───────────────────────────────────────
+  app.get('/archive', async (req, reply) => {
+    const userId = (req.user as { sub: number }).sub;
 
+    let room = await prisma.room.findFirst({
+      where: { isArchive: true, members: { some: { userId } } },
+      include: {
+        members: { include: { user: { select: { id: true, username: true, avatarUrl: true, isOnline: true } } } },
+      },
+    });
+
+    if (!room) {
+      room = await prisma.room.create({
+        data: {
+          name: '나의 보관함',
+          isGroup: false,
+          isArchive: true,
+          members: { create: [{ userId }] },
+        },
+        include: {
+          members: { include: { user: { select: { id: true, username: true, avatarUrl: true, isOnline: true } } } },
+        },
+      });
+    }
+
+    return reply.send({ success: true, data: { ...room, isMuted: false } });
+  });
   // ── 내 채팅방 목록 ─────────────────────────────────────────────
   app.get('/', async (req, reply) => {
     const userId = (req.user as { sub: number }).sub;

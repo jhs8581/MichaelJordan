@@ -1,15 +1,31 @@
+import { useRef } from 'react';
 import type { Message } from '@chat/types';
 
 interface Props {
   message: Message;
   isMine: boolean;
-  isConsecutive: boolean; // 같은 사람이 연속으로 보낸 메시지
-  timeFormat: 'ampm' | '24h';  onImageClick?: (url: string) => void;}
+  isConsecutive: boolean; // 같은 사람이 연속으로 보난 메시지
+  timeFormat: 'ampm' | '24h';
+  onImageClick?: (url: string) => void;
+  onLongPress?: (message: Message) => void;
+}
 
-export function MessageBubble({ message, isMine, isConsecutive, timeFormat, onImageClick }: Props) {
+function isVideoUrl(url: string): boolean {
+  return /\.(mp4|webm|mov|m4v|avi)(\?.*)?$/i.test(url);
+}
+
+export function MessageBubble({ message, isMine, isConsecutive, timeFormat, onImageClick, onLongPress }: Props) {
   const time = formatMessageTime(new Date(message.createdAt), timeFormat);
   // 보낸 사람 본인을 제외한 읽음 수 (본인 읽음은 항상 있어서 무조건 읽음으로 표시되는 버그 방지)
   const readCount = (message.reads ?? []).filter((r) => r.userId !== message.senderId).length;
+  const pressTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  function startPress() {
+    pressTimer.current = setTimeout(() => { onLongPress?.(message); }, 500);
+  }
+  function cancelPress() {
+    if (pressTimer.current) { clearTimeout(pressTimer.current); pressTimer.current = null; }
+  }
 
   return (
     <div className={`flex gap-3 ${isConsecutive ? 'mt-0.5' : 'mt-4'} ${isMine ? 'flex-row-reverse' : 'flex-row'}`}>
@@ -55,7 +71,7 @@ export function MessageBubble({ message, isMine, isConsecutive, timeFormat, onIm
           )}
 
           <div
-            className="px-3.5 py-2 rounded-2xl text-sm leading-relaxed whitespace-pre-wrap break-words"
+            className="px-3.5 py-2 rounded-2xl text-sm leading-relaxed whitespace-pre-wrap break-words select-none"
             style={{
               background: isMine ? 'var(--bubble-mine)' : 'var(--bubble-other)',
               color: '#fff',
@@ -64,30 +80,43 @@ export function MessageBubble({ message, isMine, isConsecutive, timeFormat, onIm
                 : (isConsecutive ? '4px 18px 18px 18px' : '4px 18px 18px 18px'),
               padding: message.fileUrl ? '4px' : undefined,
             }}
+            onContextMenu={(e) => { e.preventDefault(); onLongPress?.(message); }}
+            onTouchStart={startPress}
+            onTouchEnd={cancelPress}
+            onTouchMove={cancelPress}
           >
             {message.fileUrl ? (
-              <div style={{ position: 'relative' }}>
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img
+              isVideoUrl(message.fileUrl) ? (
+                <video
                   src={message.fileUrl}
-                  alt="이미지"
-                  onClick={() => onImageClick?.(message.fileUrl!)}
-                  style={{ maxWidth: 220, maxHeight: 260, borderRadius: 14, display: 'block', objectFit: 'cover', cursor: onImageClick ? 'zoom-in' : 'default' }}
-                />
-                <a
-                  href={message.fileUrl}
-                  download
+                  controls
                   onClick={(e) => e.stopPropagation()}
-                  style={{
-                    position: 'absolute', bottom: 6, right: 6,
-                    background: 'rgba(0,0,0,0.55)', borderRadius: 8, padding: '3px 6px',
-                    color: '#fff', fontSize: 11, textDecoration: 'none', lineHeight: 1,
-                  }}
-                  title="다운로드"
-                >
-                  ↓
-                </a>
-              </div>
+                  style={{ maxWidth: 220, borderRadius: 14, display: 'block' }}
+                />
+              ) : (
+                <div style={{ position: 'relative' }}>
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src={message.fileUrl}
+                    alt="이미지"
+                    onClick={() => onImageClick?.(message.fileUrl!)}
+                    style={{ maxWidth: 220, maxHeight: 260, borderRadius: 14, display: 'block', objectFit: 'cover', cursor: onImageClick ? 'zoom-in' : 'default' }}
+                  />
+                  <a
+                    href={message.fileUrl}
+                    download
+                    onClick={(e) => e.stopPropagation()}
+                    style={{
+                      position: 'absolute', bottom: 6, right: 6,
+                      background: 'rgba(0,0,0,0.55)', borderRadius: 8, padding: '3px 6px',
+                      color: '#fff', fontSize: 11, textDecoration: 'none', lineHeight: 1,
+                    }}
+                    title="다운로드"
+                  >
+                    ↓
+                  </a>
+                </div>
+              )
             ) : message.content}
           </div>
 

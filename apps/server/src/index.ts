@@ -54,7 +54,7 @@ async function main() {
   });
 
   await app.register(multipart, {
-    limits: { fileSize: 10 * 1024 * 1024 }, // 10MB
+    limits: { fileSize: 50 * 1024 * 1024 }, // 50MB (동영상 지원)
   });
 
   // ── Routes ─────────────────────────────────────────────────────

@@ -374,15 +374,19 @@ export default function ChatPage() {
                 }}
               >
                 <div style={{
-                  width: 44, height: 44, borderRadius: 22, background: '#1a76c8',
+                  width: 44, height: 44, borderRadius: 22,
+                  background: r.isArchive ? '#a8edca' : '#1a76c8',
                   display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  color: '#fff', fontSize: 16, fontWeight: 700, flexShrink: 0,
+                  color: r.isArchive ? '#1a1a1a' : '#fff',
+                  fontSize: r.isArchive ? 22 : 16, fontWeight: 700, flexShrink: 0,
                 }}>
-                  {r.name.charAt(0)}
+                  {r.isArchive ? '📦' : r.name.charAt(0)}
                 </div>
                 <div style={{ flex: 1, overflow: 'hidden' }}>
                   <div style={{ fontWeight: 700, fontSize: 14, color: '#111', marginBottom: 3, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{r.name}</div>
-                  <div style={{ fontSize: 12, color: '#999' }}>{r.isGroup ? `${r.members.length}명` : '1:1 대화'}</div>
+                  <div style={{ fontSize: 12, color: '#999' }}>
+                    {r.isArchive ? '나의 보관함' : (r.isGroup ? `${r.members.length}명` : '1:1 대화')}
+                  </div>
                 </div>
               </div>
             ))}

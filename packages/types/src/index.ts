@@ -19,6 +19,7 @@ export interface Room {
   name: string;
   isGroup: boolean;          // true = 그룹 채널, false = 1:1 DM
   isMuted: boolean;          // 현재 사용자의 이 방 알림 음소거 여부
+  isArchive?: boolean;       // true = 나의 보관함 (개인 저장 방)
   createdAt: string;
   members: RoomMember[];
   messages?: Pick<Message, 'id' | 'content' | 'createdAt' | 'senderId'>[];
@@ -58,6 +59,7 @@ export interface MessageRead {
 export interface ServerToClientEvents {
   'message:new': (message: Message) => void;
   'message:read': (payload: { roomId: number; userId: number; lastReadMessageId: number }) => void;
+  'message:deleted': (payload: { messageId: number; roomId: number }) => void;
   'user:status': (payload: { userId: number; isOnline: boolean }) => void;
   'room:joined': (room: Room) => void;
   'typing:update': (payload: { roomId: number; userId: number; username: string; isTyping: boolean }) => void;
@@ -66,6 +68,7 @@ export interface ServerToClientEvents {
 export interface ClientToServerEvents {
   'message:send': (payload: { roomId: number; content: string; fileUrl?: string }) => void;
   'message:read': (payload: { roomId: number; messageId: number }) => void;
+  'message:delete': (payload: { messageId: number }) => void;
   'room:join': (roomId: number) => void;
   'room:leave': (roomId: number) => void;
   'room:viewing': (roomId: number) => void;
