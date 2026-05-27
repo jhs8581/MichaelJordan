@@ -63,10 +63,10 @@ export async function authRoutes(app: FastifyInstance) {
     );
     const refreshToken = app.jwt.sign(
       { sub: user.id, type: 'refresh' },
-      { expiresIn: '7d' }
+      { expiresIn: '365d' }
     );
 
-    const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
+    const expiresAt = new Date(Date.now() + 365 * 24 * 60 * 60 * 1000);
     await prisma.refreshToken.create({
       data: { token: refreshToken, userId: user.id, expiresAt },
     });
@@ -152,9 +152,9 @@ export async function authRoutes(app: FastifyInstance) {
     await prisma.refreshToken.delete({ where: { id: stored.id } });
 
     const accessToken = app.jwt.sign({ sub: payload.sub }, { expiresIn: '15m' });
-    const newRefreshToken = app.jwt.sign({ sub: payload.sub, type: 'refresh' }, { expiresIn: '7d' });
+    const newRefreshToken = app.jwt.sign({ sub: payload.sub, type: 'refresh' }, { expiresIn: '365d' });
 
-    const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
+    const expiresAt = new Date(Date.now() + 365 * 24 * 60 * 60 * 1000);
     await prisma.refreshToken.create({
       data: { token: newRefreshToken, userId: payload.sub, expiresAt },
     });
