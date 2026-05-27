@@ -16,8 +16,9 @@ export function registerSocketHandlers(io: ChatServer) {
     }
 
     try {
-      const payload = jwt.verify(token, process.env.JWT_SECRET ?? 'changeme-min-32-chars-secret-key!') as unknown as { sub: number };
-      (socket as ChatSocket & { userId: number }).userId = payload.sub;
+      const payload = jwt.verify(token, process.env.JWT_SECRET ?? 'changeme-min-32-chars-secret-key!') as unknown as { sub: number | string };
+      // Number() 강제 변환: JWT sub가 string으로 디코딩될 경우에도 number로 보장
+      (socket as ChatSocket & { userId: number }).userId = Number(payload.sub);
       next();
     } catch {
       next(new Error('유효하지 않은 토큰입니다.'));
@@ -135,8 +136,9 @@ export function registerSocketHandlers(io: ChatServer) {
       });
       const onlineSockets = await io.in(`room:${roomId}`).fetchSockets();
       const onlineUserIds = new Set(
-        onlineSockets.map((s) => (s as unknown as { userId: number }).userId),
+        onlineSockets.map((s) => Number((s as unknown as { userId: number }).userId)),
       );
+      // 발신자 제외 + 오프라인 유저만 푸시 (Number 강제 변환으로 타입 불일치 방지)
       const offlineUserIds = allMembers
         .map((m) => m.userId)
         .filter((id) => id !== userId && !onlineUserIds.has(id));

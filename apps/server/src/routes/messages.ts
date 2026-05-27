@@ -14,22 +14,26 @@ const EXT_MIME: Record<string, string> = {
 
 export async function messageRoutes(app: FastifyInstance) {
   // ── 정적 이미지 서빙 (인증 불필요) ─────────────────────────────
-  app.get('/file/:filename', async (req, reply) => {
-    const { filename } = req.params as { filename: string };
-    // 경로 순회 방지
-    if (!/^[a-zA-Z0-9_\-]+\.[a-zA-Z]{2,5}$/.test(filename)) {
-      return reply.status(400).send({ error: 'Invalid filename' });
-    }
-    const filePath = path.join(process.cwd(), 'uploads', filename);
-    try {
-      const ext = path.extname(filename).toLowerCase();
-      reply.type(EXT_MIME[ext] ?? 'application/octet-stream');
-      return reply.send(fs.createReadStream(filePath));
-    } catch {
-      return reply.status(404).send({ error: 'File not found' });
-    }
+  // NOTE: 별도 register 스코프로 분리해야 Fastify의 addHook이 이 라우트에 적용되지 않음
+  await app.register(async (publicApp) => {
+    publicApp.get('/file/:filename', async (req, reply) => {
+      const { filename } = req.params as { filename: string };
+      // 경로 순회 방지
+      if (!/^[a-zA-Z0-9_\-]+\.[a-zA-Z]{2,5}$/.test(filename)) {
+        return reply.status(400).send({ error: 'Invalid filename' });
+      }
+      const filePath = path.join(process.cwd(), 'uploads', filename);
+      try {
+        const ext = path.extname(filename).toLowerCase();
+        reply.type(EXT_MIME[ext] ?? 'application/octet-stream');
+        return reply.send(fs.createReadStream(filePath));
+      } catch {
+        return reply.status(404).send({ error: 'File not found' });
+      }
+    });
   });
 
+  // ── 이하 모든 라우트는 인증 필요 ─────────────────────────────
   app.addHook('preHandler', requireAuth);
 
   // ── 이미지 업로드 ─────────────────────────────────────────────

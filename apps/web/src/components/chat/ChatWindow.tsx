@@ -159,11 +159,25 @@ export function ChatWindow({ roomId, onLeave }: Props) {
 
   // 새 메시지가 오면 맨 아래로 (단, 이미 거의 아래에 있을 때만 → 위 스크롤 중에는 유지)
   const scrollContainerRef = useRef<HTMLDivElement>(null);
+  // roomId가 바뀔 때마다 "아직 초기 스크롤 안 했음" 으로 리셋
+  const hasScrolledToBottom = useRef(false);
+  useEffect(() => {
+    hasScrolledToBottom.current = false;
+  }, [roomId]);
+
   useEffect(() => {
     const el = scrollContainerRef.current;
     if (!el) return;
+    if (!hasScrolledToBottom.current) {
+      // 처음 진입 or 방 전환 시 → 메시지가 있으면 무조건 맨 아래로
+      if (messages.length > 0) {
+        bottomRef.current?.scrollIntoView({ behavior: 'auto' });
+        hasScrolledToBottom.current = true;
+      }
+      return;
+    }
+    // 이후 새 메시지: 200px 이내에 있을 때만 스크롤
     const distFromBottom = el.scrollHeight - el.scrollTop - el.clientHeight;
-    // 200px 이내에 있으면 부드럽게, 처음 로드(0이면)면 즉시
     if (distFromBottom < 200) {
       bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
     }
