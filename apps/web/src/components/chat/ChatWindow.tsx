@@ -378,7 +378,7 @@ export function ChatWindow({ roomId, onLeave, onImageView }: Props) {
     if (el) el.scrollTop = el.scrollHeight;
   }
 
-
+  function sendMessage(e?: React.FormEvent) {
     e?.preventDefault();
     const content = input.trim();
     if (!content || !accessToken) return;
