@@ -176,7 +176,10 @@ export function ChatWindow({ roomId, onLeave, onImageView }: Props) {
     if (!hasScrolledToBottom.current) {
       // 처음 진입 or 방 전환 시 → 메시지가 있으면 무조건 맨 아래로
       if (messages.length > 0) {
-        bottomRef.current?.scrollIntoView({ behavior: 'auto' });
+        // requestAnimationFrame: DOM 레이아웃 완료 후 스크롤 (scrollIntoView보다 안정적)
+        requestAnimationFrame(() => {
+          el.scrollTop = el.scrollHeight;
+        });
         hasScrolledToBottom.current = true;
       }
       return;
@@ -184,13 +187,16 @@ export function ChatWindow({ roomId, onLeave, onImageView }: Props) {
     // 이후 새 메시지: 200px 이내에 있을 때만 스크롤
     const distFromBottom = el.scrollHeight - el.scrollTop - el.clientHeight;
     if (distFromBottom < 200) {
-      bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
+      requestAnimationFrame(() => {
+        el.scrollTop = el.scrollHeight;
+      });
     }
   }, [messages]);
 
   // 말풍선/메모장 전환 시 맨 아래로 즉시 이동
   useEffect(() => {
-    bottomRef.current?.scrollIntoView({ behavior: 'auto' });
+    const el = scrollContainerRef.current;
+    if (el) requestAnimationFrame(() => { el.scrollTop = el.scrollHeight; });
   }, [settings.viewMode]);
 
   useEffect(() => {
