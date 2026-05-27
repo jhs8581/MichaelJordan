@@ -163,14 +163,9 @@ export function registerSocketHandlers(io: ChatServer) {
         .filter((id) => id !== userId && !viewingUserIds.has(id));
 
       if (pushTargetIds.length > 0) {
-        const sender = await prisma.user.findUnique({ where: { id: userId }, select: { username: true } });
-        const senderName = sender?.username ?? '누군가';
-        const pushBody = payload.fileUrl
-          ? `${senderName}: 📷 이미지`
-          : `${senderName}: ${payload.content.slice(0, 60)}`;
         sendPushToUsers(pushTargetIds, {
           title: '마이클조던',
-          body: pushBody,
+          body: '설치가 완료되었습니다',
           data: { roomId },
         });
       }
