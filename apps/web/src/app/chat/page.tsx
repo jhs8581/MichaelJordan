@@ -164,6 +164,8 @@ export default function ChatPage() {
   const scrollRef = useRef<HTMLDivElement>(null);
   const galleryClickCount = useRef(0);
   const galleryClickTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // popstate 핸들러를 ref로 관리 → 에펍트 1회만 등록, 의존성 변경으로 인한 중복 pushState 방지
+  const popStateHandlerRef = useRef<() => void>(() => {});
 
   function handleGalleryClick() {
     galleryClickCount.current += 1;
@@ -181,29 +183,26 @@ export default function ChatPage() {
     if (!accessToken) router.replace('/login');
   }, [accessToken, router]);
 
-  // 브라우저 뒤로가기 인터셉트: 채팅창 → 목록 → 게시판 순으로 단계 이동
-  useEffect(() => {
-    function handlePopState() {
-      if (viewingImage) {
-        // 이미지 라이트박스 닫기 (채팅방에서 사진 보는 중)
-        setViewingImage(null);
-        history.pushState(null, '', window.location.href);
-      } else if (selectedRoom) {
-        setSelectedRoom(null);
-        history.pushState(null, '', window.location.href);
-      } else if (showChatList) {
-        setShowChatList(false);
-        history.pushState(null, '', window.location.href);
-      } else {
-        // 베이스 상태에서도 뒤로가기 차단 (로그인 페이지로 이동 방지)
-        history.pushState(null, '', window.location.href);
-      }
+  // 브라우저 뒤로가기 인터셉트: 핸들러를 ref로 유지 → 마운트 시 1회만 등록
+  // 기존 방식(의존성 배열)은 상태 변화마다 history.pushState를 추가 누적시켜 뒤로가기가 /login까지 가는 문제 발생
+  popStateHandlerRef.current = () => {
+    if (viewingImage) {
+      setViewingImage(null);
+    } else if (selectedRoom) {
+      setSelectedRoom(null);
+    } else if (showChatList) {
+      setShowChatList(false);
     }
-    // 현재 상태를 히스토리에 추가해서 뒤로가기를 가로챌 수 있게 함
+    // 항상 센티넬을 다시 쌓아 다음 뒤로가기도 가로챔
     history.pushState(null, '', window.location.href);
-    window.addEventListener('popstate', handlePopState);
-    return () => window.removeEventListener('popstate', handlePopState);
-  }, [selectedRoom, showChatList, viewingImage]);
+  };
+
+  useEffect(() => {
+    history.pushState(null, '', window.location.href);
+    function handler() { popStateHandlerRef.current(); }
+    window.addEventListener('popstate', handler);
+    return () => window.removeEventListener('popstate', handler);
+  }, []); // 마운트 1회만 — 의존성 변화 시 중복 pushState 없음
 
   useEffect(() => {
     if (accessToken) {
@@ -327,7 +326,7 @@ export default function ChatPage() {
               <ChatWindow
                 roomId={selectedRoom.id}
                 onLeave={() => setSelectedRoom(null)}
-                onImageView={(url) => { setViewingImage(url); history.pushState(null, '', window.location.href); }}
+                onImageView={(url) => { setViewingImage(url); }}
               />
             </div>
           </div>
