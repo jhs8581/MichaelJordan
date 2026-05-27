@@ -364,7 +364,21 @@ export function ChatWindow({ roomId, onLeave, onImageView }: Props) {
     if (e.key === 'Enter') handleSearch();
   }
 
-  function sendMessage(e?: React.FormEvent) {
+  const [showScrollBtn, setShowScrollBtn] = useState(false);
+
+  function handleScrollContainerScroll() {
+    const el = scrollContainerRef.current;
+    if (!el) return;
+    const distFromBottom = el.scrollHeight - el.scrollTop - el.clientHeight;
+    setShowScrollBtn(distFromBottom > 120);
+  }
+
+  function scrollToBottom() {
+    const el = scrollContainerRef.current;
+    if (el) el.scrollTop = el.scrollHeight;
+  }
+
+
     e?.preventDefault();
     const content = input.trim();
     if (!content || !accessToken) return;
@@ -788,7 +802,9 @@ export function ChatWindow({ roomId, onLeave, onImageView }: Props) {
       )}
 
       {/* 메시지 목록 */}
-      <div ref={scrollContainerRef} className="flex-1 overflow-y-auto px-4 py-4" style={{ position: 'relative' }}>
+      <div ref={scrollContainerRef} className="flex-1 overflow-y-auto px-4 py-4" style={{ position: 'relative' }}
+        onScroll={handleScrollContainerScroll}
+      >
         {isContentUnlocked && renderMessages()}
         {/* 타이핑 인디케이터 — 스크롤 레이아웃에 영향 안 주도록 sticky 배치 */}
         {typingUsers.length > 0 && (
@@ -807,6 +823,22 @@ export function ChatWindow({ roomId, onLeave, onImageView }: Props) {
         )}
         <div ref={bottomRef} />
       </div>
+
+      {/* 맨 아래로 버튼 */}
+      {showScrollBtn && (
+        <button
+          onClick={scrollToBottom}
+          style={{
+            position: 'absolute', bottom: 72, right: 16, zIndex: 20,
+            width: 36, height: 36, borderRadius: '50%',
+            background: 'var(--bubble-mine)', border: 'none',
+            color: '#fff', fontSize: 18, cursor: 'pointer',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            boxShadow: '0 2px 8px rgba(0,0,0,0.4)',
+          }}
+          title="맨 아래로"
+        >↓</button>
+      )}
 
       {isLocked && (
         <div className="absolute inset-0 z-30 flex items-center justify-center px-6" style={{ background: 'rgba(10, 12, 16, 0.68)' }}>
