@@ -158,8 +158,7 @@ export default function ChatPage() {
   const setRooms = useChatStore((s) => s.setRooms);
 
   const [selectedRoom, setSelectedRoom] = useState<Room | null>(null);
-  const [selectedTitle, setSelectedTitle] = useState('');
-  const [showModal, setShowModal] = useState(false);
+  const [showChatList, setShowChatList] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -171,11 +170,6 @@ export default function ChatPage() {
       api.get<{ data: Room[] }>('/rooms').then((res) => setRooms(res.data.data));
     }
   }, [accessToken, setRooms]);
-
-  function handleCreated(room: Room) {
-    setRooms([room, ...rooms]);
-    setSelectedRoom(room);
-  }
 
   function handleLogout() {
     clear();
@@ -212,11 +206,6 @@ export default function ChatPage() {
     { category: '식품', title: '[지마켓]K2 히말라야 숙취해소제 젤리형 10개입(6,900원/무배)', count: 1 },
     { category: '식품', title: '[옥션]1++ 투뿔 한우 골라담기(18,610원~/무배)', count: 1 },
   ];
-
-  function getRoom(globalIdx: number) {
-    if (rooms.length === 0) return undefined;
-    return rooms[globalIdx % rooms.length];
-  }
 
   const HEADER_H = 48;
   const NAV_H    = 80;
@@ -255,17 +244,20 @@ export default function ChatPage() {
         <div style={{ display: 'flex' }}>
           {([
             { icon: <IconCommunity />, label: '커뮤니티' },
-            { icon: <IconForum />,     label: '포럼', action: () => setShowModal(true) },
-            { icon: <IconGallery />,   label: '갤러리' },
+            { icon: <IconForum />,     label: '포럼' },
+            { icon: <IconGallery />,   label: '갤러리', dbl: true },
             { icon: <IconInfo />,      label: '인포메이션' },
             { icon: <IconCart />,      label: '마켓' },
-          ] as { icon: React.ReactNode; label: string; action?: () => void }[]).map(({ icon, label, action }) => (
-            <button key={label} onClick={action} style={{
-              flex: 1, display: 'flex', flexDirection: 'column',
-              alignItems: 'center', justifyContent: 'center',
-              padding: '10px 0 8px', background: 'none', border: 'none',
-              cursor: action ? 'pointer' : 'default', fontSize: 10.5, color: '#444', gap: 4,
-            }}>
+          ] as { icon: React.ReactNode; label: string; dbl?: boolean }[]).map(({ icon, label, dbl }) => (
+            <button key={label}
+              onDoubleClick={dbl ? () => { setSelectedRoom(null); setShowChatList(true); } : undefined}
+              style={{
+                flex: 1, display: 'flex', flexDirection: 'column',
+                alignItems: 'center', justifyContent: 'center',
+                padding: '10px 0 8px', background: 'none', border: 'none',
+                cursor: dbl ? 'pointer' : 'default', fontSize: 10.5,
+                color: (showChatList && dbl) ? '#1a76c8' : '#444', gap: 4,
+              }}>
               {icon}
               <span>{label}</span>
             </button>
@@ -285,11 +277,48 @@ export default function ChatPage() {
               >
                 ← 목록
               </button>
-              <span style={{ fontWeight: 700, fontSize: 14, color: '#111', flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{selectedTitle || selectedRoom.name}</span>
+              <span style={{ fontWeight: 700, fontSize: 14, color: '#111', flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{selectedRoom.name}</span>
             </div>
             <div style={{ flex: 1, overflow: 'hidden' }}>
               <ChatWindow roomId={selectedRoom.id} />
             </div>
+          </div>
+        ) : showChatList ? (
+          <div>
+            <div style={{
+              background: '#fff', borderBottom: '1px solid #e0e0e0',
+              padding: '9px 14px', display: 'flex', alignItems: 'center', gap: 8,
+            }}>
+              <button onClick={() => setShowChatList(false)}
+                style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#1a76c8', fontSize: 14, fontWeight: 700, padding: '2px 8px 2px 0' }}
+              >
+                ← 게시판
+              </button>
+              <span style={{ fontWeight: 700, fontSize: 15, color: '#111' }}>채팅 목록</span>
+            </div>
+            {rooms.length === 0 ? (
+              <div style={{ padding: '40px 0', textAlign: 'center', color: '#aaa', fontSize: 14 }}>참여 중인 방이 없습니다</div>
+            ) : rooms.map((r) => (
+              <div key={r.id} onClick={() => setSelectedRoom(r)}
+                style={{
+                  display: 'flex', alignItems: 'center', padding: '13px 16px',
+                  borderBottom: '1px solid #f0f0f0', background: '#fff', cursor: 'pointer',
+                  gap: 12,
+                }}
+              >
+                <div style={{
+                  width: 44, height: 44, borderRadius: 22, background: '#1a76c8',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  color: '#fff', fontSize: 16, fontWeight: 700, flexShrink: 0,
+                }}>
+                  {r.name.charAt(0)}
+                </div>
+                <div style={{ flex: 1, overflow: 'hidden' }}>
+                  <div style={{ fontWeight: 700, fontSize: 14, color: '#111', marginBottom: 3, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{r.name}</div>
+                  <div style={{ fontSize: 12, color: '#999' }}>{r.isGroup ? `${r.members.length}명` : '1:1 대화'}</div>
+                </div>
+              </div>
+            ))}
           </div>
         ) : (
           <>
@@ -301,16 +330,14 @@ export default function ChatPage() {
             <div style={{ background: '#fff' }}>
               <SectionHeader title='인기글' />
               {HOT_POSTS.map((p, i) => (
-                <PostRow key={i} category={p.category} title={p.title} count={p.count}
-                  onClick={rooms.length > 0 ? () => { const r = getRoom(i); if (r) { setSelectedTitle(p.title); setSelectedRoom(r); } } : undefined} />
+                <PostRow key={i} category={p.category} title={p.title} count={p.count} />
               ))}
             </div>
             <SectionGap />
             <div style={{ background: '#fff' }}>
               <SectionHeader title='추천인기글' />
               {BEST_POSTS.map((p, i) => (
-                <PostRow key={i} category={p.category} title={p.title} count={p.count}
-                  onClick={rooms.length > 0 ? () => { const r = getRoom(5 + i); if (r) { setSelectedTitle(p.title); setSelectedRoom(r); } } : undefined} />
+                <PostRow key={i} category={p.category} title={p.title} count={p.count} />
               ))}
             </div>
             <AdBlock />
@@ -318,16 +345,14 @@ export default function ChatPage() {
             <div style={{ background: '#fff' }}>
               <SectionHeader title='최신글' />
               {LATEST_POSTS.map((p, i) => (
-                <PostRow key={i} category={p.category} title={p.title}
-                  onClick={rooms.length > 0 ? () => { const r = getRoom(10 + i); if (r) { setSelectedTitle(p.title); setSelectedRoom(r); } } : undefined} />
+                <PostRow key={i} category={p.category} title={p.title} />
               ))}
             </div>
             <SectionGap />
             <div style={{ background: '#fff' }}>
               <SectionHeader title='시장정보' />
               {MARKET_POSTS.map((p, i) => (
-                <PostRow key={i} category={p.category} title={p.title} count={p.count}
-                  onClick={rooms.length > 0 ? () => { const r = getRoom(15 + i); if (r) { setSelectedTitle(p.title); setSelectedRoom(r); } } : undefined} />
+                <PostRow key={i} category={p.category} title={p.title} count={p.count} />
               ))}
             </div>
             <SectionGap />
@@ -335,8 +360,7 @@ export default function ChatPage() {
         )}
       </div>
 
-      {!selectedRoom && <ScrollToTopBtn containerRef={scrollRef} />}
-      {showModal && <CreateRoomModal onClose={() => setShowModal(false)} onCreated={handleCreated} />}
+      {!selectedRoom && !showChatList && <ScrollToTopBtn containerRef={scrollRef} />}
     </div>
   );
 }
