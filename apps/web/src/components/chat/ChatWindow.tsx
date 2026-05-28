@@ -1701,7 +1701,7 @@ export function ChatWindow({ roomId, onLeave, onImageView }: Props) {
       )}
 
       {/* 메시지 목록 */}
-      <div ref={scrollContainerRef} className="flex-1 overflow-y-auto px-4 py-4" style={{ position: 'relative' }}
+      <div ref={scrollContainerRef} className="flex-1 overflow-y-auto px-4 pt-4 pb-6" style={{ position: 'relative' }}
         onScroll={handleScrollContainerScroll}
       >
         {loadingOlder && (
@@ -1807,8 +1807,8 @@ export function ChatWindow({ roomId, onLeave, onImageView }: Props) {
       )}
 
       {/* 입력창 */}
-      <div className={`px-4 pb-5 flex-shrink-0 ${(isLocked || !isContentUnlocked) ? 'pointer-events-none opacity-40' : ''}`}
-        style={{ borderTop: '2px solid #1e1f22' }}>
+      <div className={`px-4 pt-3 pb-5 flex-shrink-0 ${(isLocked || !isContentUnlocked) ? 'pointer-events-none opacity-40' : ''}`}
+        style={{ borderTop: '1px solid #24262d' }}>
         {uploadError && (
           <div className="mt-2 mb-1 px-3 py-1.5 rounded-lg text-xs font-medium" style={{ background: '#ed424522', color: '#ed4245', border: '1px solid #ed424544' }}>
             ⚠ {uploadError}
