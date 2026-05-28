@@ -112,14 +112,12 @@ export function MessageBubble({ message, isMine, isConsecutive, timeFormat, onIm
       )}
 
       <div className={`flex flex-col ${isMine ? 'items-end' : 'items-start'} max-w-[82%] sm:max-w-[70%] min-w-0`}>
-        {/* 이름 + 시간 (첫 메시지만) */}
-        {!isConsecutive && (
-          <div className={`flex items-baseline gap-2 mb-1 ${isMine ? 'flex-row-reverse' : 'flex-row'}`}>
-            {!isMine && (
-              <span className="text-sm font-semibold" style={{ color: stringToColor(message.sender?.username ?? '?') }}>
-                {message.sender?.username}
-              </span>
-            )}
+        {/* 이름 + 시간 (상대 첫 메시지만) */}
+        {!isMine && !isConsecutive && (
+          <div className="flex items-baseline gap-2 mb-1 flex-row">
+            <span className="text-sm font-semibold" style={{ color: stringToColor(message.sender?.username ?? '?') }}>
+              {message.sender?.username}
+            </span>
             <span className="text-xs" style={{ color: 'var(--text-muted)' }}>{time}</span>
           </div>
         )}
@@ -128,10 +126,13 @@ export function MessageBubble({ message, isMine, isConsecutive, timeFormat, onIm
         <div className="flex items-end gap-1.5">
           {/* 읽음/시간 (내 메시지 왼쪽) */}
           {isMine && (
-            <div className="flex flex-col items-end gap-0.5 mb-0.5">
-              {isConsecutive && <span className="text-[10px]" style={{ color: 'var(--text-muted)' }}>{time}</span>}
+            <div
+              className="flex flex-col items-end justify-end gap-0.5 mb-0.5"
+              style={{ width: 58, minWidth: 58, flexShrink: 0, whiteSpace: 'nowrap', lineHeight: 1.15 }}
+            >
+              <span className="text-[10px]" style={{ color: 'var(--text-muted)', whiteSpace: 'nowrap' }}>{time}</span>
               {readCount > 0 && (
-                <span className="text-[10px] font-medium" style={{ color: '#57f287' }}>읽음</span>
+                <span className="text-[10px] font-medium" style={{ color: '#57f287', whiteSpace: 'nowrap' }}>읽음</span>
               )}
             </div>
           )}
@@ -225,7 +226,12 @@ export function MessageBubble({ message, isMine, isConsecutive, timeFormat, onIm
 
           {/* 읽음/시간 (상대 메시지 오른쪽) */}
           {!isMine && isConsecutive && (
-            <span className="text-[10px] mb-0.5" style={{ color: 'var(--text-muted)' }}>{time}</span>
+            <span
+              className="text-[10px] mb-0.5"
+              style={{ color: 'var(--text-muted)', width: 58, minWidth: 58, flexShrink: 0, whiteSpace: 'nowrap' }}
+            >
+              {time}
+            </span>
           )}
         </div>
       </div>
