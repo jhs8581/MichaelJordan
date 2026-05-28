@@ -145,7 +145,10 @@ export function registerSocketHandlers(io: ChatServer) {
         where: { id: userId },
         select: { timeZone: true },
       });
-      const normalizedSenderTimeZone = normalizeTimeZone(senderTimeZone) ?? normalizeTimeZone(userTimeZone?.timeZone);
+      const normalizedSenderTimeZone = normalizeTimeZone(senderTimeZone)
+        ?? normalizeTimeZone(userTimeZone?.timeZone)
+        ?? normalizeTimeZone(process.env.DEFAULT_TIME_ZONE)
+        ?? 'Asia/Seoul';
       const normalizedSenderLocalTime = typeof senderLocalTime === 'string' && /^\d{2}:\d{2}$/.test(senderLocalTime)
         ? senderLocalTime
         : getLocalTimeForTimeZone(normalizedSenderTimeZone);
