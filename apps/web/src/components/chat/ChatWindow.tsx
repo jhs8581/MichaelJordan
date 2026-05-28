@@ -90,6 +90,14 @@ function getValidTimeZone(timeZone?: string): string | undefined {
   }
 }
 
+function sortImagesNewestFirst(items: RoomImageItem[]): RoomImageItem[] {
+  return [...items].sort((a, b) => {
+    const aTime = a.createdAt ? new Date(a.createdAt).getTime() : 0;
+    const bTime = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+    return bTime - aTime;
+  });
+}
+
 const DEFAULT_SETTINGS: ChatViewSettings = {
   viewMode: 'bubble',
   timeFormat: 'ampm',
@@ -767,7 +775,7 @@ export function ChatWindow({ roomId, onLeave, onImageView }: Props) {
     const loadedImages = getImageItemsFromMessages(messages);
     try {
       const res = await api.get<{ data: { images: string[]; imageItems?: RoomImageItem[] } }>(`/messages/${roomId}/images`);
-      const serverImages = res.data.data.imageItems ?? res.data.data.images.map((url) => ({ url }));
+      const serverImages = sortImagesNewestFirst(res.data.data.imageItems ?? res.data.data.images.map((url) => ({ url })));
       if (res.data.data.imageItems && serverImages.some((item) => item.url === clickedUrl)) {
         allRoomImagesRef.current = serverImages;
         return serverImages;
@@ -786,9 +794,10 @@ export function ChatWindow({ roomId, onLeave, onImageView }: Props) {
     }
 
     const images = Array.from(merged);
-    allRoomImagesRef.current = images.some(([url]) => url === clickedUrl)
-      ? images.map(([, item]) => item)
-      : [{ url: clickedUrl }, ...images.map(([, item]) => item)];
+    const sortedImages = sortImagesNewestFirst(images.map(([, item]) => item));
+    allRoomImagesRef.current = sortedImages.some((item) => item.url === clickedUrl)
+      ? sortedImages
+      : [{ url: clickedUrl }, ...sortedImages];
     return allRoomImagesRef.current;
   }
 

@@ -171,7 +171,7 @@ export async function messageRoutes(app: FastifyInstance) {
     const msgs = await prisma.message.findMany({
       where: { roomId: Number(roomId), fileUrl: { not: null } },
       select: { fileUrl: true, createdAt: true },
-      orderBy: { id: 'asc' },
+      orderBy: { id: 'desc' },
     });
 
     const imageItems = msgs
