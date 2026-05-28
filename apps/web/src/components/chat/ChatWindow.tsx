@@ -163,6 +163,7 @@ export function ChatWindow({ roomId, onLeave, onImageView }: Props) {
   const [copyNotice, setCopyNotice] = useState('');
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [muteSaving, setMuteSaving] = useState(false);
+  const [muteOverride, setMuteOverride] = useState<boolean | null>(null);
   const [socketDisconnected, setSocketDisconnected] = useState(false);
   const [contextMenu, setContextMenu] = useState<Message | null>(null);
   const [partialCopyMessage, setPartialCopyMessage] = useState<Message | null>(null);
@@ -187,8 +188,13 @@ export function ChatWindow({ roomId, onLeave, onImageView }: Props) {
   const pendingRepliesRef = useRef<Array<{ roomId: number; content: string; replyToId: number; replyTo: Message['replyTo'] }>>([]);
 
   const activeRoom = rooms.find((r) => r.id === roomId);
+  const isRoomMuted = muteOverride ?? Boolean(activeRoom?.isMuted);
   const lockCode = (user?.chatLockCode ?? '').trim();
   const canLock = lockCode.length > 0;
+
+  useEffect(() => {
+    setMuteOverride(null);
+  }, [roomId, activeRoom?.isMuted]);
 
   useEffect(() => {
     setNextCursor(null);
@@ -509,15 +515,24 @@ export function ChatWindow({ roomId, onLeave, onImageView }: Props) {
 
   async function handleMuteToggle() {
     if (!activeRoom || muteSaving) return;
-    const prev = Boolean(activeRoom.isMuted);
+    const prev = isRoomMuted;
     const next = !prev;
+    setMuteOverride(next);
     setRoomMuted(roomId, next); // 낙관적 업데이트
     setMuteSaving(true);
     try {
-      const res = await api.patch<{ data: { isMuted: boolean } }>(`/rooms/${roomId}/mute`, { mute: next });
-      setRoomMuted(roomId, Boolean(res.data.data.isMuted));
+      const res = await api.patch<{ data?: { isMuted?: boolean }; isMuted?: boolean }>(`/rooms/${roomId}/mute`, { mute: next });
+      const saved = typeof res.data.data?.isMuted === 'boolean'
+        ? res.data.data.isMuted
+        : typeof res.data.isMuted === 'boolean'
+          ? res.data.isMuted
+          : next;
+      setMuteOverride(saved);
+      setRoomMuted(roomId, saved);
     } catch {
+      setMuteOverride(prev);
       setRoomMuted(roomId, prev); // 실패 시 롤백
+      showCopyNotice('알림 설정 변경에 실패했습니다.');
     } finally {
       setMuteSaving(false);
     }
@@ -1029,18 +1044,24 @@ export function ChatWindow({ roomId, onLeave, onImageView }: Props) {
         {/* 알림 음소거 버튼 */}
         <button
           type="button"
-          onClick={handleMuteToggle}
+          onClick={(e) => {
+            e.stopPropagation();
+            handleMuteToggle();
+          }}
+          onTouchStart={(e) => e.stopPropagation()}
+          onTouchEnd={(e) => e.stopPropagation()}
+          onContextMenu={(e) => e.preventDefault()}
           disabled={!activeRoom || muteSaving}
           className="rounded-md px-2 py-1.5 transition-colors inline-flex items-center gap-1.5 disabled:opacity-60"
           style={{
-            background: activeRoom?.isMuted ? '#ed424522' : 'transparent',
-            color: activeRoom?.isMuted ? '#ed4245' : 'var(--text-muted)',
+            background: isRoomMuted ? '#ed424522' : '#3ba55d22',
+            color: isRoomMuted ? '#ed4245' : '#57f287',
             cursor: muteSaving ? 'wait' : 'pointer',
           }}
-          title={activeRoom?.isMuted ? '알림 켜기' : '알림 끄기'}
-          aria-label={activeRoom?.isMuted ? '현재 알림 꺼짐, 클릭하면 알림 켜기' : '현재 알림 켜짐, 클릭하면 알림 끄기'}
+          title={isRoomMuted ? '알림 켜기' : '알림 끄기'}
+          aria-label={isRoomMuted ? '현재 알림 꺼짐, 클릭하면 알림 켜기' : '현재 알림 켜짐, 클릭하면 알림 끄기'}
         >
-          {activeRoom?.isMuted ? (
+          {isRoomMuted ? (
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
               <line x1="1" y1="1" x2="23" y2="23"/>
               <path d="M9 9v3a3 3 0 0 0 5.12 2.12M15 9.34V4a3 3 0 0 0-5.94-.6"/>
@@ -1054,7 +1075,7 @@ export function ChatWindow({ roomId, onLeave, onImageView }: Props) {
               <path d="M13.73 21a2 2 0 0 1-3.46 0"/>
             </svg>
           )}
-          <span className="hidden sm:inline text-[11px] font-bold">{activeRoom?.isMuted ? 'OFF' : 'ON'}</span>
+          <span className="hidden sm:inline text-[11px] font-bold">{isRoomMuted ? 'OFF' : 'ON'}</span>
         </button>
         {/* 새로고침 버튼 */}
         <button
