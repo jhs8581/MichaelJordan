@@ -412,13 +412,13 @@ export default function ChatPage() {
               <ChatWindow
                 roomId={selectedRoom.id}
                 onLeave={() => setSelectedRoom(null)}
-                onImageView={(url, imageList) => {
+                onImageView={(url, imageList, options) => {
                   const idx = imageList.findIndex((item) => item.url === url);
                   setViewingImageItems(imageList);
                   setViewingImageIdx(idx >= 0 ? idx : 0);
                   setImageZoom(1);
                   setImagePan({ x: 0, y: 0 });
-                  setShowImageGrid(false);
+                  setShowImageGrid(Boolean(options?.showGrid));
                 }}
               />
             </div>

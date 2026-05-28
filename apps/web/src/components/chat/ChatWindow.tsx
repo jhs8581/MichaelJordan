@@ -11,12 +11,16 @@ import { MessageBubble, renderMessageContent } from './MessageBubble';
 interface Props {
   roomId: number;
   onLeave?: () => void;
-  onImageView?: (url: string, imageList: RoomImageItem[]) => void;
+  onImageView?: (url: string, imageList: RoomImageItem[], options?: ImageViewOptions) => void;
 }
 
 type RoomImageItem = {
   url: string;
   createdAt?: string;
+};
+
+type ImageViewOptions = {
+  showGrid?: boolean;
 };
 
 type ChatViewMode = 'bubble' | 'memo';
@@ -162,6 +166,7 @@ export function ChatWindow({ roomId, onLeave, onImageView }: Props) {
   const [pendingPasteImage, setPendingPasteImage] = useState<{ file: File; url: string } | null>(null);
   const [copyNotice, setCopyNotice] = useState('');
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const [imageCollectionLoading, setImageCollectionLoading] = useState(false);
   const [muteSaving, setMuteSaving] = useState(false);
   const [muteOverride, setMuteOverride] = useState<boolean | null>(null);
   const [socketDisconnected, setSocketDisconnected] = useState(false);
@@ -836,14 +841,14 @@ export function ChatWindow({ roomId, onLeave, onImageView }: Props) {
       .map((m) => ({ url: m.fileUrl!, createdAt: m.createdAt }));
   }
 
-  async function loadAllRoomImageItems(clickedUrl: string): Promise<RoomImageItem[]> {
+  async function loadAllRoomImageItems(clickedUrl?: string): Promise<RoomImageItem[]> {
     if (allRoomImagesRef.current !== null) return allRoomImagesRef.current;
 
     const loadedImages = getImageItemsFromMessages(messages);
     try {
       const res = await api.get<{ data: { images: string[]; imageItems?: RoomImageItem[] } }>(`/messages/${roomId}/images`);
       const serverImages = sortImagesNewestFirst(res.data.data.imageItems ?? res.data.data.images.map((url) => ({ url })));
-      if (res.data.data.imageItems && serverImages.some((item) => item.url === clickedUrl)) {
+      if (!clickedUrl || serverImages.some((item) => item.url === clickedUrl)) {
         allRoomImagesRef.current = serverImages;
         return serverImages;
       }
@@ -862,10 +867,27 @@ export function ChatWindow({ roomId, onLeave, onImageView }: Props) {
 
     const images = Array.from(merged);
     const sortedImages = sortImagesNewestFirst(images.map(([, item]) => item));
-    allRoomImagesRef.current = sortedImages.some((item) => item.url === clickedUrl)
+    allRoomImagesRef.current = !clickedUrl || sortedImages.some((item) => item.url === clickedUrl)
       ? sortedImages
       : [{ url: clickedUrl }, ...sortedImages];
     return allRoomImagesRef.current;
+  }
+
+  async function handleOpenImageCollection() {
+    if (!onImageView || imageCollectionLoading) return;
+    setImageCollectionLoading(true);
+    try {
+      const imageItems = await loadAllRoomImageItems();
+      if (imageItems.length === 0) {
+        showCopyNotice('모아볼 사진이 없습니다.');
+        return;
+      }
+      onImageView(imageItems[0].url, imageItems, { showGrid: true });
+    } catch {
+      showCopyNotice('사진을 불러오지 못했습니다.');
+    } finally {
+      setImageCollectionLoading(false);
+    }
   }
 
   function jumpToMessage(messageId: number) {
@@ -1100,6 +1122,33 @@ export function ChatWindow({ roomId, onLeave, onImageView }: Props) {
           )}
           <span className="hidden sm:inline text-[11px] font-bold">{isRoomMuted ? 'OFF' : 'ON'}</span>
         </button>
+        {/* 사진 모아보기 버튼 */}
+        {onImageView && (
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              handleOpenImageCollection();
+            }}
+            disabled={imageCollectionLoading}
+            className="rounded-md px-2 py-1.5 transition-colors inline-flex items-center gap-1.5 disabled:opacity-60"
+            style={{
+              background: '#5865f222',
+              color: '#cdd6ff',
+              cursor: imageCollectionLoading ? 'wait' : 'pointer',
+            }}
+            title="사진 모아보기"
+            aria-label="사진 모아보기"
+          >
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <rect x="3" y="3" width="7" height="7" rx="1"/>
+              <rect x="14" y="3" width="7" height="7" rx="1"/>
+              <rect x="3" y="14" width="7" height="7" rx="1"/>
+              <rect x="14" y="14" width="7" height="7" rx="1"/>
+            </svg>
+            <span className="hidden sm:inline text-[11px] font-bold">사진모아보기</span>
+          </button>
+        )}
         {/* 새로고침 버튼 */}
         <button
           type="button"
