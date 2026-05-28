@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useChatStore } from '@/store/chat';
 import { useAuthStore } from '@/store/auth';
 import { getSocket } from '@/lib/socket';
@@ -676,22 +676,11 @@ export function ChatWindow({ roomId, onLeave, onImageView }: Props) {
   // 날짜 구분선 렌더링
   function renderMessages() {
     const items: React.ReactNode[] = [];
-    const messageById = new Map(messages.map((message) => [message.id, message]));
     let lastDate = '';
     let lastSenderId = -1;
 
     messages.forEach((msg, i) => {
-      const fallbackReplyTarget = !msg.replyTo && msg.replyToId ? messageById.get(msg.replyToId) : undefined;
-      const replyPreview = msg.replyTo ?? (fallbackReplyTarget
-        ? {
-            id: fallbackReplyTarget.id,
-            senderId: fallbackReplyTarget.senderId,
-            content: fallbackReplyTarget.content,
-            fileUrl: fallbackReplyTarget.fileUrl,
-            createdAt: fallbackReplyTarget.createdAt,
-            sender: fallbackReplyTarget.sender,
-          }
-        : undefined);
+      const replyPreview = resolveReplyPreview(msg);
       const date = new Date(msg.createdAt).toLocaleDateString('ko-KR', { year: 'numeric', month: 'long', day: 'numeric' });
       if (settings.showDateSeparator && date !== lastDate) {
         items.push(
@@ -767,6 +756,23 @@ export function ChatWindow({ roomId, onLeave, onImageView }: Props) {
       lastSenderId = msg.senderId;
     });
     return items;
+  }
+
+  const messageById = useMemo(() => new Map(messages.map((message) => [message.id, message])), [messages]);
+
+  function resolveReplyPreview(message: Message): Message['replyTo'] {
+    if (message.replyTo) return message.replyTo;
+    if (!message.replyToId) return undefined;
+    const fallbackReplyTarget = messageById.get(message.replyToId);
+    if (!fallbackReplyTarget) return undefined;
+    return {
+      id: fallbackReplyTarget.id,
+      senderId: fallbackReplyTarget.senderId,
+      content: fallbackReplyTarget.content,
+      fileUrl: fallbackReplyTarget.fileUrl,
+      createdAt: fallbackReplyTarget.createdAt,
+      sender: fallbackReplyTarget.sender,
+    };
   }
 
   return (
