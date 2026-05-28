@@ -75,6 +75,16 @@ function getMessageSendMeta(preferredTimeZone?: string) {
   };
 }
 
+function getValidTimeZone(timeZone?: string): string | undefined {
+  if (!timeZone?.trim()) return undefined;
+  try {
+    Intl.DateTimeFormat('ko-KR', { timeZone });
+    return timeZone;
+  } catch {
+    return undefined;
+  }
+}
+
 const DEFAULT_SETTINGS: ChatViewSettings = {
   viewMode: 'bubble',
   timeFormat: 'ampm',
@@ -935,7 +945,7 @@ export function ChatWindow({ roomId, onLeave, onImageView }: Props) {
         </span>
         {/* 온라인 상태 (담화망 DM 방) */}
         {activeRoom && !activeRoom.isGroup && (() => {
-          const otherMember = activeRoom.members.find((m) => m.userId !== user?.id);
+          const otherMember = (activeRoom.members ?? []).find((m) => m.userId !== user?.id);
           const isOnline = otherMember ? onlineUserIds.has(otherMember.userId) : false;
           return (
             <span className="flex items-center gap-1 text-xs" style={{ color: isOnline ? '#57f287' : 'var(--text-muted)' }}>
@@ -1277,12 +1287,12 @@ export function ChatWindow({ roomId, onLeave, onImageView }: Props) {
                       ? <span className="text-xs" style={{ color: 'var(--text-muted)' }}>[이미지]</span>
                       : <p className="text-xs whitespace-pre-wrap break-words" style={{ color: 'var(--text-primary)' }}>
                           {searchKeyword.trim()
-                            ? msg.content.split(new RegExp(`(${searchKeyword.trim()})`, 'gi')).map((part, i) =>
+                            ? (msg.content ?? '').split(new RegExp(`(${searchKeyword.trim()})`, 'gi')).map((part, i) =>
                                 part.toLowerCase() === searchKeyword.trim().toLowerCase()
                                   ? <mark key={i} style={{ background: '#fde047', color: '#111', borderRadius: 2 }}>{part}</mark>
                                   : part
                               )
-                            : renderMessageContent(msg.content)
+                            : renderMessageContent(msg.content ?? '')
                           }
                         </p>
                     }
@@ -1327,7 +1337,7 @@ export function ChatWindow({ roomId, onLeave, onImageView }: Props) {
             onClick={(e) => e.stopPropagation()}
           >
             <p className="text-xs text-center mb-4 truncate px-2" style={{ color: 'var(--text-muted)' }}>
-              {contextMenu.fileUrl ? '[파일]' : contextMenu.content.slice(0, 60)}
+              {contextMenu.fileUrl ? '[파일]' : (contextMenu.content ?? '').slice(0, 60)}
             </p>
             <button
               type="button"
@@ -1588,15 +1598,28 @@ function formatTime(date: Date, mode: TimeFormatMode, timeZone?: string, senderL
     return `${period} ${displayHour}:${minuteText}`;
   }
 
-  if (mode === '24h') {
-    return date.toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit', hour12: false, timeZone });
-  }
+  const validTimeZone = getValidTimeZone(timeZone);
+  try {
+    if (mode === '24h') {
+      return date.toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit', hour12: false, timeZone: validTimeZone });
+    }
 
-  return date.toLocaleTimeString('ko-KR', { hour: 'numeric', minute: '2-digit', hour12: true, timeZone });
+    return date.toLocaleTimeString('ko-KR', { hour: 'numeric', minute: '2-digit', hour12: true, timeZone: validTimeZone });
+  } catch {
+    return mode === '24h'
+      ? date.toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit', hour12: false })
+      : date.toLocaleTimeString('ko-KR', { hour: 'numeric', minute: '2-digit', hour12: true });
+  }
 }
 
 function formatSearchTime(date: Date, timeZone?: string, senderLocalTime?: string): string {
-  const day = date.toLocaleDateString('ko-KR', { month: 'numeric', day: 'numeric', timeZone });
+  const validTimeZone = getValidTimeZone(timeZone);
+  let day: string;
+  try {
+    day = date.toLocaleDateString('ko-KR', { month: 'numeric', day: 'numeric', timeZone: validTimeZone });
+  } catch {
+    day = date.toLocaleDateString('ko-KR', { month: 'numeric', day: 'numeric' });
+  }
   const time = formatTime(date, '24h', timeZone, senderLocalTime);
   return `${day} ${time}`;
 }

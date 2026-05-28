@@ -41,6 +41,16 @@ function isVideoUrl(url: string): boolean {
   return /\.(mp4|webm|mov|m4v|avi)(\?.*)?$/i.test(url);
 }
 
+function getValidTimeZone(timeZone?: string): string | undefined {
+  if (!timeZone?.trim()) return undefined;
+  try {
+    Intl.DateTimeFormat('ko-KR', { timeZone });
+    return timeZone;
+  } catch {
+    return undefined;
+  }
+}
+
 export function MessageBubble({ message, isMine, isConsecutive, timeFormat, onImageClick, onLongPress, onReply, onJumpToMessage }: Props) {
   const time = formatMessageTime(new Date(message.createdAt), timeFormat, message.senderTimeZone, message.senderLocalTime);
   // 보낸 사람 본인을 제외한 읽음 수 (본인 읽음은 항상 있어서 무조건 읽음으로 표시되는 버그 방지)
@@ -241,9 +251,16 @@ function formatMessageTime(date: Date, mode: 'ampm' | '24h', timeZone?: string, 
     return `${period} ${displayHour}:${minuteText}`;
   }
 
-  if (mode === '24h') {
-    return date.toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit', hour12: false, timeZone });
-  }
+  const validTimeZone = getValidTimeZone(timeZone);
+  try {
+    if (mode === '24h') {
+      return date.toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit', hour12: false, timeZone: validTimeZone });
+    }
 
-  return date.toLocaleTimeString('ko-KR', { hour: 'numeric', minute: '2-digit', hour12: true, timeZone });
+    return date.toLocaleTimeString('ko-KR', { hour: 'numeric', minute: '2-digit', hour12: true, timeZone: validTimeZone });
+  } catch {
+    return mode === '24h'
+      ? date.toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit', hour12: false })
+      : date.toLocaleTimeString('ko-KR', { hour: 'numeric', minute: '2-digit', hour12: true });
+  }
 }
