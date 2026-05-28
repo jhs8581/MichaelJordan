@@ -62,6 +62,7 @@ export function ChatWindow({ roomId, onLeave, onImageView }: Props) {
   const setRoomMuted = useChatStore((s) => s.setRoomMuted);
   const messages = useChatStore((s) => s.messages[roomId] ?? []);
   const addMessage = useChatStore((s) => s.addMessage);
+  const prependMessages = useChatStore((s) => s.prependMessages);
   const setMessages = useChatStore((s) => s.setMessages);
   const markRead = useChatStore((s) => s.markRead);
   const removeMessage = useChatStore((s) => s.removeMessage);
@@ -89,6 +90,9 @@ export function ChatWindow({ roomId, onLeave, onImageView }: Props) {
   const [socketDisconnected, setSocketDisconnected] = useState(false);
   const [contextMenu, setContextMenu] = useState<Message | null>(null);
   const [archiveRoomId, setArchiveRoomId] = useState<number | null>(null);
+  // 이전 메시지 페이지네이션
+  const [nextCursor, setNextCursor] = useState<number | null>(null);
+  const [loadingOlder, setLoadingOlder] = useState(false);
   // 타이핑 중인 사용자 목록 { userId, username }
   const [typingUsers, setTypingUsers] = useState<{ userId: number; username: string }[]>([]);
   // 온라인 사용자 ID 세트
@@ -104,11 +108,13 @@ export function ChatWindow({ roomId, onLeave, onImageView }: Props) {
   const canLock = lockCode.length > 0;
 
   useEffect(() => {
+    setNextCursor(null);
     api
-      .get<{ data: { messages: Message[] } }>(`/messages/${roomId}`)
+      .get<{ data: { messages: Message[]; nextCursor: number | null } }>(`/messages/${roomId}`)
       .then((res) => {
         const msgs = res.data.data.messages;
         setMessages(roomId, msgs);
+        setNextCursor(res.data.data.nextCursor);
         // 채팅방 열 때 마지막 메시지 읽음 처리
         if (msgs.length > 0 && accessToken) {
           const socket = getSocket();
@@ -419,6 +425,28 @@ export function ChatWindow({ roomId, onLeave, onImageView }: Props) {
     if (!el) return;
     const distFromBottom = el.scrollHeight - el.scrollTop - el.clientHeight;
     setShowScrollBtn(distFromBottom > 120);
+
+    // 위로 스크롤하여 이전 메시지 불러오기
+    if (el.scrollTop < 80 && nextCursor && !loadingOlder) {
+      setLoadingOlder(true);
+      const prevScrollHeight = el.scrollHeight;
+      const prevScrollTop = el.scrollTop;
+      api
+        .get<{ data: { messages: Message[]; nextCursor: number | null } }>(`/messages/${roomId}?cursor=${nextCursor}`)
+        .then((res) => {
+          const older = res.data.data.messages;
+          if (older.length > 0) {
+            prependMessages(roomId, older);
+            // 스크롤 위치 보정: 이전 위치 유지
+            requestAnimationFrame(() => {
+              const newScrollHeight = el.scrollHeight;
+              el.scrollTop = prevScrollTop + (newScrollHeight - prevScrollHeight);
+            });
+          }
+          setNextCursor(res.data.data.nextCursor);
+        })
+        .finally(() => setLoadingOlder(false));
+    }
   }
 
   function scrollToBottom() {
@@ -1011,6 +1039,9 @@ export function ChatWindow({ roomId, onLeave, onImageView }: Props) {
       <div ref={scrollContainerRef} className="flex-1 overflow-y-auto px-4 py-4" style={{ position: 'relative' }}
         onScroll={handleScrollContainerScroll}
       >
+        {loadingOlder && (
+          <div className="text-center py-2 text-xs" style={{ color: 'var(--text-muted)' }}>이전 메시지 불러오는 중...</div>
+        )}
         {isContentUnlocked && renderMessages()}
         {/* 타이핑 인디케이터 — 스크롤 레이아웃에 영향 안 주도록 sticky 배치 */}
         {typingUsers.length > 0 && (
