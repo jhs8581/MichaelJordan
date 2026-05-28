@@ -84,6 +84,32 @@ export function MessageBubble({ message, isMine, isConsecutive, timeFormat, onIm
           </div>
         )}
 
+        {/* 카카오톡 스타일 답장 미리보기 — 말풍선 위에 별도 카드로 표시 */}
+        {message.replyTo && (
+          <button
+            type="button"
+            onClick={() => { if (message.replyTo?.id) onJumpToMessage?.(message.replyTo.id); }}
+            className={`mb-1 rounded-xl px-2.5 py-1.5 text-left ${isMine ? 'self-end' : 'self-start'}`}
+            style={{
+              background: 'rgba(255,255,255,0.06)',
+              border: '1px solid rgba(255,255,255,0.08)',
+              borderLeftWidth: '2.5px',
+              borderLeftColor: 'var(--accent, #5865f2)',
+              cursor: 'pointer',
+              maxWidth: '100%',
+            }}
+            title="원본 메시지로 이동"
+            aria-label={`답장 대상: ${message.replyTo.sender?.username ?? `사용자${message.replyTo.senderId}`} — 원본 메시지로 이동`}
+          >
+            <p className="text-[11px] font-semibold leading-tight" style={{ color: 'var(--accent, #5865f2)' }}>
+              {message.replyTo.sender?.username ?? `사용자${message.replyTo.senderId}`}
+            </p>
+            <p className="text-[11px] leading-tight truncate" style={{ color: 'var(--text-muted)', maxWidth: 220 }}>
+              {message.replyTo.fileUrl ? '[파일]' : (message.replyTo.content || '[메시지]')}
+            </p>
+          </button>
+        )}
+
         {/* 말풍선 */}
         <div className="flex items-end gap-1.5">
           {/* 읽음/시간 (내 메시지 왼쪽) */}
@@ -111,28 +137,7 @@ export function MessageBubble({ message, isMine, isConsecutive, timeFormat, onIm
             onTouchEnd={cancelPress}
             onTouchMove={cancelPress}
           >
-            {message.replyTo && (
-              <button
-                type="button"
-                onClick={() => {
-                  if (message.replyTo?.id) onJumpToMessage?.(message.replyTo.id);
-                }}
-                className="mb-1.5 w-full rounded-lg px-2 py-1 text-left flex gap-2 items-stretch"
-                style={{ background: 'rgba(0,0,0,0.28)', color: '#d9dce4', border: 'none', cursor: 'pointer' }}
-                title="원본 메시지로 이동"
-                aria-label={`답장 대상: ${message.replyTo.sender?.username ?? `사용자${message.replyTo.senderId}`} — 원본 메시지로 이동`}
-              >
-                <div className="w-0.5 rounded-full flex-shrink-0" style={{ background: 'var(--accent, #5865f2)' }} aria-hidden="true" />
-                <div className="min-w-0">
-                  <p className="text-[11px] font-semibold leading-tight" style={{ color: 'var(--accent, #5865f2)' }}>
-                    ↩ {message.replyTo.sender?.username ?? `사용자${message.replyTo.senderId}`}
-                  </p>
-                  <p className="text-[11px] leading-tight truncate">
-                    {message.replyTo.fileUrl ? '[파일]' : (message.replyTo.content || '[메시지]')}
-                  </p>
-                </div>
-              </button>
-            )}
+
             {message.fileUrl ? (
               isVideoUrl(message.fileUrl) ? (
                 <video
