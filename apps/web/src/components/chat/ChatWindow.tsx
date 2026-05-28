@@ -443,9 +443,9 @@ export function ChatWindow({ roomId, onLeave, onImageView }: Props) {
     }
   }
 
-  // Enter 키 = 줄바꿈 / Shift+Enter = 전송 (웹), 버튼으로도 전송 가능
+  // Enter 키 = 줄바꿈 / Shift+Enter = 전송, 버튼으로도 전송 가능
   function handleKeyDown(e: React.KeyboardEvent<HTMLTextAreaElement>) {
-    if (e.key === 'Enter' && e.shiftKey && !isMobile) {
+    if (e.key === 'Enter' && e.shiftKey) {
       e.preventDefault();
       sendMessage();
     }
