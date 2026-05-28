@@ -1,6 +1,31 @@
 import { useRef } from 'react';
 import type { Message } from '@chat/types';
 
+const URL_REGEX = /(https?:\/\/[^\s<]+)/g;
+const URL_TEST = /^https?:\/\//;
+
+export function renderMessageContent(content: string): React.ReactNode {
+  const parts = content.split(URL_REGEX);
+  if (parts.length === 1) return content;
+
+  return parts.map((part, i) =>
+    URL_TEST.test(part) ? (
+      <a
+        key={i}
+        href={part}
+        target="_blank"
+        rel="noopener noreferrer"
+        onClick={(e) => e.stopPropagation()}
+        style={{ color: '#00aff4', textDecoration: 'underline', wordBreak: 'break-all' }}
+      >
+        {part}
+      </a>
+    ) : (
+      <span key={i}>{part}</span>
+    )
+  );
+}
+
 interface Props {
   message: Message;
   isMine: boolean;
@@ -117,7 +142,7 @@ export function MessageBubble({ message, isMine, isConsecutive, timeFormat, onIm
                   </a>
                 </div>
               )
-            ) : message.content}
+            ) : renderMessageContent(message.content ?? '')}
           </div>
 
           {/* 읽음/시간 (상대 메시지 오른쪽) */}
