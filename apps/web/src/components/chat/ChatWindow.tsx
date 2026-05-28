@@ -106,6 +106,7 @@ export function ChatWindow({ roomId, onLeave, onImageView }: Props) {
   const longPressTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const copyNoticeTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const messageRefs = useRef<Record<number, HTMLDivElement | null>>({});
+  const allRoomImagesRef = useRef<string[] | null>(null);
 
   const activeRoom = rooms.find((r) => r.id === roomId);
   const lockCode = (user?.chatLockCode ?? '').trim();
@@ -114,6 +115,7 @@ export function ChatWindow({ roomId, onLeave, onImageView }: Props) {
   useEffect(() => {
     setNextCursor(null);
     setReplyTarget(null);
+    allRoomImagesRef.current = null;
     api
       .get<{ data: { messages: Message[]; nextCursor: number | null } }>(`/messages/${roomId}`)
       .then((res) => {
@@ -704,6 +706,7 @@ export function ChatWindow({ roomId, onLeave, onImageView }: Props) {
 
     messages.forEach((msg, i) => {
       const replyPreview = replyPreviewByMessageId.get(msg.id);
+      const effectiveReply = replyPreview ?? msg.replyTo;
       const date = new Date(msg.createdAt).toLocaleDateString('ko-KR', { year: 'numeric', month: 'long', day: 'numeric' });
       if (settings.showDateSeparator && date !== lastDate) {
         items.push(
@@ -728,10 +731,10 @@ export function ChatWindow({ roomId, onLeave, onImageView }: Props) {
             ref={(el) => { messageRefs.current[msg.id] = el; }}
             data-message-id={msg.id}
           >
-            {replyPreview && (
+            {effectiveReply && (
               <button
                 type="button"
-                onClick={() => { if (replyPreview.id) jumpToMessage(replyPreview.id); }}
+                onClick={() => { if (effectiveReply.id) jumpToMessage(effectiveReply.id); }}
                 className="text-xs leading-5 whitespace-pre-wrap break-words block"
                 style={{
                   color: 'var(--accent, #5865f2)',
@@ -745,7 +748,7 @@ export function ChatWindow({ roomId, onLeave, onImageView }: Props) {
                 title="원본 메시지로 이동"
                 aria-label="원본 메시지로 이동"
               >
-                ↳ [{replyPreview.sender?.username ?? `사용자${replyPreview.senderId}`}] {replyPreview.fileUrl ? '[파일]' : (replyPreview.content || '[메시지]')}
+                ↳ [{effectiveReply.sender?.username ?? `사용자${effectiveReply.senderId}`}] {effectiveReply.fileUrl ? '[파일]' : (effectiveReply.content || '[메시지]')}
               </button>
             )}
             <p
@@ -765,15 +768,27 @@ export function ChatWindow({ roomId, onLeave, onImageView }: Props) {
             className="rounded-xl"
           >
             <MessageBubble
-              message={replyPreview ? { ...msg, replyTo: replyPreview } : msg}
+              message={{ ...msg, replyTo: effectiveReply }}
               isMine={isMine}
               isConsecutive={isConsecutive}
               timeFormat={settings.timeFormat}
               onImageClick={onImageView ? (url) => {
-                const imageUrls = messages
-                  .filter((m) => m.fileUrl && !/\.(mp4|webm|mov|m4v|avi)(\?.*)?$/i.test(m.fileUrl))
-                  .map((m) => m.fileUrl!);
-                onImageView(url, imageUrls);
+                if (allRoomImagesRef.current !== null) {
+                  onImageView(url, allRoomImagesRef.current);
+                  return;
+                }
+                api.get<{ data: { images: string[] } }>(`/messages/${roomId}/images`)
+                  .then((res) => {
+                    const imgs = res.data.data.images;
+                    allRoomImagesRef.current = imgs;
+                    onImageView(url, imgs);
+                  })
+                  .catch(() => {
+                    const loaded = messages
+                      .filter((m) => m.fileUrl && !/\.(mp4|webm|mov|m4v|avi)(\?.*)?$/i.test(m.fileUrl))
+                      .map((m) => m.fileUrl!);
+                    onImageView(url, loaded);
+                  });
               } : undefined}
               onLongPress={setContextMenu}
               onJumpToMessage={jumpToMessage}

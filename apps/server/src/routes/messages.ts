@@ -153,5 +153,29 @@ export async function messageRoutes(app: FastifyInstance) {
 
     return reply.send({ success: true, data: { messages } });
   });
+
+  // ── 채팅방 이미지 목록 전체 조회 ─────────────────────────────
+  auth.get('/:roomId/images', async (req, reply) => {
+    const userId = (req.user as { sub: number }).sub;
+    const { roomId } = req.params as { roomId: string };
+
+    const member = await prisma.roomMember.findUnique({
+      where: { userId_roomId: { userId, roomId: Number(roomId) } },
+    });
+    if (!member) return reply.status(403).send({ success: false, error: '접근 권한이 없습니다.' });
+
+    const msgs = await prisma.message.findMany({
+      where: { roomId: Number(roomId), fileUrl: { not: null } },
+      select: { fileUrl: true },
+      orderBy: { id: 'asc' },
+    });
+
+    const images = msgs
+      .map((m) => m.fileUrl!)
+      .filter((url) => !/\.(mp4|webm|mov|m4v|avi)(\?.*)?$/i.test(url));
+
+    return reply.send({ success: true, data: { images } });
+  });
+
   }); // ── end auth scope
 }
