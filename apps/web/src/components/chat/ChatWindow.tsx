@@ -162,6 +162,7 @@ export function ChatWindow({ roomId, onLeave, onImageView }: Props) {
   const [pendingPasteImage, setPendingPasteImage] = useState<{ file: File; url: string } | null>(null);
   const [copyNotice, setCopyNotice] = useState('');
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const [muteSaving, setMuteSaving] = useState(false);
   const [socketDisconnected, setSocketDisconnected] = useState(false);
   const [contextMenu, setContextMenu] = useState<Message | null>(null);
   const [replyTarget, setReplyTarget] = useState<Message | null>(null);
@@ -495,12 +496,18 @@ export function ChatWindow({ roomId, onLeave, onImageView }: Props) {
   }
 
   async function handleMuteToggle() {
-    const next = !activeRoom?.isMuted;
+    if (!activeRoom || muteSaving) return;
+    const prev = Boolean(activeRoom.isMuted);
+    const next = !prev;
     setRoomMuted(roomId, next); // 낙관적 업데이트
+    setMuteSaving(true);
     try {
-      await api.patch(`/rooms/${roomId}/mute`, { mute: next });
+      const res = await api.patch<{ data: { isMuted: boolean } }>(`/rooms/${roomId}/mute`, { mute: next });
+      setRoomMuted(roomId, Boolean(res.data.data.isMuted));
     } catch {
-      setRoomMuted(roomId, !next); // 실패 시 롤백
+      setRoomMuted(roomId, prev); // 실패 시 롤백
+    } finally {
+      setMuteSaving(false);
     }
   }
 
@@ -1001,9 +1008,15 @@ export function ChatWindow({ roomId, onLeave, onImageView }: Props) {
         <button
           type="button"
           onClick={handleMuteToggle}
-          className="rounded-md p-1.5 transition-colors"
-          style={{ background: activeRoom?.isMuted ? '#ed424522' : 'transparent', color: activeRoom?.isMuted ? '#ed4245' : 'var(--text-muted)' }}
+          disabled={!activeRoom || muteSaving}
+          className="rounded-md px-2 py-1.5 transition-colors inline-flex items-center gap-1.5 disabled:opacity-60"
+          style={{
+            background: activeRoom?.isMuted ? '#ed424522' : 'transparent',
+            color: activeRoom?.isMuted ? '#ed4245' : 'var(--text-muted)',
+            cursor: muteSaving ? 'wait' : 'pointer',
+          }}
           title={activeRoom?.isMuted ? '알림 켜기' : '알림 끄기'}
+          aria-label={activeRoom?.isMuted ? '현재 알림 꺼짐, 클릭하면 알림 켜기' : '현재 알림 켜짐, 클릭하면 알림 끄기'}
         >
           {activeRoom?.isMuted ? (
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
@@ -1019,6 +1032,7 @@ export function ChatWindow({ roomId, onLeave, onImageView }: Props) {
               <path d="M13.73 21a2 2 0 0 1-3.46 0"/>
             </svg>
           )}
+          <span className="hidden sm:inline text-[11px] font-bold">{activeRoom?.isMuted ? 'OFF' : 'ON'}</span>
         </button>
         {/* 새로고침 버튼 */}
         <button

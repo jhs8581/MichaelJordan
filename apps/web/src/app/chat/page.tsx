@@ -440,13 +440,15 @@ export default function ChatPage() {
               <div style={{ padding: '40px 0', textAlign: 'center', color: '#aaa', fontSize: 14 }}>참여 중인 방이 없습니다</div>
             ) : rooms.map((r) => {
               const unreadCount = r.unreadCount ?? 0;
+              const showUnreadAlarm = unreadCount > 0 && !r.isMuted;
               return (
                 <div key={r.id} onClick={() => openRoom(r)}
                   style={{
                     display: 'flex', alignItems: 'center', padding: '13px 16px',
-                    borderBottom: '1px solid #f0f0f0', background: unreadCount > 0 ? '#f7fbff' : '#fff', cursor: 'pointer',
+                    borderBottom: '1px solid #f0f0f0', background: showUnreadAlarm ? '#f7fbff' : '#fff', cursor: 'pointer',
                     gap: 12,
                   }}
+                  title={r.isMuted ? `${r.name} · 알림 꺼짐` : r.name}
                 >
                   <div style={{ position: 'relative', flexShrink: 0 }}>
                     <div style={{
@@ -458,7 +460,7 @@ export default function ChatPage() {
                     }}>
                       {r.isArchive ? '📦' : r.name.charAt(0)}
                     </div>
-                    {unreadCount > 0 && (
+                    {showUnreadAlarm && (
                       <span style={{
                         position: 'absolute', top: -3, right: -5, minWidth: 18, height: 18, borderRadius: 9,
                         background: '#ff3b30', color: '#fff', fontSize: 10, fontWeight: 800,
@@ -466,11 +468,26 @@ export default function ChatPage() {
                         boxShadow: '0 0 0 2px #fff',
                       }}>{unreadCount > 99 ? '99+' : unreadCount}</span>
                     )}
+                    {r.isMuted && (
+                      <span style={{
+                        position: 'absolute', right: -4, bottom: -3, width: 20, height: 20, borderRadius: 10,
+                        background: '#fff', color: '#777', display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+                        boxShadow: '0 0 0 1px #e5e5e5',
+                      }} aria-label="알림 꺼짐">
+                        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.3" strokeLinecap="round" strokeLinejoin="round">
+                          <line x1="1" y1="1" x2="23" y2="23"/>
+                          <path d="M9 9v3a3 3 0 0 0 5.12 2.12M15 9.34V4a3 3 0 0 0-5.94-.6"/>
+                          <path d="M17 16.95A7 7 0 0 1 5 12v-2m14 0v2a7 7 0 0 1-.11 1.23"/>
+                        </svg>
+                      </span>
+                    )}
                   </div>
                   <div style={{ flex: 1, overflow: 'hidden' }}>
-                    <div style={{ fontWeight: unreadCount > 0 ? 800 : 700, fontSize: 14, color: '#111', marginBottom: 3, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{r.name}</div>
-                    <div style={{ fontSize: 12, color: unreadCount > 0 ? '#1a76c8' : '#999', fontWeight: unreadCount > 0 ? 700 : 400 }}>
-                      {unreadCount > 0 ? `읽지 않은 메시지 ${unreadCount}개` : (r.isArchive ? '나의 보관함' : (r.isGroup ? `${r.members.length}명` : '1:1 대화'))}
+                    <div style={{ fontWeight: showUnreadAlarm ? 800 : 700, fontSize: 14, color: '#111', marginBottom: 3, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{r.name}</div>
+                    <div style={{ fontSize: 12, color: showUnreadAlarm ? '#1a76c8' : '#999', fontWeight: showUnreadAlarm ? 700 : 400 }}>
+                      {r.isMuted
+                        ? `알림 꺼짐${unreadCount > 0 ? ` · 읽지 않은 메시지 ${unreadCount}개` : ''}`
+                        : unreadCount > 0 ? `읽지 않은 메시지 ${unreadCount}개` : (r.isArchive ? '나의 보관함' : (r.isGroup ? `${r.members.length}명` : '1:1 대화'))}
                     </div>
                   </div>
                 </div>

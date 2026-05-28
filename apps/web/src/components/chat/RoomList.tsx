@@ -24,6 +24,13 @@ const DmIcon = () => (
     <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/>
   </svg>
 );
+const MutedIcon = () => (
+  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round">
+    <line x1="1" y1="1" x2="23" y2="23"/>
+    <path d="M9 9v3a3 3 0 0 0 5.12 2.12M15 9.34V4a3 3 0 0 0-5.94-.6"/>
+    <path d="M17 16.95A7 7 0 0 1 5 12v-2m14 0v2a7 7 0 0 1-.11 1.23"/>
+  </svg>
+);
 
 /* ── 채팅방 생성 모달 ─────────────────────────────── */
 export function CreateRoomModal({ onClose, onCreated }: { onClose: () => void; onCreated: (room: Room) => void }) {
@@ -258,6 +265,7 @@ export function RoomList() {
 }
 
 function RoomItem({ room, isActive, onClick, icon }: { room: Room; isActive: boolean; onClick: () => void; icon: React.ReactNode }) {
+  const showUnreadAlarm = (room.unreadCount ?? 0) > 0 && !room.isMuted;
   return (
     <button onClick={onClick}
       className="w-full flex items-center gap-2 px-2 py-1.5 rounded-md text-left transition-colors"
@@ -267,9 +275,19 @@ function RoomItem({ room, isActive, onClick, icon }: { room: Room; isActive: boo
       }}
       onMouseEnter={(e) => { if (!isActive) (e.currentTarget as HTMLElement).style.background = 'var(--sidebar-hover)'; (e.currentTarget as HTMLElement).style.color = '#dcddde'; }}
       onMouseLeave={(e) => { if (!isActive) { (e.currentTarget as HTMLElement).style.background = 'transparent'; (e.currentTarget as HTMLElement).style.color = 'var(--sidebar-text)'; } }}
+      title={room.isMuted ? `${room.name} · 알림 꺼짐` : room.name}
     >
       <span style={{ color: isActive ? '#fff' : 'var(--text-muted)' }}>{icon}</span>
-      <span className="text-sm font-medium truncate">{room.name}</span>
+      <span className="text-sm font-medium truncate flex-1">{room.name}</span>
+      {room.isMuted ? (
+        <span className="inline-flex items-center justify-center" style={{ color: 'var(--text-muted)' }} aria-label="알림 꺼짐">
+          <MutedIcon />
+        </span>
+      ) : showUnreadAlarm ? (
+        <span className="inline-flex items-center justify-center text-[10px] font-bold" style={{ minWidth: 18, height: 18, borderRadius: 9, background: '#ed4245', color: '#fff', padding: '0 5px' }}>
+          {(room.unreadCount ?? 0) > 99 ? '99+' : room.unreadCount}
+        </span>
+      ) : null}
     </button>
   );
 }
