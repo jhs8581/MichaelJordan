@@ -80,6 +80,16 @@ export async function messageRoutes(app: FastifyInstance) {
       include: {
         sender: { select: { id: true, username: true, avatarUrl: true } },
         reads: { select: { userId: true, readAt: true } },
+        replyTo: {
+          select: {
+            id: true,
+            senderId: true,
+            content: true,
+            fileUrl: true,
+            createdAt: true,
+            sender: { select: { id: true, username: true, avatarUrl: true } },
+          },
+        },
       },
       orderBy: { id: 'desc' },
       take: PAGE_SIZE,
@@ -126,6 +136,16 @@ export async function messageRoutes(app: FastifyInstance) {
       include: {
         sender: { select: { id: true, username: true, avatarUrl: true } },
         reads: { select: { userId: true, readAt: true } },
+        replyTo: {
+          select: {
+            id: true,
+            senderId: true,
+            content: true,
+            fileUrl: true,
+            createdAt: true,
+            sender: { select: { id: true, username: true, avatarUrl: true } },
+          },
+        },
       },
       orderBy: { id: 'asc' },
       take: 100,

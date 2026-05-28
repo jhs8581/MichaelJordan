@@ -33,13 +33,14 @@ interface Props {
   timeFormat: 'ampm' | '24h';
   onImageClick?: (url: string) => void;
   onLongPress?: (message: Message) => void;
+  onJumpToMessage?: (messageId: number) => void;
 }
 
 function isVideoUrl(url: string): boolean {
   return /\.(mp4|webm|mov|m4v|avi)(\?.*)?$/i.test(url);
 }
 
-export function MessageBubble({ message, isMine, isConsecutive, timeFormat, onImageClick, onLongPress }: Props) {
+export function MessageBubble({ message, isMine, isConsecutive, timeFormat, onImageClick, onLongPress, onJumpToMessage }: Props) {
   const time = formatMessageTime(new Date(message.createdAt), timeFormat);
   // 보낸 사람 본인을 제외한 읽음 수 (본인 읽음은 항상 있어서 무조건 읽음으로 표시되는 버그 방지)
   const readCount = (message.reads ?? []).filter((r) => r.userId !== message.senderId).length;
@@ -96,7 +97,7 @@ export function MessageBubble({ message, isMine, isConsecutive, timeFormat, onIm
           )}
 
           <div
-            className="px-3.5 py-2 rounded-2xl text-sm leading-relaxed whitespace-pre-wrap break-words select-none"
+            className="px-3.5 py-2 rounded-2xl text-sm leading-relaxed whitespace-pre-wrap break-words select-text"
             style={{
               background: isMine ? 'var(--bubble-mine)' : 'var(--bubble-other)',
               color: '#fff',
@@ -110,6 +111,22 @@ export function MessageBubble({ message, isMine, isConsecutive, timeFormat, onIm
             onTouchEnd={cancelPress}
             onTouchMove={cancelPress}
           >
+            {message.replyTo && (
+              <button
+                type="button"
+                onClick={() => onJumpToMessage?.(message.replyTo!.id)}
+                className="mb-1.5 w-full rounded-lg px-2 py-1 text-left"
+                style={{ background: 'rgba(0,0,0,0.28)', color: '#d9dce4' }}
+                title="원본 메시지로 이동"
+              >
+                <p className="text-[11px] font-semibold leading-tight">
+                  {message.replyTo.sender?.username ?? `사용자${message.replyTo.senderId}`}
+                </p>
+                <p className="text-[11px] leading-tight truncate">
+                  {message.replyTo.fileUrl ? '[파일]' : (message.replyTo.content || '[메시지]')}
+                </p>
+              </button>
+            )}
             {message.fileUrl ? (
               isVideoUrl(message.fileUrl) ? (
                 <video
@@ -170,5 +187,4 @@ function formatMessageTime(date: Date, mode: 'ampm' | '24h'): string {
 
   return date.toLocaleTimeString('ko-KR', { hour: 'numeric', minute: '2-digit', hour12: true });
 }
-
 
