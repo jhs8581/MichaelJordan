@@ -149,6 +149,13 @@ function ScrollToTopBtn({ containerRef }: { containerRef: RefObject<HTMLDivEleme
   );
 }
 
+function getTouchDistance(touches: { length: number; [index: number]: { clientX: number; clientY: number } }): number {
+  if (touches.length < 2) return 0;
+  const dx = touches[0].clientX - touches[1].clientX;
+  const dy = touches[0].clientY - touches[1].clientY;
+  return Math.hypot(dx, dy);
+}
+
 export default function ChatPage() {
   const router = useRouter();
   const clear = useAuthStore((s) => s.clear);
@@ -168,6 +175,8 @@ export default function ChatPage() {
   const viewingImage = viewingImages[viewingImageIdx] ?? null;
   const touchStartX = useRef<number | null>(null);
   const imageDragStart = useRef<{ x: number; y: number; panX: number; panY: number } | null>(null);
+  const pinchStart = useRef<{ distance: number; zoom: number } | null>(null);
+  const pinchMoved = useRef(false);
   const scrollRef = useRef<HTMLDivElement>(null);
   const galleryClickCount = useRef(0);
   const galleryClickTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -236,6 +245,8 @@ export default function ChatPage() {
     setImagePan({ x: 0, y: 0 });
     setShowImageGrid(false);
     imageDragStart.current = null;
+    pinchStart.current = null;
+    pinchMoved.current = false;
   }, [viewingImageIdx, viewingImages]);
 
   useEffect(() => {
@@ -520,8 +531,38 @@ export default function ChatPage() {
             else if (e.key === 'ArrowRight') setViewingImageIdx((i) => Math.min(viewingImages.length - 1, i + 1));
             else if (e.key === 'Escape') setViewingImages([]);
           }}
-          onTouchStart={(e) => { touchStartX.current = e.touches[0].clientX; }}
+          onTouchStart={(e) => {
+            if (showImageGrid) return;
+            if (e.touches.length >= 2) {
+              pinchStart.current = { distance: getTouchDistance(e.touches), zoom: imageZoom };
+              pinchMoved.current = false;
+              touchStartX.current = null;
+              imageDragStart.current = null;
+              return;
+            }
+            touchStartX.current = e.touches[0].clientX;
+          }}
+          onTouchMove={(e) => {
+            if (showImageGrid || !pinchStart.current || e.touches.length < 2) return;
+            e.preventDefault();
+            const start = pinchStart.current;
+            const distance = getTouchDistance(e.touches);
+            if (start.distance <= 0 || distance <= 0) return;
+            const nextZoom = Math.min(4, Math.max(1, Number((start.zoom * (distance / start.distance)).toFixed(2))));
+            pinchMoved.current = true;
+            setImageZoom(nextZoom);
+            if (nextZoom === 1) setImagePan({ x: 0, y: 0 });
+          }}
           onTouchEnd={(e) => {
+            if (pinchStart.current) {
+              if (e.touches.length >= 2) return;
+              pinchStart.current = null;
+              if (pinchMoved.current) {
+                pinchMoved.current = false;
+                touchStartX.current = null;
+                return;
+              }
+            }
             if (imageZoom > 1 || showImageGrid) return;
             if (touchStartX.current === null) return;
             const dx = e.changedTouches[0].clientX - touchStartX.current;
@@ -545,7 +586,7 @@ export default function ChatPage() {
             position: 'fixed', inset: 0, zIndex: 9999,
             background: 'rgba(0,0,0,0.92)',
             display: 'flex', alignItems: 'center', justifyContent: 'center',
-            outline: 'none',
+            outline: 'none', touchAction: showImageGrid ? 'auto' : 'none',
           }}
         >
           {showImageGrid ? (
