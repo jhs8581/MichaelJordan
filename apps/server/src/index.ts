@@ -64,7 +64,10 @@ async function main() {
   await app.register(userRoutes, { prefix: '/api/users' });
   await app.register(pushRoutes, { prefix: '/api/push' });
 
-  app.get('/health', async () => ({ ok: true }));
+  app.get('/health', async () => ({
+    ok: true,
+    build: 'message-timezone-v3',
+  }));
 
   // ── ready 후 app.server로 Socket.io 연결 ──────────────────────
   await app.ready();
