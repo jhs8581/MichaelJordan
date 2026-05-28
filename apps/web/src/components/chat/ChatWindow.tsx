@@ -6,7 +6,7 @@ import { useAuthStore } from '@/store/auth';
 import { getSocket } from '@/lib/socket';
 import { api } from '@/lib/api';
 import type { Message, Room } from '@chat/types';
-import { MessageBubble } from './MessageBubble';
+import { MessageBubble, renderMessageContent } from './MessageBubble';
 
 interface Props {
   roomId: number;
@@ -619,7 +619,7 @@ export function ChatWindow({ roomId, onLeave, onImageView }: Props) {
             className="text-sm leading-7 whitespace-pre-wrap break-words"
             style={{ color: 'var(--text-primary)', fontFamily: 'Consolas, "Courier New", monospace' }}
           >
-            {prefix} {msg.content}
+            {prefix} {renderMessageContent(msg.content)}
           </p>
         );
       } else {
@@ -956,7 +956,7 @@ export function ChatWindow({ roomId, onLeave, onImageView }: Props) {
                                   ? <mark key={i} style={{ background: '#fde047', color: '#111', borderRadius: 2 }}>{part}</mark>
                                   : part
                               )
-                            : msg.content
+                            : renderMessageContent(msg.content)
                           }
                         </p>
                     }

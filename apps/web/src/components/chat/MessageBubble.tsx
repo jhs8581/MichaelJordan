@@ -4,7 +4,7 @@ import type { Message } from '@chat/types';
 const URL_REGEX = /(https?:\/\/[^\s<]+)/g;
 const URL_TEST = /^https?:\/\//;
 
-function renderMessageContent(content: string): React.ReactNode {
+export function renderMessageContent(content: string): React.ReactNode {
   const parts = content.split(URL_REGEX);
   if (parts.length === 1) return content;
 
