@@ -443,9 +443,13 @@ export function ChatWindow({ roomId, onLeave, onImageView }: Props) {
     }
   }
 
-  // Enter 키 = 줄바꿈 (전송은 버튼으로만)
-  function handleKeyDown(_e: React.KeyboardEvent<HTMLTextAreaElement>) {
-    // 기본 동작(줄바꿈) 유지 — 아무것도 하지 않음
+  // Enter 키 = 줄바꿈 / Shift+Enter = 전송 (웹), 버튼으로도 전송 가능
+  function handleKeyDown(e: React.KeyboardEvent<HTMLTextAreaElement>) {
+    if (e.key === 'Enter' && e.shiftKey && !isMobile) {
+      e.preventDefault();
+      sendMessage();
+    }
+    // 기본 Enter는 줄바꿈 유지
   }
 
   function handleInput(e: React.ChangeEvent<HTMLTextAreaElement>) {
