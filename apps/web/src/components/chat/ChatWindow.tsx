@@ -659,6 +659,7 @@ export function ChatWindow({ roomId, onLeave, onImageView }: Props) {
   function handleReplyMessage(msg: Message) {
     setContextMenu(null);
     setReplyTarget(msg);
+    showCopyNotice('답장할 메시지를 선택했습니다.');
     requestAnimationFrame(() => textareaRef.current?.focus());
   }
 
@@ -841,6 +842,7 @@ export function ChatWindow({ roomId, onLeave, onImageView }: Props) {
                   .catch(() => onImageView(url, [url]));
               } : undefined}
               onLongPress={setContextMenu}
+              onReply={handleReplyMessage}
               onJumpToMessage={jumpToMessage}
             />
           </div>

@@ -33,6 +33,7 @@ interface Props {
   timeFormat: 'ampm' | '24h';
   onImageClick?: (url: string) => void;
   onLongPress?: (message: Message) => void;
+  onReply?: (message: Message) => void;
   onJumpToMessage?: (messageId: number) => void;
 }
 
@@ -40,17 +41,46 @@ function isVideoUrl(url: string): boolean {
   return /\.(mp4|webm|mov|m4v|avi)(\?.*)?$/i.test(url);
 }
 
-export function MessageBubble({ message, isMine, isConsecutive, timeFormat, onImageClick, onLongPress, onJumpToMessage }: Props) {
+export function MessageBubble({ message, isMine, isConsecutive, timeFormat, onImageClick, onLongPress, onReply, onJumpToMessage }: Props) {
   const time = formatMessageTime(new Date(message.createdAt), timeFormat);
   // 보낸 사람 본인을 제외한 읽음 수 (본인 읽음은 항상 있어서 무조건 읽음으로 표시되는 버그 방지)
   const readCount = (message.reads ?? []).filter((r) => r.userId !== message.senderId).length;
   const pressTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const touchStartRef = useRef<{ x: number; y: number } | null>(null);
+  const longPressedRef = useRef(false);
 
-  function startPress() {
-    pressTimer.current = setTimeout(() => { onLongPress?.(message); }, 500);
+  function startPress(e: React.TouchEvent) {
+    const touch = e.touches[0];
+    touchStartRef.current = { x: touch.clientX, y: touch.clientY };
+    longPressedRef.current = false;
+    pressTimer.current = setTimeout(() => {
+      longPressedRef.current = true;
+      onLongPress?.(message);
+    }, 500);
   }
   function cancelPress() {
     if (pressTimer.current) { clearTimeout(pressTimer.current); pressTimer.current = null; }
+  }
+  function handleTouchMove(e: React.TouchEvent) {
+    const start = touchStartRef.current;
+    const touch = e.touches[0];
+    if (!start || !touch) return;
+    if (Math.abs(touch.clientX - start.x) > 8 || Math.abs(touch.clientY - start.y) > 8) cancelPress();
+  }
+  function handleTouchEnd(e: React.TouchEvent) {
+    const start = touchStartRef.current;
+    const touch = e.changedTouches[0];
+    cancelPress();
+    touchStartRef.current = null;
+    if (!start || !touch || longPressedRef.current) return;
+
+    const dx = touch.clientX - start.x;
+    const dy = touch.clientY - start.y;
+    if (Math.abs(dx) >= 55 && Math.abs(dy) <= 40) {
+      e.preventDefault();
+      e.stopPropagation();
+      onReply?.(message);
+    }
   }
 
   return (
@@ -71,7 +101,7 @@ export function MessageBubble({ message, isMine, isConsecutive, timeFormat, onIm
         </div>
       )}
 
-      <div className={`flex flex-col ${isMine ? 'items-end' : 'items-start'} max-w-[70%]`}>
+      <div className={`flex flex-col ${isMine ? 'items-end' : 'items-start'} max-w-[82%] sm:max-w-[70%] min-w-0`}>
         {/* 이름 + 시간 (첫 메시지만) */}
         {!isConsecutive && (
           <div className={`flex items-baseline gap-2 mb-1 ${isMine ? 'flex-row-reverse' : 'flex-row'}`}>
@@ -97,7 +127,7 @@ export function MessageBubble({ message, isMine, isConsecutive, timeFormat, onIm
           )}
 
           <div
-            className="px-3.5 py-2 rounded-2xl text-sm leading-relaxed whitespace-pre-wrap break-words select-text"
+            className="px-3.5 py-2 rounded-2xl text-sm leading-relaxed whitespace-pre-wrap break-words select-text min-w-0"
             style={{
               background: isMine ? 'var(--bubble-mine)' : 'var(--bubble-other)',
               color: '#fff',
@@ -108,16 +138,18 @@ export function MessageBubble({ message, isMine, isConsecutive, timeFormat, onIm
             }}
             onContextMenu={(e) => { e.preventDefault(); onLongPress?.(message); }}
             onTouchStart={startPress}
-            onTouchEnd={cancelPress}
-            onTouchMove={cancelPress}
+            onTouchEnd={handleTouchEnd}
+            onTouchCancel={cancelPress}
+            onTouchMove={handleTouchMove}
           >
             {message.replyTo && (
               <button
                 type="button"
                 onClick={() => { if (message.replyTo?.id) onJumpToMessage?.(message.replyTo.id); }}
-                className="mb-2 w-full rounded-xl px-2.5 py-2 text-left"
+                className="mb-2 rounded-xl px-2.5 py-2 text-left"
                 style={{
-                  background: isMine ? 'rgba(255,255,255,0.24)' : 'rgba(255,255,255,0.08)',
+                  width: 'min(260px, 100%)',
+                  background: isMine ? 'rgba(255,255,255,0.26)' : 'rgba(255,255,255,0.10)',
                   border: 'none',
                   borderLeft: '3px solid rgba(255,255,255,0.72)',
                   color: '#fff',
@@ -127,10 +159,10 @@ export function MessageBubble({ message, isMine, isConsecutive, timeFormat, onIm
                 title="원본 메시지로 이동"
                 aria-label={`답장 대상: ${message.replyTo.sender?.username ?? `사용자${message.replyTo.senderId}`} — 원본 메시지로 이동`}
               >
-                <p className="text-[11px] font-bold leading-tight truncate" style={{ color: '#fff' }}>
+                <p className="text-[11px] font-bold leading-tight truncate" style={{ color: '#fff', marginBottom: 4 }}>
                   {message.replyTo.sender?.username ?? `사용자${message.replyTo.senderId}`}에게 답장
                 </p>
-                <p className="mt-1 text-[11px] leading-tight truncate" style={{ color: 'rgba(255,255,255,0.78)', maxWidth: 220 }}>
+                <p className="text-[11px] leading-tight truncate" style={{ color: 'rgba(255,255,255,0.78)', maxWidth: '100%' }}>
                   {message.replyTo.fileUrl ? '[사진]' : (message.replyTo.content || '[메시지]')}
                 </p>
               </button>
