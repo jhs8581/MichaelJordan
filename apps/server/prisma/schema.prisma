@@ -17,6 +17,7 @@ model User {
   passwordHash String        @db.NVarChar(255)
   chatLockCode String        @default("") @db.NVarChar(32)
   avatarUrl    String?       @db.NVarChar(500)
+  timeZone     String?       @db.NVarChar(100)
   isOnline     Boolean       @default(false)
   lastSeenAt   DateTime?
   createdAt    DateTime      @default(now())

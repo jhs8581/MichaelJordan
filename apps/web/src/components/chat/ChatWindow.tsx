@@ -19,6 +19,16 @@ type TimeFormatMode = 'ampm' | '24h';
 type LockDigit = '0' | '1' | '2' | '3' | '4' | '5' | '6' | '7' | '8' | '9';
 
 const LOCK_DIGITS: LockDigit[] = ['1', '2', '3', '4', '5', '6', '7', '8', '9', '0'];
+const TIME_ZONE_OPTIONS = [
+  { value: '', label: '기기 자동' },
+  { value: 'Asia/Seoul', label: '한국 - 서울' },
+  { value: 'Europe/Warsaw', label: '폴란드 - 바르샤바' },
+  { value: 'Europe/London', label: '영국 - 런던' },
+  { value: 'Europe/Paris', label: '프랑스/독일 - 중부유럽' },
+  { value: 'America/New_York', label: '미국 - 뉴욕' },
+  { value: 'America/Los_Angeles', label: '미국 - LA' },
+  { value: 'Asia/Tokyo', label: '일본 - 도쿄' },
+] as const;
 
 type ChatViewSettings = {
   viewMode: ChatViewMode;
@@ -35,17 +45,33 @@ function getLocalTimeZone(): string | undefined {
   }
 }
 
-function getSenderLocalTime(): string {
+function getSenderLocalTime(timeZone?: string): string {
   const now = new Date();
+  if (timeZone) {
+    try {
+      const parts = new Intl.DateTimeFormat('en-GB', {
+        timeZone,
+        hour: '2-digit',
+        minute: '2-digit',
+        hour12: false,
+      }).formatToParts(now);
+      const hour = parts.find((part) => part.type === 'hour')?.value;
+      const minute = parts.find((part) => part.type === 'minute')?.value;
+      if (hour && minute) return `${hour}:${minute}`;
+    } catch {
+      // 잘못된 시간대면 기기 시간으로 fallback
+    }
+  }
   const hours = String(now.getHours()).padStart(2, '0');
   const minutes = String(now.getMinutes()).padStart(2, '0');
   return `${hours}:${minutes}`;
 }
 
-function getMessageSendMeta() {
+function getMessageSendMeta(preferredTimeZone?: string) {
+  const senderTimeZone = preferredTimeZone || getLocalTimeZone();
   return {
-    senderTimeZone: getLocalTimeZone(),
-    senderLocalTime: getSenderLocalTime(),
+    senderTimeZone,
+    senderLocalTime: getSenderLocalTime(senderTimeZone),
   };
 }
 
@@ -79,6 +105,8 @@ export function ChatWindow({ roomId, onLeave, onImageView }: Props) {
   const [lockCodeInput, setLockCodeInput] = useState('');
   const [lockCodeSaving, setLockCodeSaving] = useState(false);
   const [lockCodeMsg, setLockCodeMsg] = useState('');
+  const [timeZoneSaving, setTimeZoneSaving] = useState(false);
+  const [timeZoneMsg, setTimeZoneMsg] = useState('');
   const rooms = useChatStore((s) => s.rooms);
   const removeRoom = useChatStore((s) => s.removeRoom);
   const setRoomMuted = useChatStore((s) => s.setRoomMuted);
@@ -157,7 +185,7 @@ export function ChatWindow({ roomId, onLeave, onImageView }: Props) {
     if (!accessToken) return;
 
     api
-      .get<{ data: { id: number; email: string; username: string; chatLockCode?: string; avatarUrl?: string; isOnline: boolean; createdAt: string } }>('/auth/me')
+      .get<{ data: { id: number; email: string; username: string; chatLockCode?: string; avatarUrl?: string; timeZone?: string; isOnline: boolean; createdAt: string } }>('/auth/me')
       .then((res) => setUser(res.data.data))
       .catch(() => {
         // 인증 만료 등은 기존 인터셉터에서 처리
@@ -528,7 +556,7 @@ export function ChatWindow({ roomId, onLeave, onImageView }: Props) {
         },
       });
     }
-    socket.emit('message:send', { roomId, content, replyToId: sendingReplyTarget?.id, ...getMessageSendMeta() });
+    socket.emit('message:send', { roomId, content, replyToId: sendingReplyTarget?.id, ...getMessageSendMeta(user?.timeZone) });
     setInput('');
     setReplyTarget(null);
     if (textareaRef.current) {
@@ -584,7 +612,7 @@ export function ChatWindow({ roomId, onLeave, onImageView }: Props) {
       const json = await res.json() as { success: boolean; data?: { url: string } };
       if (json.success && json.data?.url) {
         const socket = getSocket();
-        socket.emit('message:send', { roomId, content: '', fileUrl: json.data.url, ...getMessageSendMeta() });
+        socket.emit('message:send', { roomId, content: '', fileUrl: json.data.url, ...getMessageSendMeta(user?.timeZone) });
       } else {
         setUploadError('업로드에 실패했습니다.');
         setTimeout(() => setUploadError(''), 4000);
@@ -754,9 +782,9 @@ export function ChatWindow({ roomId, onLeave, onImageView }: Props) {
       }
       const socket = getSocket();
       if (msg.fileUrl) {
-        socket.emit('message:send', { roomId: aRoomId, content: '', fileUrl: msg.fileUrl, ...getMessageSendMeta() });
+        socket.emit('message:send', { roomId: aRoomId, content: '', fileUrl: msg.fileUrl, ...getMessageSendMeta(user?.timeZone) });
       } else {
-        socket.emit('message:send', { roomId: aRoomId, content: msg.content, ...getMessageSendMeta() });
+        socket.emit('message:send', { roomId: aRoomId, content: msg.content, ...getMessageSendMeta(user?.timeZone) });
       }
     } catch {
       // 실패 무시
@@ -1100,6 +1128,48 @@ export function ChatWindow({ roomId, onLeave, onImageView }: Props) {
               value={settings.showDateSeparator ? '켜짐' : '꺼짐'}
               onToggle={() => updateSettings({ showDateSeparator: !settings.showDateSeparator })}
             />
+
+            {/* 사용자 시간대 설정 */}
+            <div className="pt-2 border-t" style={{ borderColor: '#3a3f4a' }}>
+              <div className="flex items-center justify-between gap-2 mb-2">
+                <div>
+                  <p className="text-xs font-semibold" style={{ color: 'var(--text-primary)' }}>내 메시지 시간대</p>
+                  <p className="text-[11px] mt-0.5" style={{ color: 'var(--text-muted)' }}>
+                    새 메시지부터 선택한 지역 시간으로 표시됩니다.
+                  </p>
+                </div>
+                {timeZoneMsg && <span className="text-[11px]" style={{ color: timeZoneMsg === '오류' ? '#ed4245' : '#57f287' }}>{timeZoneMsg}</span>}
+              </div>
+              <div className="flex gap-2">
+                <select
+                  value={user?.timeZone ?? ''}
+                  onChange={async (e) => {
+                    const nextTimeZone = e.target.value || undefined;
+                    setTimeZoneSaving(true);
+                    setTimeZoneMsg('');
+                    try {
+                      const res = await api.patch<{ data: NonNullable<typeof user> }>('/auth/time-zone', { timeZone: nextTimeZone });
+                      setUser(res.data.data);
+                      setTimeZoneMsg('저장됨');
+                    } catch {
+                      setTimeZoneMsg('오류');
+                    } finally {
+                      setTimeZoneSaving(false);
+                    }
+                  }}
+                  disabled={timeZoneSaving}
+                  className="flex-1 rounded-md px-2 py-1.5 text-xs outline-none"
+                  style={{ background: '#2b2d31', color: 'var(--text-primary)', border: '1px solid #3a3f4a' }}
+                >
+                  {user?.timeZone && !TIME_ZONE_OPTIONS.some((option) => option.value === user.timeZone) && (
+                    <option value={user.timeZone}>{user.timeZone}</option>
+                  )}
+                  {TIME_ZONE_OPTIONS.map((option) => (
+                    <option key={option.value || 'auto'} value={option.value}>{option.label}</option>
+                  ))}
+                </select>
+              </div>
+            </div>
 
             {/* 잠금 코드 설정 */}
             <div className="pt-2 border-t" style={{ borderColor: '#3a3f4a' }}>

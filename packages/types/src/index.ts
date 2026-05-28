@@ -7,6 +7,7 @@ export interface User {
   email: string;
   chatLockCode?: string;
   avatarUrl?: string;
+  timeZone?: string;
   isOnline: boolean;
   createdAt: string;
 }

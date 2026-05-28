@@ -13,6 +13,21 @@ const loginSchema = z.object({
   password: z.string(),
 });
 
+const timeZoneSchema = z.object({
+  timeZone: z.string().trim().max(100).optional().nullable(),
+});
+
+function normalizeTimeZone(value: string | null | undefined): string | null {
+  const timeZone = (value ?? '').trim();
+  if (!timeZone) return null;
+  try {
+    new Intl.DateTimeFormat('ko-KR', { timeZone }).format(new Date());
+    return timeZone;
+  } catch {
+    return null;
+  }
+}
+
 export async function authRoutes(app: FastifyInstance) {
   // ── 회원가입 ──────────────────────────────────────────────────
   app.post('/register', async (req, reply) => {
@@ -32,7 +47,7 @@ export async function authRoutes(app: FastifyInstance) {
     const passwordHash = await bcrypt.hash(password, 12);
     const user = await prisma.user.create({
       data: { email, username, passwordHash },
-      select: { id: true, email: true, username: true, chatLockCode: true, avatarUrl: true, createdAt: true },
+      select: { id: true, email: true, username: true, chatLockCode: true, avatarUrl: true, timeZone: true, createdAt: true },
     });
 
     return reply.status(201).send({ success: true, data: user });
@@ -88,6 +103,7 @@ export async function authRoutes(app: FastifyInstance) {
           username: user.username,
           chatLockCode: user.chatLockCode,
           avatarUrl: user.avatarUrl,
+          timeZone: user.timeZone,
         },
       },
     });
@@ -115,6 +131,7 @@ export async function authRoutes(app: FastifyInstance) {
         username: true,
         chatLockCode: true,
         avatarUrl: true,
+        timeZone: true,
         isOnline: true,
         createdAt: true,
       },
@@ -162,6 +179,39 @@ export async function authRoutes(app: FastifyInstance) {
     return reply.send({ success: true, data: { accessToken, refreshToken: newRefreshToken } });
   });
 
+  // ── 사용자 시간대 설정 ────────────────────────────────────────
+  app.patch('/time-zone', async (req, reply) => {
+    try {
+      await req.jwtVerify();
+    } catch {
+      return reply.status(401).send({ success: false, error: '인증이 필요합니다.' });
+    }
+
+    const payload = req.user as { sub?: number | string };
+    const userId = Number(payload?.sub);
+    if (!userId) {
+      return reply.status(401).send({ success: false, error: '유효하지 않은 토큰입니다.' });
+    }
+
+    const body = timeZoneSchema.safeParse(req.body);
+    if (!body.success) {
+      return reply.status(400).send({ success: false, error: body.error.message });
+    }
+
+    const timeZone = normalizeTimeZone(body.data.timeZone);
+    if (body.data.timeZone && !timeZone) {
+      return reply.status(400).send({ success: false, error: '올바른 시간대가 아닙니다.' });
+    }
+
+    const user = await prisma.user.update({
+      where: { id: userId },
+      data: { timeZone },
+      select: { id: true, email: true, username: true, chatLockCode: true, avatarUrl: true, timeZone: true, isOnline: true, createdAt: true },
+    });
+
+    return reply.send({ success: true, data: user });
+  });
+
   // ── 잠금 코드 설정/변경 ────────────────────────────────────────
   app.patch('/lock-code', async (req, reply) => {
     try {
@@ -185,7 +235,7 @@ export async function authRoutes(app: FastifyInstance) {
     const user = await prisma.user.update({
       where: { id: userId },
       data: { chatLockCode: code },
-      select: { id: true, email: true, username: true, chatLockCode: true, avatarUrl: true, isOnline: true, createdAt: true },
+      select: { id: true, email: true, username: true, chatLockCode: true, avatarUrl: true, timeZone: true, isOnline: true, createdAt: true },
     });
 
     return reply.send({ success: true, data: user });
