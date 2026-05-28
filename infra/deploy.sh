@@ -11,7 +11,7 @@ PROJECT_DIR="/home/ubuntu/chat"
 cd "$PROJECT_DIR"
 
 echo "📥 최신 코드 Pull..."
-git pull origin main
+git pull origin master
 
 echo "📦 의존성 설치..."
 pnpm install --frozen-lockfile

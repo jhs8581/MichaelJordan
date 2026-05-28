@@ -147,6 +147,16 @@ export function registerSocketHandlers(io: ChatServer) {
         },
       });
 
+      if (replyToId && !message.replyToId) {
+        console.warn('[message:send] replyToId was requested but not persisted', {
+          roomId,
+          senderId: userId,
+          requestedReplyToId: replyToId,
+          validReplyToId,
+          messageId: message.id,
+        });
+      }
+
       const payload = {
         id: message.id,
         roomId: message.roomId,
