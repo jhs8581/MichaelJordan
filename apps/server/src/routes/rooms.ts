@@ -62,7 +62,31 @@ export async function roomRoutes(app: FastifyInstance) {
       select: { roomId: true, isMuted: true },
     });
     const muteByRoom = Object.fromEntries(memberMap.map((m) => [m.roomId, m.isMuted]));
-    const roomsWithMute = rooms.map((r) => ({ ...r, isMuted: muteByRoom[r.id] ?? false }));
+    const unreadCounts = await Promise.all(
+      rooms.map(async (r) => {
+        const lastRead = await prisma.messageRead.findFirst({
+          where: { userId, message: { roomId: r.id } },
+          orderBy: { messageId: 'desc' },
+          select: { messageId: true },
+        });
+        return {
+          roomId: r.id,
+          count: await prisma.message.count({
+            where: {
+              roomId: r.id,
+              senderId: { not: userId },
+              id: lastRead ? { gt: lastRead.messageId } : undefined,
+            },
+          }),
+        };
+      })
+    );
+    const unreadByRoom = Object.fromEntries(unreadCounts.map((u) => [u.roomId, u.count]));
+    const roomsWithMute = rooms.map((r) => ({
+      ...r,
+      isMuted: muteByRoom[r.id] ?? false,
+      unreadCount: unreadByRoom[r.id] ?? 0,
+    }));
 
     return reply.send({ success: true, data: roomsWithMute });
   });

@@ -162,8 +162,12 @@ export default function ChatPage() {
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [viewingImages, setViewingImages] = useState<string[]>([]);
   const [viewingImageIdx, setViewingImageIdx] = useState(0);
+  const [imageZoom, setImageZoom] = useState(1);
+  const [imagePan, setImagePan] = useState({ x: 0, y: 0 });
+  const [showImageGrid, setShowImageGrid] = useState(false);
   const viewingImage = viewingImages[viewingImageIdx] ?? null;
   const touchStartX = useRef<number | null>(null);
+  const imageDragStart = useRef<{ x: number; y: number; panX: number; panY: number } | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
   const galleryClickCount = useRef(0);
   const galleryClickTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -228,10 +232,30 @@ export default function ChatPage() {
   }, [viewingImages]);
 
   useEffect(() => {
+    setImageZoom(1);
+    setImagePan({ x: 0, y: 0 });
+    setShowImageGrid(false);
+    imageDragStart.current = null;
+  }, [viewingImageIdx, viewingImages]);
+
+  useEffect(() => {
     if (accessToken) {
       api.get<{ data: Room[] }>('/rooms').then((res) => setRooms(res.data.data));
     }
   }, [accessToken, setRooms]);
+
+  useEffect(() => {
+    if (!accessToken || !showChatList || selectedRoom) return;
+    const timer = setInterval(() => {
+      api.get<{ data: Room[] }>('/rooms').then((res) => setRooms(res.data.data)).catch(() => { /* 목록 갱신 실패 무시 */ });
+    }, 8000);
+    return () => clearInterval(timer);
+  }, [accessToken, showChatList, selectedRoom, setRooms]);
+
+  function openRoom(room: Room) {
+    setRooms(rooms.map((r) => r.id === room.id ? { ...r, unreadCount: 0 } : r));
+    setSelectedRoom({ ...room, unreadCount: 0 });
+  }
 
   function handleLogout() {
     clear();
@@ -353,6 +377,9 @@ export default function ChatPage() {
                   const idx = imageList.indexOf(url);
                   setViewingImages(imageList);
                   setViewingImageIdx(idx >= 0 ? idx : 0);
+                  setImageZoom(1);
+                  setImagePan({ x: 0, y: 0 });
+                  setShowImageGrid(false);
                 }}
               />
             </div>
@@ -372,31 +399,44 @@ export default function ChatPage() {
             </div>
             {rooms.length === 0 ? (
               <div style={{ padding: '40px 0', textAlign: 'center', color: '#aaa', fontSize: 14 }}>참여 중인 방이 없습니다</div>
-            ) : rooms.map((r) => (
-              <div key={r.id} onClick={() => setSelectedRoom(r)}
-                style={{
-                  display: 'flex', alignItems: 'center', padding: '13px 16px',
-                  borderBottom: '1px solid #f0f0f0', background: '#fff', cursor: 'pointer',
-                  gap: 12,
-                }}
-              >
-                <div style={{
-                  width: 44, height: 44, borderRadius: 22,
-                  background: r.isArchive ? '#a8edca' : '#1a76c8',
-                  display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  color: r.isArchive ? '#1a1a1a' : '#fff',
-                  fontSize: r.isArchive ? 22 : 16, fontWeight: 700, flexShrink: 0,
-                }}>
-                  {r.isArchive ? '📦' : r.name.charAt(0)}
-                </div>
-                <div style={{ flex: 1, overflow: 'hidden' }}>
-                  <div style={{ fontWeight: 700, fontSize: 14, color: '#111', marginBottom: 3, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{r.name}</div>
-                  <div style={{ fontSize: 12, color: '#999' }}>
-                    {r.isArchive ? '나의 보관함' : (r.isGroup ? `${r.members.length}명` : '1:1 대화')}
+            ) : rooms.map((r) => {
+              const unreadCount = r.unreadCount ?? 0;
+              return (
+                <div key={r.id} onClick={() => openRoom(r)}
+                  style={{
+                    display: 'flex', alignItems: 'center', padding: '13px 16px',
+                    borderBottom: '1px solid #f0f0f0', background: unreadCount > 0 ? '#f7fbff' : '#fff', cursor: 'pointer',
+                    gap: 12,
+                  }}
+                >
+                  <div style={{ position: 'relative', flexShrink: 0 }}>
+                    <div style={{
+                      width: 44, height: 44, borderRadius: 22,
+                      background: r.isArchive ? '#a8edca' : '#1a76c8',
+                      display: 'flex', alignItems: 'center', justifyContent: 'center',
+                      color: r.isArchive ? '#1a1a1a' : '#fff',
+                      fontSize: r.isArchive ? 22 : 16, fontWeight: 700,
+                    }}>
+                      {r.isArchive ? '📦' : r.name.charAt(0)}
+                    </div>
+                    {unreadCount > 0 && (
+                      <span style={{
+                        position: 'absolute', top: -3, right: -5, minWidth: 18, height: 18, borderRadius: 9,
+                        background: '#ff3b30', color: '#fff', fontSize: 10, fontWeight: 800,
+                        display: 'inline-flex', alignItems: 'center', justifyContent: 'center', padding: '0 5px',
+                        boxShadow: '0 0 0 2px #fff',
+                      }}>{unreadCount > 99 ? '99+' : unreadCount}</span>
+                    )}
+                  </div>
+                  <div style={{ flex: 1, overflow: 'hidden' }}>
+                    <div style={{ fontWeight: unreadCount > 0 ? 800 : 700, fontSize: 14, color: '#111', marginBottom: 3, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{r.name}</div>
+                    <div style={{ fontSize: 12, color: unreadCount > 0 ? '#1a76c8' : '#999', fontWeight: unreadCount > 0 ? 700 : 400 }}>
+                      {unreadCount > 0 ? `읽지 않은 메시지 ${unreadCount}개` : (r.isArchive ? '나의 보관함' : (r.isGroup ? `${r.members.length}명` : '1:1 대화'))}
+                    </div>
                   </div>
                 </div>
-              </div>
-            ))}
+              );
+            })}
 
             {/* 채팅방 만들기 FAB */}
             <button
@@ -472,18 +512,33 @@ export default function ChatPage() {
         <div
           onClick={() => setViewingImages([])}
           onKeyDown={(e) => {
+            if (showImageGrid) {
+              if (e.key === 'Escape') setShowImageGrid(false);
+              return;
+            }
             if (e.key === 'ArrowLeft') setViewingImageIdx((i) => Math.max(0, i - 1));
             else if (e.key === 'ArrowRight') setViewingImageIdx((i) => Math.min(viewingImages.length - 1, i + 1));
             else if (e.key === 'Escape') setViewingImages([]);
           }}
           onTouchStart={(e) => { touchStartX.current = e.touches[0].clientX; }}
           onTouchEnd={(e) => {
+            if (imageZoom > 1 || showImageGrid) return;
             if (touchStartX.current === null) return;
             const dx = e.changedTouches[0].clientX - touchStartX.current;
             touchStartX.current = null;
             if (Math.abs(dx) < 40) return;
             if (dx < 0) setViewingImageIdx((i) => Math.min(viewingImages.length - 1, i + 1));
             else setViewingImageIdx((i) => Math.max(0, i - 1));
+          }}
+          onWheel={(e) => {
+            if (showImageGrid) return;
+            e.preventDefault();
+            const delta = e.deltaY < 0 ? 0.2 : -0.2;
+            setImageZoom((z) => {
+              const next = Math.min(4, Math.max(1, Number((z + delta).toFixed(2))));
+              if (next === 1) setImagePan({ x: 0, y: 0 });
+              return next;
+            });
           }}
           tabIndex={0}
           style={{
@@ -493,13 +548,73 @@ export default function ChatPage() {
             outline: 'none',
           }}
         >
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img
-            src={viewingImage}
-            alt="이미지"
-            onClick={(e) => e.stopPropagation()}
-            style={{ maxWidth: '95vw', maxHeight: viewingImages.length > 1 ? '70vh' : '82vh', borderRadius: 8, objectFit: 'contain', userSelect: 'none', pointerEvents: 'none' }}
-          />
+          {showImageGrid ? (
+            <div
+              onClick={(e) => e.stopPropagation()}
+              style={{
+                position: 'absolute', inset: '70px 10px 20px', overflowY: 'auto',
+                display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: 8,
+                alignContent: 'start', padding: 4,
+              }}
+            >
+              {viewingImages.map((url, index) => (
+                <button
+                  key={`${url}-${index}`}
+                  type="button"
+                  onClick={() => { setViewingImageIdx(index); setShowImageGrid(false); }}
+                  style={{
+                    aspectRatio: '1 / 1', borderRadius: 10, padding: 0, overflow: 'hidden',
+                    border: index === viewingImageIdx ? '3px solid #fff' : '1px solid rgba(255,255,255,0.22)',
+                    background: 'rgba(255,255,255,0.08)', cursor: 'pointer', position: 'relative',
+                  }}
+                  title={`${index + 1}번째 이미지`}
+                >
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img src={url} alt="이미지 썸네일" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
+                  <span style={{
+                    position: 'absolute', right: 5, bottom: 5, minWidth: 20, height: 20, borderRadius: 10,
+                    background: 'rgba(0,0,0,0.55)', color: '#fff', fontSize: 11,
+                    display: 'inline-flex', alignItems: 'center', justifyContent: 'center', padding: '0 6px',
+                  }}>{index + 1}</span>
+                </button>
+              ))}
+            </div>
+          ) : (
+            /* eslint-disable-next-line @next/next/no-img-element */
+            <img
+              src={viewingImage}
+              alt="이미지"
+              onClick={(e) => e.stopPropagation()}
+              onDoubleClick={(e) => {
+                e.stopPropagation();
+                setImageZoom((z) => z > 1 ? 1 : 2);
+                setImagePan({ x: 0, y: 0 });
+              }}
+              onPointerDown={(e) => {
+                if (imageZoom <= 1) return;
+                e.stopPropagation();
+                e.currentTarget.setPointerCapture(e.pointerId);
+                imageDragStart.current = { x: e.clientX, y: e.clientY, panX: imagePan.x, panY: imagePan.y };
+              }}
+              onPointerMove={(e) => {
+                if (!imageDragStart.current) return;
+                e.stopPropagation();
+                const start = imageDragStart.current;
+                setImagePan({ x: start.panX + e.clientX - start.x, y: start.panY + e.clientY - start.y });
+              }}
+              onPointerUp={(e) => {
+                e.stopPropagation();
+                imageDragStart.current = null;
+              }}
+              onPointerCancel={() => { imageDragStart.current = null; }}
+              style={{
+                maxWidth: '95vw', maxHeight: '78vh', borderRadius: 8, objectFit: 'contain', userSelect: 'none',
+                cursor: imageZoom > 1 ? 'grab' : 'zoom-in', touchAction: imageZoom > 1 ? 'none' : 'pan-y',
+                transform: `translate(${imagePan.x}px, ${imagePan.y}px) scale(${imageZoom})`,
+                transition: imageDragStart.current ? 'none' : 'transform 120ms ease',
+              }}
+            />
+          )}
 
           {/* 닫기 버튼 */}
           <button
@@ -512,8 +627,52 @@ export default function ChatPage() {
             }}
           >✕</button>
 
+          {/* 보기/확대 도구 */}
+          <div
+            onClick={(e) => e.stopPropagation()}
+            style={{
+              position: 'absolute', top: 16, left: 16,
+              display: 'flex', alignItems: 'center', gap: 8,
+            }}
+          >
+            <button
+              type="button"
+              onClick={() => setShowImageGrid((v) => !v)}
+              style={{
+                background: showImageGrid ? 'rgba(255,255,255,0.92)' : 'rgba(255,255,255,0.15)',
+                border: '1px solid rgba(255,255,255,0.28)', borderRadius: 18,
+                color: showImageGrid ? '#111' : '#fff', height: 36, padding: '0 12px',
+                cursor: 'pointer', fontSize: 13, fontWeight: 700,
+              }}
+            >▦ 사진목록</button>
+            {!showImageGrid && (
+              <>
+                <button
+                  type="button"
+                  onClick={() => setImageZoom((z) => {
+                    const next = Math.max(1, Number((z - 0.25).toFixed(2)));
+                    if (next === 1) setImagePan({ x: 0, y: 0 });
+                    return next;
+                  })}
+                  style={{ background: 'rgba(255,255,255,0.15)', border: 'none', borderRadius: '50%', width: 36, height: 36, color: '#fff', fontSize: 18, cursor: 'pointer' }}
+                >−</button>
+                <span style={{ minWidth: 44, textAlign: 'center', color: '#fff', fontSize: 12 }}>{Math.round(imageZoom * 100)}%</span>
+                <button
+                  type="button"
+                  onClick={() => setImageZoom((z) => Math.min(4, Number((z + 0.25).toFixed(2))))}
+                  style={{ background: 'rgba(255,255,255,0.15)', border: 'none', borderRadius: '50%', width: 36, height: 36, color: '#fff', fontSize: 18, cursor: 'pointer' }}
+                >＋</button>
+                <button
+                  type="button"
+                  onClick={() => { setImageZoom(1); setImagePan({ x: 0, y: 0 }); }}
+                  style={{ background: 'rgba(255,255,255,0.15)', border: '1px solid rgba(255,255,255,0.28)', borderRadius: 18, height: 36, padding: '0 10px', color: '#fff', fontSize: 12, cursor: 'pointer' }}
+                >초기화</button>
+              </>
+            )}
+          </div>
+
           {/* 이전 버튼 */}
-          {viewingImageIdx > 0 && (
+          {!showImageGrid && viewingImageIdx > 0 && (
             <button
               onClick={(e) => { e.stopPropagation(); setViewingImageIdx((i) => i - 1); }}
               style={{
@@ -526,7 +685,7 @@ export default function ChatPage() {
           )}
 
           {/* 다음 버튼 */}
-          {viewingImageIdx < viewingImages.length - 1 && (
+          {!showImageGrid && viewingImageIdx < viewingImages.length - 1 && (
             <button
               onClick={(e) => { e.stopPropagation(); setViewingImageIdx((i) => i + 1); }}
               style={{
@@ -538,42 +697,8 @@ export default function ChatPage() {
             >›</button>
           )}
 
-          {/* 이미지 전용 썸네일 리스트 */}
-          {viewingImages.length > 1 && (
-            <div
-              onClick={(e) => e.stopPropagation()}
-              style={{
-                position: 'absolute', left: 0, right: 0, bottom: 70,
-                display: 'flex', gap: 8, overflowX: 'auto', padding: '8px 12px',
-                background: 'linear-gradient(180deg, transparent, rgba(0,0,0,0.45))',
-              }}
-            >
-              {viewingImages.map((url, index) => (
-                <button
-                  key={`${url}-${index}`}
-                  type="button"
-                  onClick={() => setViewingImageIdx(index)}
-                  style={{
-                    width: 54, height: 54, borderRadius: 8, padding: 0, overflow: 'hidden',
-                    border: index === viewingImageIdx ? '2px solid #fff' : '2px solid rgba(255,255,255,0.25)',
-                    background: 'rgba(255,255,255,0.08)', cursor: 'pointer', flexShrink: 0,
-                    opacity: index === viewingImageIdx ? 1 : 0.65,
-                  }}
-                  title={`${index + 1}번째 이미지`}
-                >
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img
-                    src={url}
-                    alt="이미지 썸네일"
-                    style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
-                  />
-                </button>
-              ))}
-            </div>
-          )}
-
           {/* 카운터 + 저장 */}
-          <div
+          {!showImageGrid && <div
             onClick={(e) => e.stopPropagation()}
             style={{
               position: 'absolute', bottom: 24, left: '50%', transform: 'translateX(-50%)',
@@ -597,7 +722,7 @@ export default function ChatPage() {
                 color: '#fff', fontSize: 13, textDecoration: 'none',
               }}
             >⬇ 저장</a>
-          </div>
+          </div>}
         </div>
       )}
 

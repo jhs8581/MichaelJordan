@@ -20,6 +20,7 @@ export interface Room {
   isGroup: boolean;          // true = 그룹 채널, false = 1:1 DM
   isMuted: boolean;          // 현재 사용자의 이 방 알림 음소거 여부
   isArchive?: boolean;       // true = 나의 보관함 (개인 저장 방)
+  unreadCount?: number;      // 현재 사용자가 아직 읽지 않은 메시지 수
   createdAt: string;
   members: RoomMember[];
   messages?: Pick<Message, 'id' | 'content' | 'createdAt' | 'senderId'>[];
