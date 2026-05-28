@@ -124,6 +124,8 @@ export function registerSocketHandlers(io: ChatServer) {
         });
         if (replyTarget && replyTarget.roomId === roomId) {
           validReplyToId = replyTarget.id;
+        } else {
+          console.warn('[message:send] invalid reply target');
         }
       }
 

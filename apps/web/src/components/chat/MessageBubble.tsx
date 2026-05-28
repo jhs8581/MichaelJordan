@@ -114,7 +114,9 @@ export function MessageBubble({ message, isMine, isConsecutive, timeFormat, onIm
             {message.replyTo && (
               <button
                 type="button"
-                onClick={() => onJumpToMessage?.(message.replyTo!.id)}
+                onClick={() => {
+                  if (message.replyTo?.id) onJumpToMessage?.(message.replyTo.id);
+                }}
                 className="mb-1.5 w-full rounded-lg px-2 py-1 text-left"
                 style={{ background: 'rgba(0,0,0,0.28)', color: '#d9dce4' }}
                 title="원본 메시지로 이동"
@@ -187,4 +189,3 @@ function formatMessageTime(date: Date, mode: 'ampm' | '24h'): string {
 
   return date.toLocaleTimeString('ko-KR', { hour: 'numeric', minute: '2-digit', hour12: true });
 }
-

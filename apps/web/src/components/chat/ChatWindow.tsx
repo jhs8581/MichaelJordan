@@ -86,6 +86,7 @@ export function ChatWindow({ roomId, onLeave, onImageView }: Props) {
   const [isMobile, setIsMobile] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [uploadError, setUploadError] = useState('');
+  const [copyNotice, setCopyNotice] = useState('');
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [socketDisconnected, setSocketDisconnected] = useState(false);
   const [contextMenu, setContextMenu] = useState<Message | null>(null);
@@ -103,6 +104,7 @@ export function ChatWindow({ roomId, onLeave, onImageView }: Props) {
   const bottomRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const longPressTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const copyNoticeTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const messageRefs = useRef<Record<number, HTMLDivElement | null>>({});
 
   const activeRoom = rooms.find((r) => r.id === roomId);
@@ -319,6 +321,12 @@ export function ChatWindow({ roomId, onLeave, onImageView }: Props) {
     return () => window.removeEventListener('click', handleOutsideClick);
   }, [settingsOpen]);
 
+  useEffect(() => {
+    return () => {
+      if (copyNoticeTimer.current) clearTimeout(copyNoticeTimer.current);
+    };
+  }, []);
+
   function updateSettings(partial: Partial<ChatViewSettings>) {
     setSettings((current) => ({ ...current, ...partial }));
   }
@@ -477,6 +485,7 @@ export function ChatWindow({ roomId, onLeave, onImageView }: Props) {
 
   // Enter 키 = 전송 / Shift+Enter = 줄바꿈
   function handleKeyDown(e: React.KeyboardEvent<HTMLTextAreaElement>) {
+    // 한글/일본어 등 IME 조합 입력 중에는 Enter 전송을 막아야 조합이 끊기지 않음
     if (e.nativeEvent.isComposing) return;
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
@@ -567,12 +576,21 @@ export function ChatWindow({ roomId, onLeave, onImageView }: Props) {
     socket.emit('message:delete', { messageId: msg.id });
   }
 
-  async function copyText(text: string) {
-    if (!text) return;
+  function showCopyNotice(message: string) {
+    if (copyNoticeTimer.current) clearTimeout(copyNoticeTimer.current);
+    setCopyNotice(message);
+    copyNoticeTimer.current = setTimeout(() => {
+      setCopyNotice('');
+      copyNoticeTimer.current = null;
+    }, 1800);
+  }
+
+  async function copyText(text: string): Promise<boolean> {
+    if (!text) return false;
     try {
       if (navigator.clipboard?.writeText) {
         await navigator.clipboard.writeText(text);
-        return;
+        return true;
       }
     } catch {
       // fallback 사용
@@ -584,21 +602,27 @@ export function ChatWindow({ roomId, onLeave, onImageView }: Props) {
     document.body.appendChild(ta);
     ta.focus();
     ta.select();
-    document.execCommand('copy');
+    const copied = document.execCommand('copy');
     document.body.removeChild(ta);
+    return copied;
   }
 
   async function handleCopyMessage(msg: Message) {
     setContextMenu(null);
     if (!msg.content?.trim()) return;
-    await copyText(msg.content);
+    const copied = await copyText(msg.content);
+    showCopyNotice(copied ? '메시지를 복사했습니다.' : '복사에 실패했습니다.');
   }
 
   async function handleCopySelectedText() {
-    const selected = window.getSelection()?.toString().trim() ?? '';
-    if (!selected) return;
     setContextMenu(null);
-    await copyText(selected);
+    const selected = window.getSelection()?.toString().trim() ?? '';
+    if (!selected) {
+      showCopyNotice('먼저 복사할 텍스트를 선택해주세요.');
+      return;
+    }
+    const copied = await copyText(selected);
+    showCopyNotice(copied ? '선택한 텍스트를 복사했습니다.' : '복사에 실패했습니다.');
   }
 
   function handleReplyMessage(msg: Message) {
@@ -609,7 +633,10 @@ export function ChatWindow({ roomId, onLeave, onImageView }: Props) {
 
   function jumpToMessage(messageId: number) {
     const el = messageRefs.current[messageId];
-    if (!el) return;
+    if (!el) {
+      showCopyNotice('원본 메시지를 찾을 수 없습니다.');
+      return;
+    }
     el.scrollIntoView({ behavior: 'smooth', block: 'center' });
     el.animate(
       [
@@ -1251,6 +1278,11 @@ export function ChatWindow({ roomId, onLeave, onImageView }: Props) {
         {uploadError && (
           <div className="mt-2 mb-1 px-3 py-1.5 rounded-lg text-xs font-medium" style={{ background: '#ed424522', color: '#ed4245', border: '1px solid #ed424544' }}>
             ⚠ {uploadError}
+          </div>
+        )}
+        {copyNotice && (
+          <div className="mt-2 mb-1 px-3 py-1.5 rounded-lg text-xs font-medium" style={{ background: '#57f28722', color: '#57f287', border: '1px solid #57f28744' }}>
+            ✓ {copyNotice}
           </div>
         )}
         {replyTarget && (
