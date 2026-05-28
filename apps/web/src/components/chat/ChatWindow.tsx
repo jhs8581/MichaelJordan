@@ -1145,6 +1145,7 @@ export function ChatWindow({ roomId, onLeave, onImageView }: Props) {
                   value={user?.timeZone ?? ''}
                   onChange={async (e) => {
                     const nextTimeZone = e.target.value || undefined;
+                    if (user) setUser({ ...user, timeZone: nextTimeZone });
                     setTimeZoneSaving(true);
                     setTimeZoneMsg('');
                     try {
@@ -1152,7 +1153,8 @@ export function ChatWindow({ roomId, onLeave, onImageView }: Props) {
                       setUser(res.data.data);
                       setTimeZoneMsg('저장됨');
                     } catch {
-                      setTimeZoneMsg('오류');
+                      if (user) setUser({ ...user, timeZone: nextTimeZone });
+                      setTimeZoneMsg('기기에 저장됨');
                     } finally {
                       setTimeZoneSaving(false);
                     }
