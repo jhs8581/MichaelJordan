@@ -673,6 +673,29 @@ export function ChatWindow({ roomId, onLeave, onImageView }: Props) {
     }
   }
 
+  const messageById = useMemo(() => new Map(messages.map((message) => [message.id, message])), [messages]);
+  const replyPreviewByMessageId = useMemo(() => {
+    const previews = new Map<number, Message['replyTo']>();
+    messages.forEach((message) => {
+      if (message.replyTo) {
+        previews.set(message.id, message.replyTo);
+        return;
+      }
+      if (!message.replyToId) return;
+      const fallbackReplyTarget = messageById.get(message.replyToId);
+      if (!fallbackReplyTarget) return;
+      previews.set(message.id, {
+        id: fallbackReplyTarget.id,
+        senderId: fallbackReplyTarget.senderId,
+        content: fallbackReplyTarget.content,
+        fileUrl: fallbackReplyTarget.fileUrl,
+        createdAt: fallbackReplyTarget.createdAt,
+        sender: fallbackReplyTarget.sender,
+      });
+    });
+    return previews;
+  }, [messages, messageById]);
+
   // 날짜 구분선 렌더링
   function renderMessages() {
     const items: React.ReactNode[] = [];
@@ -680,7 +703,7 @@ export function ChatWindow({ roomId, onLeave, onImageView }: Props) {
     let lastSenderId = -1;
 
     messages.forEach((msg, i) => {
-      const replyPreview = resolveReplyPreview(msg);
+      const replyPreview = replyPreviewByMessageId.get(msg.id);
       const date = new Date(msg.createdAt).toLocaleDateString('ko-KR', { year: 'numeric', month: 'long', day: 'numeric' });
       if (settings.showDateSeparator && date !== lastDate) {
         items.push(
@@ -756,23 +779,6 @@ export function ChatWindow({ roomId, onLeave, onImageView }: Props) {
       lastSenderId = msg.senderId;
     });
     return items;
-  }
-
-  const messageById = useMemo(() => new Map(messages.map((message) => [message.id, message])), [messages]);
-
-  function resolveReplyPreview(message: Message): Message['replyTo'] {
-    if (message.replyTo) return message.replyTo;
-    if (!message.replyToId) return undefined;
-    const fallbackReplyTarget = messageById.get(message.replyToId);
-    if (!fallbackReplyTarget) return undefined;
-    return {
-      id: fallbackReplyTarget.id,
-      senderId: fallbackReplyTarget.senderId,
-      content: fallbackReplyTarget.content,
-      fileUrl: fallbackReplyTarget.fileUrl,
-      createdAt: fallbackReplyTarget.createdAt,
-      sender: fallbackReplyTarget.sender,
-    };
   }
 
   return (
