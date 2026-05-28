@@ -82,6 +82,7 @@ model Message {
   fileUrl   String?  @db.NVarChar(500)
   replyToId Int?
   senderTimeZone String? @db.NVarChar(100)
+  senderLocalTime String? @db.NVarChar(16)
   createdAt DateTime @default(now())
 
   room   Room          @relation(fields: [roomId], references: [id], onDelete: Cascade)

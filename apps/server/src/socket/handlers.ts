@@ -103,7 +103,7 @@ export function registerSocketHandlers(io: ChatServer) {
     });
 
     // ── 메시지 전송 ─────────────────────────────────────────────
-    socket.on('message:send', async ({ roomId, content, fileUrl, replyToId, senderTimeZone }) => {
+    socket.on('message:send', async ({ roomId, content, fileUrl, replyToId, senderTimeZone, senderLocalTime }) => {
       // 멤버 권한 검증
       const member = await prisma.roomMember.findUnique({
         where: { userId_roomId: { userId, roomId } },
@@ -115,6 +115,9 @@ export function registerSocketHandlers(io: ChatServer) {
       const sanitizedContent = content.trim();
       const normalizedSenderTimeZone = typeof senderTimeZone === 'string' && senderTimeZone.length <= 100
         ? senderTimeZone
+        : undefined;
+      const normalizedSenderLocalTime = typeof senderLocalTime === 'string' && /^\d{2}:\d{2}$/.test(senderLocalTime)
+        ? senderLocalTime
         : undefined;
       // 이미지 전용 메시지는 빈 content 허용
       if (!sanitizedContent && !fileUrl) return;
@@ -133,7 +136,15 @@ export function registerSocketHandlers(io: ChatServer) {
       }
 
       const message = await prisma.message.create({
-        data: { roomId, senderId: userId, content: sanitizedContent, fileUrl, replyToId: validReplyToId, senderTimeZone: normalizedSenderTimeZone },
+        data: {
+          roomId,
+          senderId: userId,
+          content: sanitizedContent,
+          fileUrl,
+          replyToId: validReplyToId,
+          senderTimeZone: normalizedSenderTimeZone,
+          senderLocalTime: normalizedSenderLocalTime,
+        },
         include: {
           sender: { select: { id: true, username: true, avatarUrl: true } },
           reads: true,
@@ -144,6 +155,7 @@ export function registerSocketHandlers(io: ChatServer) {
               content: true,
               fileUrl: true,
               senderTimeZone: true,
+              senderLocalTime: true,
               createdAt: true,
               sender: { select: { id: true, username: true, avatarUrl: true } },
             },
@@ -169,6 +181,7 @@ export function registerSocketHandlers(io: ChatServer) {
         fileUrl: message.fileUrl ?? undefined,
         replyToId: message.replyToId ?? undefined,
         senderTimeZone: message.senderTimeZone ?? undefined,
+        senderLocalTime: message.senderLocalTime ?? undefined,
         createdAt: message.createdAt.toISOString(),
         sender: message.sender
           ? {
@@ -184,6 +197,7 @@ export function registerSocketHandlers(io: ChatServer) {
               content: message.replyTo.content,
               fileUrl: message.replyTo.fileUrl ?? undefined,
               senderTimeZone: message.replyTo.senderTimeZone ?? undefined,
+              senderLocalTime: message.replyTo.senderLocalTime ?? undefined,
               createdAt: message.replyTo.createdAt.toISOString(),
               sender: message.replyTo.sender
                 ? {

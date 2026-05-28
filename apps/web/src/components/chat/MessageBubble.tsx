@@ -42,7 +42,7 @@ function isVideoUrl(url: string): boolean {
 }
 
 export function MessageBubble({ message, isMine, isConsecutive, timeFormat, onImageClick, onLongPress, onReply, onJumpToMessage }: Props) {
-  const time = formatMessageTime(new Date(message.createdAt), timeFormat, message.senderTimeZone);
+  const time = formatMessageTime(new Date(message.createdAt), timeFormat, message.senderTimeZone, message.senderLocalTime);
   // 보낸 사람 본인을 제외한 읽음 수 (본인 읽음은 항상 있어서 무조건 읽음으로 표시되는 버그 방지)
   const readCount = (message.reads ?? []).filter((r) => r.userId !== message.senderId).length;
   const pressTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -231,7 +231,16 @@ function stringToColor(str: string): string {
   return colors[Math.abs(hash) % colors.length];
 }
 
-function formatMessageTime(date: Date, mode: 'ampm' | '24h', timeZone?: string): string {
+function formatMessageTime(date: Date, mode: 'ampm' | '24h', timeZone?: string, senderLocalTime?: string): string {
+  if (senderLocalTime && /^\d{2}:\d{2}$/.test(senderLocalTime)) {
+    if (mode === '24h') return senderLocalTime;
+    const [hourText, minuteText] = senderLocalTime.split(':');
+    const hour = Number(hourText);
+    const period = hour < 12 ? '오전' : '오후';
+    const displayHour = hour % 12 || 12;
+    return `${period} ${displayHour}:${minuteText}`;
+  }
+
   if (mode === '24h') {
     return date.toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit', hour12: false, timeZone });
   }

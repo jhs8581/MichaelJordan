@@ -35,6 +35,20 @@ function getLocalTimeZone(): string | undefined {
   }
 }
 
+function getSenderLocalTime(): string {
+  const now = new Date();
+  const hours = String(now.getHours()).padStart(2, '0');
+  const minutes = String(now.getMinutes()).padStart(2, '0');
+  return `${hours}:${minutes}`;
+}
+
+function getMessageSendMeta() {
+  return {
+    senderTimeZone: getLocalTimeZone(),
+    senderLocalTime: getSenderLocalTime(),
+  };
+}
+
 const DEFAULT_SETTINGS: ChatViewSettings = {
   viewMode: 'bubble',
   timeFormat: 'ampm',
@@ -508,12 +522,13 @@ export function ChatWindow({ roomId, onLeave, onImageView }: Props) {
           content: sendingReplyTarget.content,
           fileUrl: sendingReplyTarget.fileUrl,
           senderTimeZone: sendingReplyTarget.senderTimeZone,
+          senderLocalTime: sendingReplyTarget.senderLocalTime,
           createdAt: sendingReplyTarget.createdAt,
           sender: sendingReplyTarget.sender,
         },
       });
     }
-    socket.emit('message:send', { roomId, content, replyToId: sendingReplyTarget?.id, senderTimeZone: getLocalTimeZone() });
+    socket.emit('message:send', { roomId, content, replyToId: sendingReplyTarget?.id, ...getMessageSendMeta() });
     setInput('');
     setReplyTarget(null);
     if (textareaRef.current) {
@@ -569,7 +584,7 @@ export function ChatWindow({ roomId, onLeave, onImageView }: Props) {
       const json = await res.json() as { success: boolean; data?: { url: string } };
       if (json.success && json.data?.url) {
         const socket = getSocket();
-        socket.emit('message:send', { roomId, content: '', fileUrl: json.data.url, senderTimeZone: getLocalTimeZone() });
+        socket.emit('message:send', { roomId, content: '', fileUrl: json.data.url, ...getMessageSendMeta() });
       } else {
         setUploadError('업로드에 실패했습니다.');
         setTimeout(() => setUploadError(''), 4000);
@@ -739,9 +754,9 @@ export function ChatWindow({ roomId, onLeave, onImageView }: Props) {
       }
       const socket = getSocket();
       if (msg.fileUrl) {
-        socket.emit('message:send', { roomId: aRoomId, content: '', fileUrl: msg.fileUrl, senderTimeZone: getLocalTimeZone() });
+        socket.emit('message:send', { roomId: aRoomId, content: '', fileUrl: msg.fileUrl, ...getMessageSendMeta() });
       } else {
-        socket.emit('message:send', { roomId: aRoomId, content: msg.content, senderTimeZone: getLocalTimeZone() });
+        socket.emit('message:send', { roomId: aRoomId, content: msg.content, ...getMessageSendMeta() });
       }
     } catch {
       // 실패 무시
@@ -765,6 +780,7 @@ export function ChatWindow({ roomId, onLeave, onImageView }: Props) {
         content: fallbackReplyTarget.content,
         fileUrl: fallbackReplyTarget.fileUrl,
         senderTimeZone: fallbackReplyTarget.senderTimeZone,
+        senderLocalTime: fallbackReplyTarget.senderLocalTime,
         createdAt: fallbackReplyTarget.createdAt,
         sender: fallbackReplyTarget.sender,
       });
@@ -797,7 +813,7 @@ export function ChatWindow({ roomId, onLeave, onImageView }: Props) {
       const isConsecutive = msg.senderId === lastSenderId;
       if (settings.viewMode === 'memo') {
         const senderName = msg.sender?.username ?? (isMine ? '나' : `사용자${msg.senderId}`);
-        const time = formatTime(new Date(msg.createdAt), settings.timeFormat, msg.senderTimeZone);
+        const time = formatTime(new Date(msg.createdAt), settings.timeFormat, msg.senderTimeZone, msg.senderLocalTime);
         const prefix = settings.showNickname ? `[${senderName}][${time}]` : `[${time}]`;
         items.push(
           <div
@@ -1178,7 +1194,7 @@ export function ChatWindow({ roomId, onLeave, onImageView }: Props) {
               ) : searchResults.map((msg) => {
                 const isMine = msg.senderId === user?.id;
                 const name = msg.sender?.username ?? (isMine ? '나' : `사용자${msg.senderId}`);
-                const time = new Date(msg.createdAt).toLocaleString('ko-KR', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit', timeZone: msg.senderTimeZone });
+                const time = formatSearchTime(new Date(msg.createdAt), msg.senderTimeZone, msg.senderLocalTime);
                 return (
                   <div key={msg.id} className="rounded-lg px-3 py-2" style={{ background: '#2b2d31' }}>
                     <div className="flex items-center gap-2 mb-0.5">
@@ -1490,12 +1506,27 @@ export function ChatWindow({ roomId, onLeave, onImageView }: Props) {
   );
 }
 
-function formatTime(date: Date, mode: TimeFormatMode, timeZone?: string): string {
+function formatTime(date: Date, mode: TimeFormatMode, timeZone?: string, senderLocalTime?: string): string {
+  if (senderLocalTime && /^\d{2}:\d{2}$/.test(senderLocalTime)) {
+    if (mode === '24h') return senderLocalTime;
+    const [hourText, minuteText] = senderLocalTime.split(':');
+    const hour = Number(hourText);
+    const period = hour < 12 ? '오전' : '오후';
+    const displayHour = hour % 12 || 12;
+    return `${period} ${displayHour}:${minuteText}`;
+  }
+
   if (mode === '24h') {
     return date.toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit', hour12: false, timeZone });
   }
 
   return date.toLocaleTimeString('ko-KR', { hour: 'numeric', minute: '2-digit', hour12: true, timeZone });
+}
+
+function formatSearchTime(date: Date, timeZone?: string, senderLocalTime?: string): string {
+  const day = date.toLocaleDateString('ko-KR', { month: 'numeric', day: 'numeric', timeZone });
+  const time = formatTime(date, '24h', timeZone, senderLocalTime);
+  return `${day} ${time}`;
 }
 
 function SettingRow({
