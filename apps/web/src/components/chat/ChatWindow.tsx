@@ -673,8 +673,8 @@ export function ChatWindow({ roomId, onLeave, onImageView }: Props) {
     }
   }
 
-  const messageById = useMemo(() => new Map(messages.map((message) => [message.id, message])), [messages]);
   const replyPreviewByMessageId = useMemo(() => {
+    const messageById = new Map(messages.map((message) => [message.id, message]));
     const previews = new Map<number, Message['replyTo']>();
     messages.forEach((message) => {
       if (message.replyTo) {
@@ -694,7 +694,7 @@ export function ChatWindow({ roomId, onLeave, onImageView }: Props) {
       });
     });
     return previews;
-  }, [messages, messageById]);
+  }, [messages]);
 
   // 날짜 구분선 렌더링
   function renderMessages() {
