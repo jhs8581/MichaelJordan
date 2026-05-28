@@ -699,13 +699,38 @@ export function ChatWindow({ roomId, onLeave, onImageView }: Props) {
         const time = formatTime(new Date(msg.createdAt), settings.timeFormat);
         const prefix = settings.showNickname ? `[${senderName}][${time}]` : `[${time}]`;
         items.push(
-          <p
+          <div
             key={msg.id}
-            className="text-sm leading-7 whitespace-pre-wrap break-words"
-            style={{ color: 'var(--text-primary)', fontFamily: 'Consolas, "Courier New", monospace' }}
+            ref={(el) => { messageRefs.current[msg.id] = el; }}
+            data-message-id={msg.id}
           >
-            {prefix} {renderMessageContent(msg.content)}
-          </p>
+            {msg.replyTo && (
+              <button
+                type="button"
+                onClick={() => { if (msg.replyTo?.id) jumpToMessage(msg.replyTo.id); }}
+                className="text-xs leading-5 whitespace-pre-wrap break-words block"
+                style={{
+                  color: 'var(--accent, #5865f2)',
+                  fontFamily: 'Consolas, "Courier New", monospace',
+                  background: 'transparent',
+                  border: 'none',
+                  padding: 0,
+                  cursor: 'pointer',
+                  textDecoration: 'none',
+                }}
+                title="원본 메시지로 이동"
+                aria-label="원본 메시지로 이동"
+              >
+                ↳ [{msg.replyTo.sender?.username ?? `사용자${msg.replyTo.senderId}`}] {msg.replyTo.fileUrl ? '[파일]' : (msg.replyTo.content || '[메시지]')}
+              </button>
+            )}
+            <p
+              className="text-sm leading-7 whitespace-pre-wrap break-words"
+              style={{ color: 'var(--text-primary)', fontFamily: 'Consolas, "Courier New", monospace' }}
+            >
+              {prefix} {renderMessageContent(msg.content)}
+            </p>
+          </div>
         );
       } else {
         items.push(
