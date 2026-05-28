@@ -498,7 +498,7 @@ export default function ChatPage() {
             src={viewingImage}
             alt="이미지"
             onClick={(e) => e.stopPropagation()}
-            style={{ maxWidth: '95vw', maxHeight: '82vh', borderRadius: 8, objectFit: 'contain', userSelect: 'none', pointerEvents: 'none' }}
+            style={{ maxWidth: '95vw', maxHeight: viewingImages.length > 1 ? '70vh' : '82vh', borderRadius: 8, objectFit: 'contain', userSelect: 'none', pointerEvents: 'none' }}
           />
 
           {/* 닫기 버튼 */}
@@ -536,6 +536,40 @@ export default function ChatPage() {
                 display: 'flex', alignItems: 'center', justifyContent: 'center',
               }}
             >›</button>
+          )}
+
+          {/* 이미지 전용 썸네일 리스트 */}
+          {viewingImages.length > 1 && (
+            <div
+              onClick={(e) => e.stopPropagation()}
+              style={{
+                position: 'absolute', left: 0, right: 0, bottom: 70,
+                display: 'flex', gap: 8, overflowX: 'auto', padding: '8px 12px',
+                background: 'linear-gradient(180deg, transparent, rgba(0,0,0,0.45))',
+              }}
+            >
+              {viewingImages.map((url, index) => (
+                <button
+                  key={`${url}-${index}`}
+                  type="button"
+                  onClick={() => setViewingImageIdx(index)}
+                  style={{
+                    width: 54, height: 54, borderRadius: 8, padding: 0, overflow: 'hidden',
+                    border: index === viewingImageIdx ? '2px solid #fff' : '2px solid rgba(255,255,255,0.25)',
+                    background: 'rgba(255,255,255,0.08)', cursor: 'pointer', flexShrink: 0,
+                    opacity: index === viewingImageIdx ? 1 : 0.65,
+                  }}
+                  title={`${index + 1}번째 이미지`}
+                >
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src={url}
+                    alt="이미지 썸네일"
+                    style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
+                  />
+                </button>
+              ))}
+            </div>
           )}
 
           {/* 카운터 + 저장 */}

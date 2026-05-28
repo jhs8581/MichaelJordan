@@ -107,6 +107,7 @@ export function ChatWindow({ roomId, onLeave, onImageView }: Props) {
   const copyNoticeTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const messageRefs = useRef<Record<number, HTMLDivElement | null>>({});
   const allRoomImagesRef = useRef<string[] | null>(null);
+  const pendingRepliesRef = useRef<Array<{ roomId: number; content: string; replyToId: number; replyTo: Message['replyTo'] }>>([]);
 
   const activeRoom = rooms.find((r) => r.id === roomId);
   const lockCode = (user?.chatLockCode ?? '').trim();
@@ -175,7 +176,19 @@ export function ChatWindow({ roomId, onLeave, onImageView }: Props) {
 
     socket.on('message:new', (msg) => {
       if (msg.roomId !== roomId) return;
-      addMessage(roomId, msg);
+      let nextMsg = msg;
+      if (!nextMsg.replyTo && nextMsg.senderId === user?.id) {
+        const pendingIndex = pendingRepliesRef.current.findIndex((pending) =>
+          pending.roomId === nextMsg.roomId
+          && pending.content === nextMsg.content
+          && (!nextMsg.replyToId || pending.replyToId === nextMsg.replyToId)
+        );
+        if (pendingIndex >= 0) {
+          const [pending] = pendingRepliesRef.current.splice(pendingIndex, 1);
+          nextMsg = { ...nextMsg, replyToId: pending.replyToId, replyTo: pending.replyTo };
+        }
+      }
+      addMessage(roomId, nextMsg);
       socket.emit('message:read', { roomId, messageId: msg.id });
     });
     socket.on('message:read', ({ roomId: rId, userId, lastReadMessageId }) => {
@@ -211,7 +224,7 @@ export function ChatWindow({ roomId, onLeave, onImageView }: Props) {
       socket.off('user:status');
       socket.off('message:deleted');
     };
-  }, [roomId, accessToken, addMessage, markRead]);
+  }, [roomId, accessToken, addMessage, markRead, user?.id]);
 
   // 새 메시지가 오면 맨 아래로 (단, 이미 거의 아래에 있을 때만 → 위 스크롤 중에는 유지)
   const scrollContainerRef = useRef<HTMLDivElement>(null);
@@ -472,10 +485,26 @@ export function ChatWindow({ roomId, onLeave, onImageView }: Props) {
     const content = input.trim();
     if (!content || !accessToken) return;
     const socket = getSocket();
+    const sendingReplyTarget = replyTarget;
     // 보낼 때 타이핑 중지
     socket.emit('typing:stop', { roomId });
     if (typingTimer.current) { clearTimeout(typingTimer.current); typingTimer.current = null; }
-    socket.emit('message:send', { roomId, content, replyToId: replyTarget?.id });
+    if (sendingReplyTarget) {
+      pendingRepliesRef.current.push({
+        roomId,
+        content,
+        replyToId: sendingReplyTarget.id,
+        replyTo: {
+          id: sendingReplyTarget.id,
+          senderId: sendingReplyTarget.senderId,
+          content: sendingReplyTarget.content,
+          fileUrl: sendingReplyTarget.fileUrl,
+          createdAt: sendingReplyTarget.createdAt,
+          sender: sendingReplyTarget.sender,
+        },
+      });
+    }
+    socket.emit('message:send', { roomId, content, replyToId: sendingReplyTarget?.id });
     setInput('');
     setReplyTarget(null);
     if (textareaRef.current) {
@@ -633,6 +662,40 @@ export function ChatWindow({ roomId, onLeave, onImageView }: Props) {
     requestAnimationFrame(() => textareaRef.current?.focus());
   }
 
+  function getImageUrlsFromMessages(sourceMessages: Message[]) {
+    return sourceMessages
+      .filter((m) => m.fileUrl && !/\.(mp4|webm|mov|m4v|avi)(\?.*)?$/i.test(m.fileUrl))
+      .map((m) => m.fileUrl!);
+  }
+
+  async function loadAllRoomImageUrls(clickedUrl: string) {
+    if (allRoomImagesRef.current !== null) return allRoomImagesRef.current;
+
+    const loadedImages = getImageUrlsFromMessages(messages);
+    try {
+      const res = await api.get<{ data: { images: string[] } }>(`/messages/${roomId}/images`);
+      const serverImages = res.data.data.images;
+      if (serverImages.includes(clickedUrl)) {
+        allRoomImagesRef.current = serverImages;
+        return serverImages;
+      }
+    } catch {
+      // 서버에 전체 이미지 API가 아직 배포되지 않은 경우 기존 메시지 페이지네이션으로 대체
+    }
+
+    const merged = new Set(loadedImages);
+    let cursor = nextCursor;
+    while (cursor) {
+      const res = await api.get<{ data: { messages: Message[]; nextCursor: number | null } }>(`/messages/${roomId}?cursor=${cursor}`);
+      getImageUrlsFromMessages(res.data.data.messages).forEach((url) => merged.add(url));
+      cursor = res.data.data.nextCursor;
+    }
+
+    const images = Array.from(merged);
+    allRoomImagesRef.current = images.includes(clickedUrl) ? images : [clickedUrl, ...images];
+    return allRoomImagesRef.current;
+  }
+
   function jumpToMessage(messageId: number) {
     const el = messageRefs.current[messageId];
     if (!el) {
@@ -773,22 +836,9 @@ export function ChatWindow({ roomId, onLeave, onImageView }: Props) {
               isConsecutive={isConsecutive}
               timeFormat={settings.timeFormat}
               onImageClick={onImageView ? (url) => {
-                if (allRoomImagesRef.current !== null) {
-                  onImageView(url, allRoomImagesRef.current);
-                  return;
-                }
-                api.get<{ data: { images: string[] } }>(`/messages/${roomId}/images`)
-                  .then((res) => {
-                    const imgs = res.data.data.images;
-                    allRoomImagesRef.current = imgs;
-                    onImageView(url, imgs);
-                  })
-                  .catch(() => {
-                    const loaded = messages
-                      .filter((m) => m.fileUrl && !/\.(mp4|webm|mov|m4v|avi)(\?.*)?$/i.test(m.fileUrl))
-                      .map((m) => m.fileUrl!);
-                    onImageView(url, loaded);
-                  });
+                loadAllRoomImageUrls(url)
+                  .then((imageUrls) => onImageView(url, imageUrls))
+                  .catch(() => onImageView(url, [url]));
               } : undefined}
               onLongPress={setContextMenu}
               onJumpToMessage={jumpToMessage}
