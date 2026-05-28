@@ -11,8 +11,13 @@ import { MessageBubble, renderMessageContent } from './MessageBubble';
 interface Props {
   roomId: number;
   onLeave?: () => void;
-  onImageView?: (url: string, imageList: string[]) => void;
+  onImageView?: (url: string, imageList: RoomImageItem[]) => void;
 }
+
+type RoomImageItem = {
+  url: string;
+  createdAt?: string;
+};
 
 type ChatViewMode = 'bubble' | 'memo';
 type TimeFormatMode = 'ampm' | '24h';
@@ -167,7 +172,7 @@ export function ChatWindow({ roomId, onLeave, onImageView }: Props) {
   const longPressTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const copyNoticeTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const messageRefs = useRef<Record<number, HTMLDivElement | null>>({});
-  const allRoomImagesRef = useRef<string[] | null>(null);
+  const allRoomImagesRef = useRef<RoomImageItem[] | null>(null);
   const pendingRepliesRef = useRef<Array<{ roomId: number; content: string; replyToId: number; replyTo: Message['replyTo'] }>>([]);
 
   const activeRoom = rooms.find((r) => r.id === roomId);
@@ -750,20 +755,20 @@ export function ChatWindow({ roomId, onLeave, onImageView }: Props) {
     requestAnimationFrame(() => textareaRef.current?.focus());
   }
 
-  function getImageUrlsFromMessages(sourceMessages: Message[]) {
+  function getImageItemsFromMessages(sourceMessages: Message[]): RoomImageItem[] {
     return sourceMessages
       .filter((m) => m.fileUrl && !/\.(mp4|webm|mov|m4v|avi)(\?.*)?$/i.test(m.fileUrl))
-      .map((m) => m.fileUrl!);
+      .map((m) => ({ url: m.fileUrl!, createdAt: m.createdAt }));
   }
 
-  async function loadAllRoomImageUrls(clickedUrl: string) {
+  async function loadAllRoomImageItems(clickedUrl: string): Promise<RoomImageItem[]> {
     if (allRoomImagesRef.current !== null) return allRoomImagesRef.current;
 
-    const loadedImages = getImageUrlsFromMessages(messages);
+    const loadedImages = getImageItemsFromMessages(messages);
     try {
-      const res = await api.get<{ data: { images: string[] } }>(`/messages/${roomId}/images`);
-      const serverImages = res.data.data.images;
-      if (serverImages.includes(clickedUrl)) {
+      const res = await api.get<{ data: { images: string[]; imageItems?: RoomImageItem[] } }>(`/messages/${roomId}/images`);
+      const serverImages = res.data.data.imageItems ?? res.data.data.images.map((url) => ({ url }));
+      if (res.data.data.imageItems && serverImages.some((item) => item.url === clickedUrl)) {
         allRoomImagesRef.current = serverImages;
         return serverImages;
       }
@@ -771,16 +776,19 @@ export function ChatWindow({ roomId, onLeave, onImageView }: Props) {
       // 서버에 전체 이미지 API가 아직 배포되지 않은 경우 기존 메시지 페이지네이션으로 대체
     }
 
-    const merged = new Set(loadedImages);
+    const merged = new Map<string, RoomImageItem>();
+    loadedImages.forEach((item) => merged.set(item.url, item));
     let cursor = nextCursor;
     while (cursor) {
       const res = await api.get<{ data: { messages: Message[]; nextCursor: number | null } }>(`/messages/${roomId}?cursor=${cursor}`);
-      getImageUrlsFromMessages(res.data.data.messages).forEach((url) => merged.add(url));
+      getImageItemsFromMessages(res.data.data.messages).forEach((item) => merged.set(item.url, item));
       cursor = res.data.data.nextCursor;
     }
 
     const images = Array.from(merged);
-    allRoomImagesRef.current = images.includes(clickedUrl) ? images : [clickedUrl, ...images];
+    allRoomImagesRef.current = images.some(([url]) => url === clickedUrl)
+      ? images.map(([, item]) => item)
+      : [{ url: clickedUrl }, ...images.map(([, item]) => item)];
     return allRoomImagesRef.current;
   }
 
@@ -933,9 +941,9 @@ export function ChatWindow({ roomId, onLeave, onImageView }: Props) {
               isConsecutive={isConsecutive}
               timeFormat={settings.timeFormat}
               onImageClick={onImageView ? (url) => {
-                loadAllRoomImageUrls(url)
-                  .then((imageUrls) => onImageView(url, imageUrls))
-                  .catch(() => onImageView(url, [url]));
+                loadAllRoomImageItems(url)
+                  .then((imageItems) => onImageView(url, imageItems))
+                  .catch(() => onImageView(url, [{ url }]));
               } : undefined}
               onLongPress={setContextMenu}
               onReply={handleReplyMessage}

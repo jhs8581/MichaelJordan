@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import type { RefObject } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuthStore } from '@/store/auth';
@@ -9,6 +9,11 @@ import { api } from '@/lib/api';
 import { ChatWindow } from '@/components/chat/ChatWindow';
 import { CreateRoomModal } from '@/components/chat/RoomList';
 import type { Room } from '@chat/types';
+
+type RoomImageItem = {
+  url: string;
+  createdAt?: string;
+};
 
 function IconCommunity() {
   return (
@@ -156,6 +161,27 @@ function getTouchDistance(touches: { length: number; [index: number]: { clientX:
   return Math.hypot(dx, dy);
 }
 
+function getImageDateLabel(createdAt?: string): string {
+  if (!createdAt) return '날짜 없음';
+  const date = new Date(createdAt);
+  if (Number.isNaN(date.getTime())) return '날짜 없음';
+  return date.toLocaleDateString('ko-KR', { year: 'numeric', month: 'long', day: 'numeric' });
+}
+
+function groupImagesByDate(items: RoomImageItem[]) {
+  const groups: { label: string; items: Array<RoomImageItem & { index: number }> }[] = [];
+  items.forEach((item, index) => {
+    const label = getImageDateLabel(item.createdAt);
+    const lastGroup = groups[groups.length - 1];
+    if (lastGroup?.label === label) {
+      lastGroup.items.push({ ...item, index });
+    } else {
+      groups.push({ label, items: [{ ...item, index }] });
+    }
+  });
+  return groups;
+}
+
 export default function ChatPage() {
   const router = useRouter();
   const clear = useAuthStore((s) => s.clear);
@@ -167,11 +193,13 @@ export default function ChatPage() {
   const [selectedRoom, setSelectedRoom] = useState<Room | null>(null);
   const [showChatList, setShowChatList] = useState(false);
   const [showCreateModal, setShowCreateModal] = useState(false);
-  const [viewingImages, setViewingImages] = useState<string[]>([]);
+  const [viewingImageItems, setViewingImageItems] = useState<RoomImageItem[]>([]);
   const [viewingImageIdx, setViewingImageIdx] = useState(0);
   const [imageZoom, setImageZoom] = useState(1);
   const [imagePan, setImagePan] = useState({ x: 0, y: 0 });
   const [showImageGrid, setShowImageGrid] = useState(false);
+  const viewingImages = useMemo(() => viewingImageItems.map((item) => item.url), [viewingImageItems]);
+  const imageDateGroups = useMemo(() => groupImagesByDate(viewingImageItems), [viewingImageItems]);
   const viewingImage = viewingImages[viewingImageIdx] ?? null;
   const touchStartX = useRef<number | null>(null);
   const imageDragStart = useRef<{ x: number; y: number; panX: number; panY: number } | null>(null);
@@ -205,7 +233,7 @@ export default function ChatPage() {
   // 각 상태 진입시 별도 history 항목을 push → 뒤로가기 1회 = 상태 1단계 닫기
   popStateHandlerRef.current = () => {
     if (viewingImages.length > 0) {
-      setViewingImages([]);
+      setViewingImageItems([]);
     } else if (selectedRoom) {
       setSelectedRoom(null);
     } else if (showChatList) {
@@ -238,7 +266,7 @@ export default function ChatPage() {
   }, [selectedRoom]);
   useEffect(() => {
     if (viewingImages.length > 0) history.pushState({ _chat: true }, '', window.location.href);
-  }, [viewingImages]);
+  }, [viewingImages.length]);
 
   useEffect(() => {
     setImageZoom(1);
@@ -247,7 +275,7 @@ export default function ChatPage() {
     imageDragStart.current = null;
     pinchStart.current = null;
     pinchMoved.current = false;
-  }, [viewingImageIdx, viewingImages]);
+  }, [viewingImageIdx, viewingImageItems]);
 
   useEffect(() => {
     if (accessToken) {
@@ -385,8 +413,8 @@ export default function ChatPage() {
                 roomId={selectedRoom.id}
                 onLeave={() => setSelectedRoom(null)}
                 onImageView={(url, imageList) => {
-                  const idx = imageList.indexOf(url);
-                  setViewingImages(imageList);
+                  const idx = imageList.findIndex((item) => item.url === url);
+                  setViewingImageItems(imageList);
                   setViewingImageIdx(idx >= 0 ? idx : 0);
                   setImageZoom(1);
                   setImagePan({ x: 0, y: 0 });
@@ -521,7 +549,7 @@ export default function ChatPage() {
       {/* 이미지 라이트박스 오버레이 — 어떤 상태에서도 렌더럁 되도록 최상단에 배치 */}
       {viewingImages.length > 0 && viewingImage && (
         <div
-          onClick={() => setViewingImages([])}
+          onClick={() => setViewingImageItems([])}
           onKeyDown={(e) => {
             if (showImageGrid) {
               if (e.key === 'Escape') setShowImageGrid(false);
@@ -529,7 +557,7 @@ export default function ChatPage() {
             }
             if (e.key === 'ArrowLeft') setViewingImageIdx((i) => Math.max(0, i - 1));
             else if (e.key === 'ArrowRight') setViewingImageIdx((i) => Math.min(viewingImages.length - 1, i + 1));
-            else if (e.key === 'Escape') setViewingImages([]);
+            else if (e.key === 'Escape') setViewingImageItems([]);
           }}
           onTouchStart={(e) => {
             if (showImageGrid) return;
@@ -594,30 +622,48 @@ export default function ChatPage() {
               onClick={(e) => e.stopPropagation()}
               style={{
                 position: 'absolute', inset: '70px 10px 20px', overflowY: 'auto',
-                display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: 8,
-                alignContent: 'start', padding: 4,
+                padding: '2px 6px 20px',
               }}
             >
-              {viewingImages.map((url, index) => (
-                <button
-                  key={`${url}-${index}`}
-                  type="button"
-                  onClick={() => { setViewingImageIdx(index); setShowImageGrid(false); }}
-                  style={{
-                    aspectRatio: '1 / 1', borderRadius: 10, padding: 0, overflow: 'hidden',
-                    border: index === viewingImageIdx ? '3px solid #fff' : '1px solid rgba(255,255,255,0.22)',
-                    background: 'rgba(255,255,255,0.08)', cursor: 'pointer', position: 'relative',
-                  }}
-                  title={`${index + 1}번째 이미지`}
-                >
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img src={url} alt="이미지 썸네일" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
-                  <span style={{
-                    position: 'absolute', right: 5, bottom: 5, minWidth: 20, height: 20, borderRadius: 10,
-                    background: 'rgba(0,0,0,0.55)', color: '#fff', fontSize: 11,
-                    display: 'inline-flex', alignItems: 'center', justifyContent: 'center', padding: '0 6px',
-                  }}>{index + 1}</span>
-                </button>
+              {imageDateGroups.map((group) => (
+                <section key={group.label} style={{ marginBottom: 22 }}>
+                  <div style={{
+                    position: 'sticky', top: 0, zIndex: 1,
+                    display: 'flex', alignItems: 'center', gap: 10,
+                    padding: '8px 2px 10px', background: 'rgba(0,0,0,0.72)', backdropFilter: 'blur(6px)',
+                  }}>
+                    <span style={{ color: '#fff', fontSize: 13, fontWeight: 800 }}>{group.label}</span>
+                    <span style={{ color: 'rgba(255,255,255,0.55)', fontSize: 11 }}>{group.items.length}장</span>
+                    <span style={{ height: 1, flex: 1, background: 'rgba(255,255,255,0.16)' }} />
+                  </div>
+                  <div style={{
+                    display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))',
+                    gap: 12, alignContent: 'start',
+                  }}>
+                    {group.items.map((item) => (
+                      <button
+                        key={`${item.url}-${item.index}`}
+                        type="button"
+                        onClick={() => { setViewingImageIdx(item.index); setShowImageGrid(false); }}
+                        style={{
+                          aspectRatio: '1 / 1', borderRadius: 12, padding: 0, overflow: 'hidden',
+                          border: item.index === viewingImageIdx ? '3px solid #fff' : '1px solid rgba(255,255,255,0.22)',
+                          background: 'rgba(255,255,255,0.08)', cursor: 'pointer', position: 'relative',
+                          boxShadow: '0 4px 14px rgba(0,0,0,0.24)',
+                        }}
+                        title={`${item.index + 1}번째 이미지`}
+                      >
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        <img src={item.url} alt="이미지 썸네일" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
+                        <span style={{
+                          position: 'absolute', right: 6, bottom: 6, minWidth: 20, height: 20, borderRadius: 10,
+                          background: 'rgba(0,0,0,0.55)', color: '#fff', fontSize: 11,
+                          display: 'inline-flex', alignItems: 'center', justifyContent: 'center', padding: '0 6px',
+                        }}>{item.index + 1}</span>
+                      </button>
+                    ))}
+                  </div>
+                </section>
               ))}
             </div>
           ) : (
@@ -659,7 +705,7 @@ export default function ChatPage() {
 
           {/* 닫기 버튼 */}
           <button
-            onClick={(e) => { e.stopPropagation(); setViewingImages([]); }}
+            onClick={(e) => { e.stopPropagation(); setViewingImageItems([]); }}
             style={{
               position: 'absolute', top: 16, right: 16,
               background: 'rgba(255,255,255,0.15)', border: 'none', borderRadius: '50%',

@@ -170,15 +170,16 @@ export async function messageRoutes(app: FastifyInstance) {
 
     const msgs = await prisma.message.findMany({
       where: { roomId: Number(roomId), fileUrl: { not: null } },
-      select: { fileUrl: true },
+      select: { fileUrl: true, createdAt: true },
       orderBy: { id: 'asc' },
     });
 
-    const images = msgs
-      .map((m) => m.fileUrl!)
-      .filter((url) => !/\.(mp4|webm|mov|m4v|avi)(\?.*)?$/i.test(url));
+    const imageItems = msgs
+      .filter((m) => m.fileUrl && !/\.(mp4|webm|mov|m4v|avi)(\?.*)?$/i.test(m.fileUrl))
+      .map((m) => ({ url: m.fileUrl!, createdAt: m.createdAt }));
+    const images = imageItems.map((item) => item.url);
 
-    return reply.send({ success: true, data: { images } });
+    return reply.send({ success: true, data: { images, imageItems } });
   });
 
   }); // ── end auth scope
