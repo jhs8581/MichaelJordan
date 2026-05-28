@@ -103,7 +103,7 @@ export function registerSocketHandlers(io: ChatServer) {
     });
 
     // ── 메시지 전송 ─────────────────────────────────────────────
-    socket.on('message:send', async ({ roomId, content, fileUrl }) => {
+    socket.on('message:send', async ({ roomId, content, fileUrl, replyToId }) => {
       // 멤버 권한 검증
       const member = await prisma.roomMember.findUnique({
         where: { userId_roomId: { userId, roomId } },
@@ -116,11 +116,34 @@ export function registerSocketHandlers(io: ChatServer) {
       // 이미지 전용 메시지는 빈 content 허용
       if (!sanitizedContent && !fileUrl) return;
 
+      let validReplyToId: number | undefined;
+      if (replyToId) {
+        const replyTarget = await prisma.message.findUnique({
+          where: { id: replyToId },
+          select: { id: true, roomId: true },
+        });
+        if (replyTarget && replyTarget.roomId === roomId) {
+          validReplyToId = replyTarget.id;
+        } else {
+          console.warn('[message:send] invalid reply target');
+        }
+      }
+
       const message = await prisma.message.create({
-        data: { roomId, senderId: userId, content: sanitizedContent, fileUrl },
+        data: { roomId, senderId: userId, content: sanitizedContent, fileUrl, replyToId: validReplyToId },
         include: {
           sender: { select: { id: true, username: true, avatarUrl: true } },
           reads: true,
+          replyTo: {
+            select: {
+              id: true,
+              senderId: true,
+              content: true,
+              fileUrl: true,
+              createdAt: true,
+              sender: { select: { id: true, username: true, avatarUrl: true } },
+            },
+          },
         },
       });
 
@@ -130,12 +153,29 @@ export function registerSocketHandlers(io: ChatServer) {
         senderId: message.senderId,
         content: message.content,
         fileUrl: message.fileUrl ?? undefined,
+        replyToId: message.replyToId ?? undefined,
         createdAt: message.createdAt.toISOString(),
         sender: message.sender
           ? {
               id: message.sender.id,
               username: message.sender.username,
               avatarUrl: message.sender.avatarUrl ?? undefined,
+            }
+          : undefined,
+        replyTo: message.replyTo
+          ? {
+              id: message.replyTo.id,
+              senderId: message.replyTo.senderId,
+              content: message.replyTo.content,
+              fileUrl: message.replyTo.fileUrl ?? undefined,
+              createdAt: message.replyTo.createdAt.toISOString(),
+              sender: message.replyTo.sender
+                ? {
+                    id: message.replyTo.sender.id,
+                    username: message.replyTo.sender.username,
+                    avatarUrl: message.replyTo.sender.avatarUrl ?? undefined,
+                  }
+                : undefined,
             }
           : undefined,
         reads: message.reads.map((r) => ({

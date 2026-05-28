@@ -86,9 +86,11 @@ export function ChatWindow({ roomId, onLeave, onImageView }: Props) {
   const [isMobile, setIsMobile] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [uploadError, setUploadError] = useState('');
+  const [copyNotice, setCopyNotice] = useState('');
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [socketDisconnected, setSocketDisconnected] = useState(false);
   const [contextMenu, setContextMenu] = useState<Message | null>(null);
+  const [replyTarget, setReplyTarget] = useState<Message | null>(null);
   const [archiveRoomId, setArchiveRoomId] = useState<number | null>(null);
   // 이전 메시지 페이지네이션
   const [nextCursor, setNextCursor] = useState<number | null>(null);
@@ -102,6 +104,8 @@ export function ChatWindow({ roomId, onLeave, onImageView }: Props) {
   const bottomRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const longPressTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const copyNoticeTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const messageRefs = useRef<Record<number, HTMLDivElement | null>>({});
 
   const activeRoom = rooms.find((r) => r.id === roomId);
   const lockCode = (user?.chatLockCode ?? '').trim();
@@ -109,6 +113,7 @@ export function ChatWindow({ roomId, onLeave, onImageView }: Props) {
 
   useEffect(() => {
     setNextCursor(null);
+    setReplyTarget(null);
     api
       .get<{ data: { messages: Message[]; nextCursor: number | null } }>(`/messages/${roomId}`)
       .then((res) => {
@@ -316,6 +321,12 @@ export function ChatWindow({ roomId, onLeave, onImageView }: Props) {
     return () => window.removeEventListener('click', handleOutsideClick);
   }, [settingsOpen]);
 
+  useEffect(() => {
+    return () => {
+      if (copyNoticeTimer.current) clearTimeout(copyNoticeTimer.current);
+    };
+  }, []);
+
   function updateSettings(partial: Partial<ChatViewSettings>) {
     setSettings((current) => ({ ...current, ...partial }));
   }
@@ -462,8 +473,9 @@ export function ChatWindow({ roomId, onLeave, onImageView }: Props) {
     // 보낼 때 타이핑 중지
     socket.emit('typing:stop', { roomId });
     if (typingTimer.current) { clearTimeout(typingTimer.current); typingTimer.current = null; }
-    socket.emit('message:send', { roomId, content });
+    socket.emit('message:send', { roomId, content, replyToId: replyTarget?.id });
     setInput('');
+    setReplyTarget(null);
     if (textareaRef.current) {
       textareaRef.current.style.height = 'auto';
       // 전송 후 포커스 유지 (모바일 키패드 닫힘 방지)
@@ -471,13 +483,14 @@ export function ChatWindow({ roomId, onLeave, onImageView }: Props) {
     }
   }
 
-  // Enter 키 = 줄바꿈 / Shift+Enter = 전송, 버튼으로도 전송 가능
+  // Enter 키 = 전송 / Shift+Enter = 줄바꿈
   function handleKeyDown(e: React.KeyboardEvent<HTMLTextAreaElement>) {
-    if (e.key === 'Enter' && e.shiftKey) {
+    // 한글/일본어 등 IME 조합 입력 중에는 Enter 전송을 막아야 조합이 끊기지 않음
+    if (e.nativeEvent.isComposing) return;
+    if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
       sendMessage();
     }
-    // 기본 Enter는 줄바꿈 유지
   }
 
   function handleInput(e: React.ChangeEvent<HTMLTextAreaElement>) {
@@ -563,6 +576,78 @@ export function ChatWindow({ roomId, onLeave, onImageView }: Props) {
     socket.emit('message:delete', { messageId: msg.id });
   }
 
+  function showCopyNotice(message: string) {
+    if (copyNoticeTimer.current) clearTimeout(copyNoticeTimer.current);
+    setCopyNotice(message);
+    copyNoticeTimer.current = setTimeout(() => {
+      setCopyNotice('');
+      copyNoticeTimer.current = null;
+    }, 1800);
+  }
+
+  async function copyText(text: string): Promise<boolean> {
+    if (!text) return false;
+    try {
+      if (navigator.clipboard?.writeText) {
+        await navigator.clipboard.writeText(text);
+        return true;
+      }
+    } catch {
+      // fallback 사용
+    }
+    const ta = document.createElement('textarea');
+    ta.value = text;
+    ta.style.position = 'fixed';
+    ta.style.opacity = '0';
+    document.body.appendChild(ta);
+    ta.focus();
+    ta.select();
+    const copied = document.execCommand('copy');
+    document.body.removeChild(ta);
+    return copied;
+  }
+
+  async function handleCopyMessage(msg: Message) {
+    setContextMenu(null);
+    if (!msg.content?.trim()) return;
+    const copied = await copyText(msg.content);
+    showCopyNotice(copied ? '메시지를 복사했습니다.' : '복사에 실패했습니다.');
+  }
+
+  async function handleCopySelectedText() {
+    setContextMenu(null);
+    const selected = window.getSelection()?.toString().trim() ?? '';
+    if (!selected) {
+      showCopyNotice('먼저 복사할 텍스트를 선택해주세요.');
+      return;
+    }
+    const copied = await copyText(selected);
+    showCopyNotice(copied ? '선택한 텍스트를 복사했습니다.' : '복사에 실패했습니다.');
+  }
+
+  function handleReplyMessage(msg: Message) {
+    setContextMenu(null);
+    setReplyTarget(msg);
+    requestAnimationFrame(() => textareaRef.current?.focus());
+  }
+
+  function jumpToMessage(messageId: number) {
+    const el = messageRefs.current[messageId];
+    if (!el) {
+      showCopyNotice('원본 메시지를 찾을 수 없습니다.');
+      return;
+    }
+    el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    el.animate(
+      [
+        { backgroundColor: 'rgba(88,101,242,0.0)' },
+        { backgroundColor: 'rgba(88,101,242,0.28)' },
+        { backgroundColor: 'rgba(88,101,242,0.0)' },
+      ],
+      { duration: 800, easing: 'ease-out' },
+    );
+  }
+
   async function handleSaveToArchive(msg: Message) {
     setContextMenu(null);
     try {
@@ -624,7 +709,22 @@ export function ChatWindow({ roomId, onLeave, onImageView }: Props) {
         );
       } else {
         items.push(
-          <MessageBubble key={msg.id} message={msg} isMine={isMine} isConsecutive={isConsecutive} timeFormat={settings.timeFormat} onImageClick={onImageView} onLongPress={setContextMenu} />
+          <div
+            key={msg.id}
+            ref={(el) => { messageRefs.current[msg.id] = el; }}
+            data-message-id={msg.id}
+            className="rounded-xl"
+          >
+            <MessageBubble
+              message={msg}
+              isMine={isMine}
+              isConsecutive={isConsecutive}
+              timeFormat={settings.timeFormat}
+              onImageClick={onImageView}
+              onLongPress={setContextMenu}
+              onJumpToMessage={jumpToMessage}
+            />
+          </div>
         );
       }
       lastSenderId = msg.senderId;
@@ -1005,6 +1105,37 @@ export function ChatWindow({ roomId, onLeave, onImageView }: Props) {
             </p>
             <button
               type="button"
+              onClick={() => handleReplyMessage(contextMenu)}
+              className="w-full flex items-center gap-3 rounded-xl px-4 py-3 mb-2"
+              style={{ background: '#2b2d31', color: 'var(--text-primary)' }}
+            >
+              <span style={{ fontSize: 18 }}>↩️</span>
+              <span className="text-sm font-medium">답장</span>
+            </button>
+            {!contextMenu.fileUrl && (
+              <button
+                type="button"
+                onClick={() => handleCopyMessage(contextMenu)}
+                className="w-full flex items-center gap-3 rounded-xl px-4 py-3 mb-2"
+                style={{ background: '#2b2d31', color: 'var(--text-primary)' }}
+              >
+                <span style={{ fontSize: 18 }}>📋</span>
+                <span className="text-sm font-medium">전체 복사</span>
+              </button>
+            )}
+            {!contextMenu.fileUrl && (
+              <button
+                type="button"
+                onClick={handleCopySelectedText}
+                className="w-full flex items-center gap-3 rounded-xl px-4 py-3 mb-2"
+                style={{ background: '#2b2d31', color: 'var(--text-primary)' }}
+              >
+                <span style={{ fontSize: 18 }}>✂️</span>
+                <span className="text-sm font-medium">선택 부분 복사</span>
+              </button>
+            )}
+            <button
+              type="button"
               onClick={() => handleSaveToArchive(contextMenu)}
               className="w-full flex items-center gap-3 rounded-xl px-4 py-3 mb-2"
               style={{ background: '#2b2d31', color: 'var(--text-primary)' }}
@@ -1149,6 +1280,32 @@ export function ChatWindow({ roomId, onLeave, onImageView }: Props) {
             ⚠ {uploadError}
           </div>
         )}
+        {copyNotice && (
+          <div className="mt-2 mb-1 px-3 py-1.5 rounded-lg text-xs font-medium" style={{ background: '#57f28722', color: '#57f287', border: '1px solid #57f28744' }}>
+            ✓ {copyNotice}
+          </div>
+        )}
+        {replyTarget && (
+          <div className="mt-2 mb-1 px-3 py-2 rounded-lg border flex items-start gap-2" style={{ background: '#2b2d31', borderColor: '#3a3f4a' }}>
+            <div className="w-1 rounded-full self-stretch" style={{ background: 'var(--accent)' }} />
+            <div className="min-w-0 flex-1">
+              <p className="text-[11px] font-semibold truncate" style={{ color: 'var(--text-primary)' }}>
+                {replyTarget.sender?.username ?? `사용자${replyTarget.senderId}`}에게 답장
+              </p>
+              <p className="text-xs truncate" style={{ color: 'var(--text-muted)' }}>
+                {replyTarget.fileUrl ? '[파일]' : (replyTarget.content || '[메시지]')}
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={() => setReplyTarget(null)}
+              className="text-xs px-2 py-1 rounded"
+              style={{ color: 'var(--text-muted)', background: 'transparent' }}
+            >
+              ✕
+            </button>
+          </div>
+        )}
         <input ref={fileInputRef} type="file" accept="image/*,video/*" className="hidden" onChange={handleFileChange} />
         <form onSubmit={sendMessage} className="flex items-end gap-2 rounded-xl px-4 py-3" style={{ background: 'var(--input-bg)', padding: isMobile ? '10px 12px' : undefined }}>
           {/* 이미지 체널 버튼 */}
@@ -1224,5 +1381,3 @@ function SettingRow({
     </button>
   );
 }
-
-
