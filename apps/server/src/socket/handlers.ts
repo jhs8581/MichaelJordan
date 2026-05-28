@@ -7,6 +7,34 @@ import { sendPushToUsers } from '../routes/push';
 type ChatServer = Server<ClientToServerEvents, ServerToClientEvents>;
 type ChatSocket = Socket<ClientToServerEvents, ServerToClientEvents>;
 
+function normalizeTimeZone(value: string | null | undefined): string | undefined {
+  const timeZone = (value ?? '').trim();
+  if (!timeZone) return undefined;
+  try {
+    new Intl.DateTimeFormat('ko-KR', { timeZone }).format(new Date());
+    return timeZone;
+  } catch {
+    return undefined;
+  }
+}
+
+function getLocalTimeForTimeZone(timeZone: string | undefined): string | undefined {
+  if (!timeZone) return undefined;
+  try {
+    const parts = new Intl.DateTimeFormat('en-GB', {
+      timeZone,
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: false,
+    }).formatToParts(new Date());
+    const hour = parts.find((part) => part.type === 'hour')?.value;
+    const minute = parts.find((part) => part.type === 'minute')?.value;
+    return hour && minute ? `${hour}:${minute}` : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
 export function registerSocketHandlers(io: ChatServer) {
   // ── 인증 미들웨어 ─────────────────────────────────────────────
   io.use((socket, next) => {
@@ -113,12 +141,14 @@ export function registerSocketHandlers(io: ChatServer) {
       // XSS 방지: 클라이언트 렌더링 시 dangerouslySetInnerHTML 사용 금지
       // 메시지는 텍스트로만 저장하고 렌더링은 이스케이프된 텍스트로 처리
       const sanitizedContent = content.trim();
-      const normalizedSenderTimeZone = typeof senderTimeZone === 'string' && senderTimeZone.length <= 100
-        ? senderTimeZone
-        : undefined;
+      const userTimeZone = await prisma.user.findUnique({
+        where: { id: userId },
+        select: { timeZone: true },
+      });
+      const normalizedSenderTimeZone = normalizeTimeZone(senderTimeZone) ?? normalizeTimeZone(userTimeZone?.timeZone);
       const normalizedSenderLocalTime = typeof senderLocalTime === 'string' && /^\d{2}:\d{2}$/.test(senderLocalTime)
         ? senderLocalTime
-        : undefined;
+        : getLocalTimeForTimeZone(normalizedSenderTimeZone);
       // 이미지 전용 메시지는 빈 content 허용
       if (!sanitizedContent && !fileUrl) return;
 
