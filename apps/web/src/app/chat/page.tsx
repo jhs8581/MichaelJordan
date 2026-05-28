@@ -629,7 +629,7 @@ export default function ChatPage() {
           tabIndex={0}
           style={{
             position: 'fixed', inset: 0, zIndex: 9999,
-            background: 'rgba(0,0,0,0.92)',
+            background: '#000',
             display: 'flex', alignItems: 'center', justifyContent: 'center',
             outline: 'none', touchAction: showImageGrid ? 'auto' : 'none',
           }}
@@ -647,7 +647,7 @@ export default function ChatPage() {
                   <div style={{
                     position: 'sticky', top: 0, zIndex: 1,
                     display: 'flex', alignItems: 'center', gap: 10,
-                    padding: '8px 2px 10px', background: 'rgba(0,0,0,0.72)', backdropFilter: 'blur(6px)',
+                    padding: '8px 2px 10px', background: '#000',
                   }}>
                     <span style={{ color: '#fff', fontSize: 13, fontWeight: 800 }}>{group.label}</span>
                     <span style={{ color: 'rgba(255,255,255,0.55)', fontSize: 11 }}>{group.items.length}장</span>
