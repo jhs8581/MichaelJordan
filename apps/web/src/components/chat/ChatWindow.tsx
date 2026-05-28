@@ -165,6 +165,7 @@ export function ChatWindow({ roomId, onLeave, onImageView }: Props) {
   const [muteSaving, setMuteSaving] = useState(false);
   const [socketDisconnected, setSocketDisconnected] = useState(false);
   const [contextMenu, setContextMenu] = useState<Message | null>(null);
+  const [partialCopyMessage, setPartialCopyMessage] = useState<Message | null>(null);
   const [replyTarget, setReplyTarget] = useState<Message | null>(null);
   const [archiveRoomId, setArchiveRoomId] = useState<number | null>(null);
   // 이전 메시지 페이지네이션
@@ -178,6 +179,7 @@ export function ChatWindow({ roomId, onLeave, onImageView }: Props) {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const partialCopyTextareaRef = useRef<HTMLTextAreaElement>(null);
   const longPressTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const copyNoticeTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const messageRefs = useRef<Record<number, HTMLDivElement | null>>({});
@@ -422,6 +424,16 @@ export function ChatWindow({ roomId, onLeave, onImageView }: Props) {
       if (pendingPasteImage) URL.revokeObjectURL(pendingPasteImage.url);
     };
   }, [pendingPasteImage]);
+
+  useEffect(() => {
+    if (!partialCopyMessage) return;
+    requestAnimationFrame(() => {
+      const textarea = partialCopyTextareaRef.current;
+      if (!textarea) return;
+      textarea.focus();
+      textarea.setSelectionRange(0, textarea.value.length);
+    });
+  }, [partialCopyMessage]);
 
   function updateSettings(partial: Partial<ChatViewSettings>) {
     setSettings((current) => ({ ...current, ...partial }));
@@ -752,14 +764,24 @@ export function ChatWindow({ roomId, onLeave, onImageView }: Props) {
     showCopyNotice(copied ? '메시지를 복사했습니다.' : '복사에 실패했습니다.');
   }
 
-  async function handleCopySelectedText() {
+  function openPartialCopyPopup(msg: Message) {
     setContextMenu(null);
-    const selected = window.getSelection()?.toString().trim() ?? '';
-    if (!selected) {
-      showCopyNotice('먼저 복사할 텍스트를 선택해주세요.');
+    setPartialCopyMessage(msg);
+  }
+
+  async function handleCopyFromPartialPopup() {
+    const textarea = partialCopyTextareaRef.current;
+    const source = textarea?.value ?? partialCopyMessage?.content ?? '';
+    const start = textarea?.selectionStart ?? 0;
+    const end = textarea?.selectionEnd ?? 0;
+    const selected = start !== end ? source.slice(start, end) : source;
+    const text = selected.trim();
+    if (!text) {
+      showCopyNotice('복사할 텍스트가 없습니다.');
       return;
     }
-    const copied = await copyText(selected);
+    const copied = await copyText(text);
+    if (copied) setPartialCopyMessage(null);
     showCopyNotice(copied ? '선택한 텍스트를 복사했습니다.' : '복사에 실패했습니다.');
   }
 
@@ -1470,7 +1492,7 @@ export function ChatWindow({ roomId, onLeave, onImageView }: Props) {
             {!contextMenu.fileUrl && (
               <button
                 type="button"
-                onClick={handleCopySelectedText}
+                onClick={() => openPartialCopyPopup(contextMenu)}
                 className="w-full flex items-center gap-3 rounded-xl px-4 py-3 mb-2"
                 style={{ background: '#2b2d31', color: 'var(--text-primary)' }}
               >
@@ -1505,6 +1527,81 @@ export function ChatWindow({ roomId, onLeave, onImageView }: Props) {
               style={{ background: '#2b2d31', color: 'var(--text-muted)' }}
             >
               취소
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* 선택 부분 복사 팝업 */}
+      {partialCopyMessage && (
+        <div
+          className="absolute inset-0 z-50 flex items-end justify-center"
+          style={{ background: 'rgba(0,0,0,0.62)' }}
+          onClick={() => setPartialCopyMessage(null)}
+          onContextMenu={(e) => e.preventDefault()}
+        >
+          <div
+            className="w-full max-w-sm rounded-t-2xl border p-4"
+            style={{ background: '#17191d', borderColor: '#3a3f4a' }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="mb-3 flex items-start justify-between gap-3">
+              <div>
+                <h3 className="text-sm font-bold" style={{ color: 'var(--text-primary)' }}>선택 부분 복사</h3>
+                <p className="mt-1 text-xs" style={{ color: 'var(--text-muted)' }}>
+                  필요한 문장만 드래그해서 선택하거나, 내용을 지운 뒤 복사하세요.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setPartialCopyMessage(null)}
+                className="rounded-md px-2 py-1 text-xs"
+                style={{ background: '#2b2d31', color: 'var(--text-muted)' }}
+              >
+                ✕
+              </button>
+            </div>
+            <textarea
+              ref={partialCopyTextareaRef}
+              defaultValue={partialCopyMessage.content}
+              className="mb-3 h-40 w-full resize-none rounded-xl px-3 py-2 text-sm outline-none"
+              style={{
+                background: '#0f1115',
+                border: '1px solid #3a3f4a',
+                color: 'var(--text-primary)',
+                lineHeight: 1.6,
+              }}
+            />
+            <div className="mb-2 grid grid-cols-2 gap-2">
+              <button
+                type="button"
+                onClick={() => {
+                  const textarea = partialCopyTextareaRef.current;
+                  if (!textarea) return;
+                  textarea.focus();
+                  textarea.setSelectionRange(0, textarea.value.length);
+                }}
+                className="rounded-lg py-2 text-sm font-medium"
+                style={{ background: '#2b2d31', color: 'var(--text-primary)' }}
+              >
+                전체 선택
+              </button>
+              <button
+                type="button"
+                onClick={() => setPartialCopyMessage(null)}
+                className="rounded-lg py-2 text-sm font-medium"
+                style={{ background: '#3a3f4a', color: 'var(--text-muted)' }}
+              >
+                취소
+              </button>
+            </div>
+            <button
+              type="button"
+              onClick={handleCopyFromPartialPopup}
+              className="w-full rounded-xl py-2.5 text-sm font-bold"
+              style={{ background: 'var(--accent)', color: '#fff' }}
+            >
+              선택한 부분 복사
             </button>
           </div>
         </div>

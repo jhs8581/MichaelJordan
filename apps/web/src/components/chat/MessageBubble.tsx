@@ -138,7 +138,7 @@ export function MessageBubble({ message, isMine, isConsecutive, timeFormat, onIm
           )}
 
           <div
-            className="px-3.5 py-2 rounded-2xl text-sm leading-relaxed whitespace-pre-wrap break-words select-text min-w-0"
+            className="px-3.5 py-2 rounded-2xl text-sm leading-relaxed whitespace-pre-wrap break-words min-w-0"
             style={{
               background: isMine ? 'var(--bubble-mine)' : 'var(--bubble-other)',
               color: '#fff',
@@ -146,8 +146,11 @@ export function MessageBubble({ message, isMine, isConsecutive, timeFormat, onIm
                 ? (isConsecutive ? '18px 4px 18px 18px' : '18px 4px 18px 18px')
                 : (isConsecutive ? '4px 18px 18px 18px' : '4px 18px 18px 18px'),
               padding: message.fileUrl ? '4px' : undefined,
+              userSelect: 'none',
+              WebkitUserSelect: 'none',
+              WebkitTouchCallout: 'none',
             }}
-            onContextMenu={(e) => { e.preventDefault(); onLongPress?.(message); }}
+            onContextMenu={(e) => { e.preventDefault(); e.stopPropagation(); onLongPress?.(message); }}
             onTouchStart={startPress}
             onTouchEnd={handleTouchEnd}
             onTouchCancel={cancelPress}
