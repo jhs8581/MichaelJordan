@@ -230,14 +230,27 @@ export function ChatWindow({ roomId, onLeave, onImageView }: Props) {
     const socket = getSocket();
     if (!socket.connected) socket.connect();
     socket.emit('room:join', roomId);
-    // 이 채팅방을 보고 있다고 서버에 알림 → 이 방의 푸시 알림 수신 제외
-    socket.emit('room:viewing', roomId);
+    // 이 채팅방을 실제로 보고 있을 때만 서버에 알림 → 이 방의 푸시 알림 수신 제외
+    // 앱/탭이 백그라운드가 되면 열린 채팅방이라도 미사용 상태로 보고 푸시를 받게 함
+    function isPageActive() {
+      return document.visibilityState === 'visible' && document.hasFocus();
+    }
+
+    function emitViewingState() {
+      socket.emit(isPageActive() ? 'room:viewing' : 'room:stop-viewing', roomId);
+    }
+
+    function emitStopViewing() {
+      socket.emit('room:stop-viewing', roomId);
+    }
+
+    emitViewingState();
 
     // 재연결 성공 → 방 재입장 + 연결 끊김 배너 숨김
     function onConnect() {
       setSocketDisconnected(false);
       socket.emit('room:join', roomId);
-      socket.emit('room:viewing', roomId);
+      emitViewingState();
     }
     // 연결 끊김 → 배너 표시
     function onDisconnect() {
@@ -256,6 +269,11 @@ export function ChatWindow({ roomId, onLeave, onImageView }: Props) {
     socket.on('connect', onConnect);
     socket.on('disconnect', onDisconnect);
     socket.on('connect_error', onConnectError);
+    document.addEventListener('visibilitychange', emitViewingState);
+    window.addEventListener('focus', emitViewingState);
+    window.addEventListener('blur', emitStopViewing);
+    window.addEventListener('pagehide', emitStopViewing);
+    window.addEventListener('pageshow', emitViewingState);
 
     socket.on('message:new', (msg) => {
       if (msg.roomId !== roomId) return;
@@ -301,6 +319,11 @@ export function ChatWindow({ roomId, onLeave, onImageView }: Props) {
       socket.off('connect', onConnect);
       socket.off('disconnect', onDisconnect);
       socket.off('connect_error', onConnectError);
+      document.removeEventListener('visibilitychange', emitViewingState);
+      window.removeEventListener('focus', emitViewingState);
+      window.removeEventListener('blur', emitStopViewing);
+      window.removeEventListener('pagehide', emitStopViewing);
+      window.removeEventListener('pageshow', emitViewingState);
       socket.off('message:new');
       socket.off('message:read');
       socket.off('typing:update');
