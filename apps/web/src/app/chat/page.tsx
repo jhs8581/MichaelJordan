@@ -160,7 +160,10 @@ export default function ChatPage() {
   const [selectedRoom, setSelectedRoom] = useState<Room | null>(null);
   const [showChatList, setShowChatList] = useState(false);
   const [showCreateModal, setShowCreateModal] = useState(false);
-  const [viewingImage, setViewingImage] = useState<string | null>(null);
+  const [viewingImages, setViewingImages] = useState<string[]>([]);
+  const [viewingImageIdx, setViewingImageIdx] = useState(0);
+  const viewingImage = viewingImages[viewingImageIdx] ?? null;
+  const touchStartX = useRef<number | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
   const galleryClickCount = useRef(0);
   const galleryClickTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -188,8 +191,8 @@ export default function ChatPage() {
   //   /login 으로 이동해버림. capture phase로 먼저 잡고 stopImmediatePropagation으로 차단.
   // 각 상태 진입시 별도 history 항목을 push → 뒤로가기 1회 = 상태 1단계 닫기
   popStateHandlerRef.current = () => {
-    if (viewingImage) {
-      setViewingImage(null);
+    if (viewingImages.length > 0) {
+      setViewingImages([]);
     } else if (selectedRoom) {
       setSelectedRoom(null);
     } else if (showChatList) {
@@ -221,8 +224,8 @@ export default function ChatPage() {
     if (selectedRoom) history.pushState({ _chat: true }, '', window.location.href);
   }, [selectedRoom]);
   useEffect(() => {
-    if (viewingImage) history.pushState({ _chat: true }, '', window.location.href);
-  }, [viewingImage]);
+    if (viewingImages.length > 0) history.pushState({ _chat: true }, '', window.location.href);
+  }, [viewingImages]);
 
   useEffect(() => {
     if (accessToken) {
@@ -346,7 +349,11 @@ export default function ChatPage() {
               <ChatWindow
                 roomId={selectedRoom.id}
                 onLeave={() => setSelectedRoom(null)}
-                onImageView={(url) => { setViewingImage(url); }}
+                onImageView={(url, imageList) => {
+                  const idx = imageList.indexOf(url);
+                  setViewingImages(imageList);
+                  setViewingImageIdx(idx >= 0 ? idx : 0);
+                }}
               />
             </div>
           </div>
@@ -461,13 +468,29 @@ export default function ChatPage() {
       {!selectedRoom && !showChatList && <ScrollToTopBtn containerRef={scrollRef} />}
 
       {/* 이미지 라이트박스 오버레이 — 어떤 상태에서도 렌더럁 되도록 최상단에 배치 */}
-      {viewingImage && (
+      {viewingImages.length > 0 && viewingImage && (
         <div
-          onClick={() => setViewingImage(null)}
+          onClick={() => setViewingImages([])}
+          onKeyDown={(e) => {
+            if (e.key === 'ArrowLeft') setViewingImageIdx((i) => Math.max(0, i - 1));
+            else if (e.key === 'ArrowRight') setViewingImageIdx((i) => Math.min(viewingImages.length - 1, i + 1));
+            else if (e.key === 'Escape') setViewingImages([]);
+          }}
+          onTouchStart={(e) => { touchStartX.current = e.touches[0].clientX; }}
+          onTouchEnd={(e) => {
+            if (touchStartX.current === null) return;
+            const dx = e.changedTouches[0].clientX - touchStartX.current;
+            touchStartX.current = null;
+            if (Math.abs(dx) < 40) return;
+            if (dx < 0) setViewingImageIdx((i) => Math.min(viewingImages.length - 1, i + 1));
+            else setViewingImageIdx((i) => Math.max(0, i - 1));
+          }}
+          tabIndex={0}
           style={{
             position: 'fixed', inset: 0, zIndex: 9999,
             background: 'rgba(0,0,0,0.92)',
             display: 'flex', alignItems: 'center', justifyContent: 'center',
+            outline: 'none',
           }}
         >
           {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -475,10 +498,12 @@ export default function ChatPage() {
             src={viewingImage}
             alt="이미지"
             onClick={(e) => e.stopPropagation()}
-            style={{ maxWidth: '95vw', maxHeight: '90vh', borderRadius: 8, objectFit: 'contain' }}
+            style={{ maxWidth: '95vw', maxHeight: '82vh', borderRadius: 8, objectFit: 'contain', userSelect: 'none', pointerEvents: 'none' }}
           />
+
+          {/* 닫기 버튼 */}
           <button
-            onClick={() => setViewingImage(null)}
+            onClick={(e) => { e.stopPropagation(); setViewingImages([]); }}
             style={{
               position: 'absolute', top: 16, right: 16,
               background: 'rgba(255,255,255,0.15)', border: 'none', borderRadius: '50%',
@@ -486,17 +511,59 @@ export default function ChatPage() {
               display: 'flex', alignItems: 'center', justifyContent: 'center',
             }}
           >✕</button>
-          <a
-            href={viewingImage}
-            download
+
+          {/* 이전 버튼 */}
+          {viewingImageIdx > 0 && (
+            <button
+              onClick={(e) => { e.stopPropagation(); setViewingImageIdx((i) => i - 1); }}
+              style={{
+                position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)',
+                background: 'rgba(255,255,255,0.15)', border: 'none', borderRadius: '50%',
+                width: 44, height: 44, color: '#fff', fontSize: 22, cursor: 'pointer',
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+              }}
+            >‹</button>
+          )}
+
+          {/* 다음 버튼 */}
+          {viewingImageIdx < viewingImages.length - 1 && (
+            <button
+              onClick={(e) => { e.stopPropagation(); setViewingImageIdx((i) => i + 1); }}
+              style={{
+                position: 'absolute', right: 12, top: '50%', transform: 'translateY(-50%)',
+                background: 'rgba(255,255,255,0.15)', border: 'none', borderRadius: '50%',
+                width: 44, height: 44, color: '#fff', fontSize: 22, cursor: 'pointer',
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+              }}
+            >›</button>
+          )}
+
+          {/* 카운터 + 저장 */}
+          <div
             onClick={(e) => e.stopPropagation()}
             style={{
               position: 'absolute', bottom: 24, left: '50%', transform: 'translateX(-50%)',
-              background: 'rgba(255,255,255,0.15)', border: '1px solid rgba(255,255,255,0.3)',
-              borderRadius: 20, padding: '8px 20px',
-              color: '#fff', fontSize: 13, textDecoration: 'none',
+              display: 'flex', alignItems: 'center', gap: 12,
             }}
-          >⬇ 저장</a>
+          >
+            {viewingImages.length > 1 && (
+              <span style={{
+                background: 'rgba(0,0,0,0.5)', borderRadius: 12, padding: '4px 12px',
+                color: '#fff', fontSize: 13,
+              }}>
+                {viewingImageIdx + 1} / {viewingImages.length}
+              </span>
+            )}
+            <a
+              href={viewingImage}
+              download
+              style={{
+                background: 'rgba(255,255,255,0.15)', border: '1px solid rgba(255,255,255,0.3)',
+                borderRadius: 20, padding: '8px 20px',
+                color: '#fff', fontSize: 13, textDecoration: 'none',
+              }}
+            >⬇ 저장</a>
+          </div>
         </div>
       )}
 

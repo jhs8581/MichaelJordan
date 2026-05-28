@@ -11,7 +11,7 @@ import { MessageBubble, renderMessageContent } from './MessageBubble';
 interface Props {
   roomId: number;
   onLeave?: () => void;
-  onImageView?: (url: string) => void;
+  onImageView?: (url: string, imageList: string[]) => void;
 }
 
 type ChatViewMode = 'bubble' | 'memo';
@@ -769,7 +769,12 @@ export function ChatWindow({ roomId, onLeave, onImageView }: Props) {
               isMine={isMine}
               isConsecutive={isConsecutive}
               timeFormat={settings.timeFormat}
-              onImageClick={onImageView}
+              onImageClick={onImageView ? (url) => {
+                const imageUrls = messages
+                  .filter((m) => m.fileUrl && !/\.(mp4|webm|mov|m4v|avi)(\?.*)?$/i.test(m.fileUrl))
+                  .map((m) => m.fileUrl!);
+                onImageView(url, imageUrls);
+              } : undefined}
               onLongPress={setContextMenu}
               onJumpToMessage={jumpToMessage}
             />
