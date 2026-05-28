@@ -103,7 +103,7 @@ export function registerSocketHandlers(io: ChatServer) {
     });
 
     // ── 메시지 전송 ─────────────────────────────────────────────
-    socket.on('message:send', async ({ roomId, content, fileUrl, replyToId }) => {
+    socket.on('message:send', async ({ roomId, content, fileUrl, replyToId, senderTimeZone }) => {
       // 멤버 권한 검증
       const member = await prisma.roomMember.findUnique({
         where: { userId_roomId: { userId, roomId } },
@@ -113,6 +113,9 @@ export function registerSocketHandlers(io: ChatServer) {
       // XSS 방지: 클라이언트 렌더링 시 dangerouslySetInnerHTML 사용 금지
       // 메시지는 텍스트로만 저장하고 렌더링은 이스케이프된 텍스트로 처리
       const sanitizedContent = content.trim();
+      const normalizedSenderTimeZone = typeof senderTimeZone === 'string' && senderTimeZone.length <= 100
+        ? senderTimeZone
+        : undefined;
       // 이미지 전용 메시지는 빈 content 허용
       if (!sanitizedContent && !fileUrl) return;
 
@@ -130,7 +133,7 @@ export function registerSocketHandlers(io: ChatServer) {
       }
 
       const message = await prisma.message.create({
-        data: { roomId, senderId: userId, content: sanitizedContent, fileUrl, replyToId: validReplyToId },
+        data: { roomId, senderId: userId, content: sanitizedContent, fileUrl, replyToId: validReplyToId, senderTimeZone: normalizedSenderTimeZone },
         include: {
           sender: { select: { id: true, username: true, avatarUrl: true } },
           reads: true,
@@ -140,6 +143,7 @@ export function registerSocketHandlers(io: ChatServer) {
               senderId: true,
               content: true,
               fileUrl: true,
+              senderTimeZone: true,
               createdAt: true,
               sender: { select: { id: true, username: true, avatarUrl: true } },
             },
@@ -164,6 +168,7 @@ export function registerSocketHandlers(io: ChatServer) {
         content: message.content,
         fileUrl: message.fileUrl ?? undefined,
         replyToId: message.replyToId ?? undefined,
+        senderTimeZone: message.senderTimeZone ?? undefined,
         createdAt: message.createdAt.toISOString(),
         sender: message.sender
           ? {
@@ -178,6 +183,7 @@ export function registerSocketHandlers(io: ChatServer) {
               senderId: message.replyTo.senderId,
               content: message.replyTo.content,
               fileUrl: message.replyTo.fileUrl ?? undefined,
+              senderTimeZone: message.replyTo.senderTimeZone ?? undefined,
               createdAt: message.replyTo.createdAt.toISOString(),
               sender: message.replyTo.sender
                 ? {

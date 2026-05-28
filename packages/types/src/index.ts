@@ -44,6 +44,7 @@ export interface Message {
   fileUrl?: string;
   replyToId?: number;
   replyTo?: MessageReplyPreview;
+  senderTimeZone?: string;
   createdAt: string;
   sender?: Pick<User, 'id' | 'username' | 'avatarUrl'>;
   reads?: MessageRead[];
@@ -54,6 +55,7 @@ export interface MessageReplyPreview {
   senderId: number;
   content: string;
   fileUrl?: string;
+  senderTimeZone?: string;
   createdAt: string;
   sender?: Pick<User, 'id' | 'username' | 'avatarUrl'>;
 }
@@ -77,7 +79,7 @@ export interface ServerToClientEvents {
 }
 
 export interface ClientToServerEvents {
-  'message:send': (payload: { roomId: number; content: string; fileUrl?: string; replyToId?: number }) => void;
+  'message:send': (payload: { roomId: number; content: string; fileUrl?: string; replyToId?: number; senderTimeZone?: string }) => void;
   'message:read': (payload: { roomId: number; messageId: number }) => void;
   'message:delete': (payload: { messageId: number }) => void;
   'room:join': (roomId: number) => void;

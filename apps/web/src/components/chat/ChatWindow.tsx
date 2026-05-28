@@ -27,6 +27,14 @@ type ChatViewSettings = {
   showDateSeparator: boolean;
 };
 
+function getLocalTimeZone(): string | undefined {
+  try {
+    return Intl.DateTimeFormat().resolvedOptions().timeZone;
+  } catch {
+    return undefined;
+  }
+}
+
 const DEFAULT_SETTINGS: ChatViewSettings = {
   viewMode: 'bubble',
   timeFormat: 'ampm',
@@ -499,12 +507,13 @@ export function ChatWindow({ roomId, onLeave, onImageView }: Props) {
           senderId: sendingReplyTarget.senderId,
           content: sendingReplyTarget.content,
           fileUrl: sendingReplyTarget.fileUrl,
+          senderTimeZone: sendingReplyTarget.senderTimeZone,
           createdAt: sendingReplyTarget.createdAt,
           sender: sendingReplyTarget.sender,
         },
       });
     }
-    socket.emit('message:send', { roomId, content, replyToId: sendingReplyTarget?.id });
+    socket.emit('message:send', { roomId, content, replyToId: sendingReplyTarget?.id, senderTimeZone: getLocalTimeZone() });
     setInput('');
     setReplyTarget(null);
     if (textareaRef.current) {
@@ -560,7 +569,7 @@ export function ChatWindow({ roomId, onLeave, onImageView }: Props) {
       const json = await res.json() as { success: boolean; data?: { url: string } };
       if (json.success && json.data?.url) {
         const socket = getSocket();
-        socket.emit('message:send', { roomId, content: '', fileUrl: json.data.url });
+        socket.emit('message:send', { roomId, content: '', fileUrl: json.data.url, senderTimeZone: getLocalTimeZone() });
       } else {
         setUploadError('업로드에 실패했습니다.');
         setTimeout(() => setUploadError(''), 4000);
@@ -730,9 +739,9 @@ export function ChatWindow({ roomId, onLeave, onImageView }: Props) {
       }
       const socket = getSocket();
       if (msg.fileUrl) {
-        socket.emit('message:send', { roomId: aRoomId, content: '', fileUrl: msg.fileUrl });
+        socket.emit('message:send', { roomId: aRoomId, content: '', fileUrl: msg.fileUrl, senderTimeZone: getLocalTimeZone() });
       } else {
-        socket.emit('message:send', { roomId: aRoomId, content: msg.content });
+        socket.emit('message:send', { roomId: aRoomId, content: msg.content, senderTimeZone: getLocalTimeZone() });
       }
     } catch {
       // 실패 무시
@@ -755,6 +764,7 @@ export function ChatWindow({ roomId, onLeave, onImageView }: Props) {
         senderId: fallbackReplyTarget.senderId,
         content: fallbackReplyTarget.content,
         fileUrl: fallbackReplyTarget.fileUrl,
+        senderTimeZone: fallbackReplyTarget.senderTimeZone,
         createdAt: fallbackReplyTarget.createdAt,
         sender: fallbackReplyTarget.sender,
       });
@@ -787,7 +797,7 @@ export function ChatWindow({ roomId, onLeave, onImageView }: Props) {
       const isConsecutive = msg.senderId === lastSenderId;
       if (settings.viewMode === 'memo') {
         const senderName = msg.sender?.username ?? (isMine ? '나' : `사용자${msg.senderId}`);
-        const time = formatTime(new Date(msg.createdAt), settings.timeFormat);
+        const time = formatTime(new Date(msg.createdAt), settings.timeFormat, msg.senderTimeZone);
         const prefix = settings.showNickname ? `[${senderName}][${time}]` : `[${time}]`;
         items.push(
           <div
@@ -1168,7 +1178,7 @@ export function ChatWindow({ roomId, onLeave, onImageView }: Props) {
               ) : searchResults.map((msg) => {
                 const isMine = msg.senderId === user?.id;
                 const name = msg.sender?.username ?? (isMine ? '나' : `사용자${msg.senderId}`);
-                const time = new Date(msg.createdAt).toLocaleString('ko-KR', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+                const time = new Date(msg.createdAt).toLocaleString('ko-KR', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit', timeZone: msg.senderTimeZone });
                 return (
                   <div key={msg.id} className="rounded-lg px-3 py-2" style={{ background: '#2b2d31' }}>
                     <div className="flex items-center gap-2 mb-0.5">
@@ -1480,12 +1490,12 @@ export function ChatWindow({ roomId, onLeave, onImageView }: Props) {
   );
 }
 
-function formatTime(date: Date, mode: TimeFormatMode): string {
+function formatTime(date: Date, mode: TimeFormatMode, timeZone?: string): string {
   if (mode === '24h') {
-    return date.toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit', hour12: false });
+    return date.toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit', hour12: false, timeZone });
   }
 
-  return date.toLocaleTimeString('ko-KR', { hour: 'numeric', minute: '2-digit', hour12: true });
+  return date.toLocaleTimeString('ko-KR', { hour: 'numeric', minute: '2-digit', hour12: true, timeZone });
 }
 
 function SettingRow({
