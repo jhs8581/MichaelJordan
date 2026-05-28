@@ -146,6 +146,7 @@ export function ChatWindow({ roomId, onLeave, onImageView }: Props) {
   const [isMobile, setIsMobile] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [uploadError, setUploadError] = useState('');
+  const [pendingPasteImage, setPendingPasteImage] = useState<{ file: File; url: string } | null>(null);
   const [copyNotice, setCopyNotice] = useState('');
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [socketDisconnected, setSocketDisconnected] = useState(false);
@@ -402,6 +403,12 @@ export function ChatWindow({ roomId, onLeave, onImageView }: Props) {
     };
   }, []);
 
+  useEffect(() => {
+    return () => {
+      if (pendingPasteImage) URL.revokeObjectURL(pendingPasteImage.url);
+    };
+  }, [pendingPasteImage]);
+
   function updateSettings(partial: Partial<ChatViewSettings>) {
     setSettings((current) => ({ ...current, ...partial }));
   }
@@ -642,6 +649,21 @@ export function ChatWindow({ roomId, onLeave, onImageView }: Props) {
     await uploadFile(file);
   }
 
+  function clearPendingPasteImage() {
+    setPendingPasteImage((current) => {
+      if (current) URL.revokeObjectURL(current.url);
+      return null;
+    });
+  }
+
+  async function confirmPendingPasteImage() {
+    const pending = pendingPasteImage;
+    if (!pending) return;
+    setPendingPasteImage(null);
+    URL.revokeObjectURL(pending.url);
+    await uploadFile(pending.file);
+  }
+
   async function handlePaste(e: React.ClipboardEvent<HTMLTextAreaElement>) {
     const items = Array.from(e.clipboardData?.items ?? []);
     const imageItem = items.find((item) => item.type.startsWith('image/'));
@@ -649,7 +671,10 @@ export function ChatWindow({ roomId, onLeave, onImageView }: Props) {
     e.preventDefault();
     const file = imageItem.getAsFile();
     if (!file) return;
-    await uploadFile(file);
+    setPendingPasteImage((current) => {
+      if (current) URL.revokeObjectURL(current.url);
+      return { file, url: URL.createObjectURL(file) };
+    });
   }
 
   async function handleRefresh() {
@@ -1318,6 +1343,58 @@ export function ChatWindow({ roomId, onLeave, onImageView }: Props) {
                 className="flex-1 rounded-lg py-2.5 text-sm font-bold disabled:opacity-50"
                 style={{ background: '#ed4245', color: '#fff' }}>
                 {leaveLoading ? '나가는 중...' : '나가기'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 붙여넣기 이미지 전송 확인 */}
+      {pendingPasteImage && (
+        <div className="absolute inset-0 z-40 flex items-center justify-center px-5" style={{ background: 'rgba(10,12,16,0.76)' }}>
+          <div className="w-full max-w-sm rounded-2xl border p-4 shadow-2xl" style={{ background: '#17191d', borderColor: '#3a3f4a' }}>
+            <div className="mb-3 flex items-center justify-between gap-2">
+              <div>
+                <p className="text-base font-bold" style={{ color: 'var(--text-primary)' }}>사진을 전송할까요?</p>
+                <p className="mt-1 text-xs" style={{ color: 'var(--text-muted)' }}>붙여넣은 이미지를 확인한 뒤 전송하세요.</p>
+              </div>
+              <button
+                type="button"
+                onClick={clearPendingPasteImage}
+                className="rounded-lg px-2 py-1 text-xs"
+                style={{ background: '#2b2d31', color: 'var(--text-muted)' }}
+                aria-label="사진 전송 취소"
+              >
+                ✕
+              </button>
+            </div>
+
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src={pendingPasteImage.url}
+              alt="붙여넣은 이미지 미리보기"
+              className="mb-4 w-full rounded-xl"
+              style={{ maxHeight: '52vh', objectFit: 'contain', background: '#0f1115', border: '1px solid #2b2d31' }}
+            />
+
+            <div className="flex gap-2">
+              <button
+                type="button"
+                onClick={clearPendingPasteImage}
+                disabled={uploading}
+                className="flex-1 rounded-lg py-2.5 text-sm font-medium disabled:opacity-50"
+                style={{ background: '#3a3f4a', color: 'var(--text-muted)' }}
+              >
+                취소
+              </button>
+              <button
+                type="button"
+                onClick={confirmPendingPasteImage}
+                disabled={uploading}
+                className="flex-1 rounded-lg py-2.5 text-sm font-bold disabled:opacity-50"
+                style={{ background: 'var(--accent)', color: '#fff' }}
+              >
+                {uploading ? '전송 중...' : '확인'}
               </button>
             </div>
           </div>
