@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useChatStore } from '@/store/chat';
 import { useAuthStore } from '@/store/auth';
 import { getSocket } from '@/lib/socket';
@@ -673,6 +673,29 @@ export function ChatWindow({ roomId, onLeave, onImageView }: Props) {
     }
   }
 
+  const replyPreviewByMessageId = useMemo(() => {
+    const messageById = new Map(messages.map((message) => [message.id, message]));
+    const previews = new Map<number, Message['replyTo']>();
+    messages.forEach((message) => {
+      if (message.replyTo) {
+        previews.set(message.id, message.replyTo);
+        return;
+      }
+      if (!message.replyToId) return;
+      const fallbackReplyTarget = messageById.get(message.replyToId);
+      if (!fallbackReplyTarget) return;
+      previews.set(message.id, {
+        id: fallbackReplyTarget.id,
+        senderId: fallbackReplyTarget.senderId,
+        content: fallbackReplyTarget.content,
+        fileUrl: fallbackReplyTarget.fileUrl,
+        createdAt: fallbackReplyTarget.createdAt,
+        sender: fallbackReplyTarget.sender,
+      });
+    });
+    return previews;
+  }, [messages]);
+
   // 날짜 구분선 렌더링
   function renderMessages() {
     const items: React.ReactNode[] = [];
@@ -680,6 +703,7 @@ export function ChatWindow({ roomId, onLeave, onImageView }: Props) {
     let lastSenderId = -1;
 
     messages.forEach((msg, i) => {
+      const replyPreview = replyPreviewByMessageId.get(msg.id);
       const date = new Date(msg.createdAt).toLocaleDateString('ko-KR', { year: 'numeric', month: 'long', day: 'numeric' });
       if (settings.showDateSeparator && date !== lastDate) {
         items.push(
@@ -704,10 +728,10 @@ export function ChatWindow({ roomId, onLeave, onImageView }: Props) {
             ref={(el) => { messageRefs.current[msg.id] = el; }}
             data-message-id={msg.id}
           >
-            {msg.replyTo && (
+            {replyPreview && (
               <button
                 type="button"
-                onClick={() => { if (msg.replyTo?.id) jumpToMessage(msg.replyTo.id); }}
+                onClick={() => { if (replyPreview.id) jumpToMessage(replyPreview.id); }}
                 className="text-xs leading-5 whitespace-pre-wrap break-words block"
                 style={{
                   color: 'var(--accent, #5865f2)',
@@ -721,7 +745,7 @@ export function ChatWindow({ roomId, onLeave, onImageView }: Props) {
                 title="원본 메시지로 이동"
                 aria-label="원본 메시지로 이동"
               >
-                ↳ [{msg.replyTo.sender?.username ?? `사용자${msg.replyTo.senderId}`}] {msg.replyTo.fileUrl ? '[파일]' : (msg.replyTo.content || '[메시지]')}
+                ↳ [{replyPreview.sender?.username ?? `사용자${replyPreview.senderId}`}] {replyPreview.fileUrl ? '[파일]' : (replyPreview.content || '[메시지]')}
               </button>
             )}
             <p
@@ -741,7 +765,7 @@ export function ChatWindow({ roomId, onLeave, onImageView }: Props) {
             className="rounded-xl"
           >
             <MessageBubble
-              message={msg}
+              message={replyPreview ? { ...msg, replyTo: replyPreview } : msg}
               isMine={isMine}
               isConsecutive={isConsecutive}
               timeFormat={settings.timeFormat}
