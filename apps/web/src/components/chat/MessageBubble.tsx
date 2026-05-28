@@ -143,9 +143,16 @@ export function MessageBubble({ message, isMine, isConsecutive, timeFormat, onIm
             onTouchMove={handleTouchMove}
           >
             {message.replyTo && (
-              <button
-                type="button"
+              <div
+                role="button"
+                tabIndex={0}
                 onClick={() => { if (message.replyTo?.id) onJumpToMessage?.(message.replyTo.id); }}
+                onKeyDown={(e) => {
+                  if ((e.key === 'Enter' || e.key === ' ') && message.replyTo?.id) {
+                    e.preventDefault();
+                    onJumpToMessage?.(message.replyTo.id);
+                  }
+                }}
                 className="mb-2 rounded-xl px-2.5 py-2 text-left"
                 style={{
                   width: 'min(260px, 100%)',
@@ -155,6 +162,9 @@ export function MessageBubble({ message, isMine, isConsecutive, timeFormat, onIm
                   color: '#fff',
                   cursor: 'pointer',
                   display: 'block',
+                  WebkitAppearance: 'none',
+                  appearance: 'none',
+                  boxShadow: 'inset 0 0 0 1px rgba(255,255,255,0.12)',
                 }}
                 title="원본 메시지로 이동"
                 aria-label={`답장 대상: ${message.replyTo.sender?.username ?? `사용자${message.replyTo.senderId}`} — 원본 메시지로 이동`}
@@ -165,7 +175,7 @@ export function MessageBubble({ message, isMine, isConsecutive, timeFormat, onIm
                 <p className="text-[11px] leading-tight truncate" style={{ color: 'rgba(255,255,255,0.78)', maxWidth: '100%' }}>
                   {message.replyTo.fileUrl ? '[사진]' : (message.replyTo.content || '[메시지]')}
                 </p>
-              </button>
+              </div>
             )}
 
             {message.fileUrl ? (

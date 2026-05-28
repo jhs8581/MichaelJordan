@@ -799,20 +799,27 @@ export function ChatWindow({ roomId, onLeave, onImageView }: Props) {
               <button
                 type="button"
                 onClick={() => { if (effectiveReply.id) jumpToMessage(effectiveReply.id); }}
-                className="text-xs leading-5 whitespace-pre-wrap break-words block"
+                className="mb-1.5 rounded-xl px-2.5 py-2 text-left block"
                 style={{
-                  color: 'var(--accent, #5865f2)',
-                  fontFamily: 'Consolas, "Courier New", monospace',
-                  background: 'transparent',
+                  width: 'fit-content',
+                  maxWidth: isMobile ? '82%' : '70%',
+                  marginLeft: isMine ? 'auto' : 0,
+                  color: 'var(--text-primary)',
+                  background: isMine ? 'var(--bubble-mine)' : 'var(--bubble-other)',
                   border: 'none',
-                  padding: 0,
+                  borderLeft: '3px solid rgba(255,255,255,0.72)',
                   cursor: 'pointer',
-                  textDecoration: 'none',
+                  boxShadow: '0 1px 2px rgba(0,0,0,0.18)',
                 }}
                 title="원본 메시지로 이동"
                 aria-label="원본 메시지로 이동"
               >
-                ↳ [{effectiveReply.sender?.username ?? `사용자${effectiveReply.senderId}`}] {effectiveReply.fileUrl ? '[파일]' : (effectiveReply.content || '[메시지]')}
+                <span className="block text-[11px] font-bold leading-tight truncate" style={{ color: '#fff' }}>
+                  {effectiveReply.sender?.username ?? `사용자${effectiveReply.senderId}`}에게 답장
+                </span>
+                <span className="mt-1 block text-[11px] leading-tight truncate" style={{ color: 'rgba(255,255,255,0.78)' }}>
+                  {effectiveReply.fileUrl ? '[사진]' : (effectiveReply.content || '[메시지]')}
+                </span>
               </button>
             )}
             <p

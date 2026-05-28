@@ -1,8 +1,22 @@
 self.addEventListener('install', () => self.skipWaiting());
-self.addEventListener('activate', (e) => e.waitUntil(self.clients.claim()));
+self.addEventListener('activate', (e) => {
+  e.waitUntil(
+    caches.keys()
+      .then((keys) => Promise.all(keys.map((key) => caches.delete(key))))
+      .then(() => self.clients.claim())
+  );
+});
+
+self.addEventListener('message', (e) => {
+  if (e.data?.type === 'SKIP_WAITING') self.skipWaiting();
+});
+
 self.addEventListener('fetch', (e) => {
   if (e.request.method !== 'GET') return;
-  e.respondWith(fetch(e.request).catch(() => caches.match(e.request)));
+  const url = new URL(e.request.url);
+  const isAppShell = e.request.mode === 'navigate' || url.pathname.startsWith('/_next/') || url.pathname === '/chat';
+  const request = isAppShell ? new Request(e.request, { cache: 'reload' }) : e.request;
+  e.respondWith(fetch(request).catch(() => caches.match(e.request)));
 });
 
 // 푸시 알림 수신
