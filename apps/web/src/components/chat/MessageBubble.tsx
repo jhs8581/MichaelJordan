@@ -117,16 +117,20 @@ export function MessageBubble({ message, isMine, isConsecutive, timeFormat, onIm
                 onClick={() => {
                   if (message.replyTo?.id) onJumpToMessage?.(message.replyTo.id);
                 }}
-                className="mb-1.5 w-full rounded-lg px-2 py-1 text-left"
-                style={{ background: 'rgba(0,0,0,0.28)', color: '#d9dce4' }}
+                className="mb-1.5 w-full rounded-lg px-2 py-1 text-left flex gap-2 items-stretch"
+                style={{ background: 'rgba(0,0,0,0.28)', color: '#d9dce4', border: 'none', cursor: 'pointer' }}
                 title="원본 메시지로 이동"
+                aria-label={`답장 대상: ${message.replyTo.sender?.username ?? `사용자${message.replyTo.senderId}`} — 원본 메시지로 이동`}
               >
-                <p className="text-[11px] font-semibold leading-tight">
-                  {message.replyTo.sender?.username ?? `사용자${message.replyTo.senderId}`}
-                </p>
-                <p className="text-[11px] leading-tight truncate">
-                  {message.replyTo.fileUrl ? '[파일]' : (message.replyTo.content || '[메시지]')}
-                </p>
+                <div className="w-0.5 rounded-full flex-shrink-0" style={{ background: 'var(--accent, #5865f2)' }} aria-hidden="true" />
+                <div className="min-w-0">
+                  <p className="text-[11px] font-semibold leading-tight" style={{ color: 'var(--accent, #5865f2)' }}>
+                    ↩ {message.replyTo.sender?.username ?? `사용자${message.replyTo.senderId}`}
+                  </p>
+                  <p className="text-[11px] leading-tight truncate">
+                    {message.replyTo.fileUrl ? '[파일]' : (message.replyTo.content || '[메시지]')}
+                  </p>
+                </div>
               </button>
             )}
             {message.fileUrl ? (
