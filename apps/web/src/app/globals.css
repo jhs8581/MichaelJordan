@@ -40,3 +40,24 @@ body {
 /* 채팅 입력창 placeholder */
 .chat-input::placeholder { color: var(--text-muted); }
 
+/* ── 네이버 테마 ──────────────────────────────────────────────────── */
+[data-ntheme] {
+  --chat-bg: #f0f2f5;
+  --bubble-mine: #03C75A;
+  --bubble-other: #ffffff;
+  --text-primary: #111111;
+  --text-muted: #777777;
+  --accent: #03C75A;
+  --input-bg: #ffffff;
+  color: #111;
+}
+[data-ntheme] .border-b {
+  border-color: #e8e8e8 !important;
+  background: #ffffff !important;
+}
+[data-ntheme] .overflow-y-auto {
+  background: #f0f2f5 !important;
+}
+[data-ntheme] ::-webkit-scrollbar-thumb { background: #d0d0d0; }
+[data-ntheme] ::-webkit-scrollbar-thumb:hover { background: #b8b8b8; }
+

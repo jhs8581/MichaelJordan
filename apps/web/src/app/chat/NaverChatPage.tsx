@@ -272,7 +272,7 @@ export default function NaverChatPage() {
           <span style={{ flex: 1, fontSize: 15, fontWeight: 800, color: '#111', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{selectedRoom.name}</span>
         </div>
         <div style={{ flex: 1, overflow: 'hidden' }}>
-          <ChatWindow roomId={selectedRoom.id} onLeave={() => setView('rooms')}
+          <ChatWindow roomId={selectedRoom.id} onLeave={() => setView('rooms')} naverTheme
             onImageView={(url, imageList) => {
               const idx = imageList.findIndex((item) => item.url === url);
               setViewingImageItems(imageList); setViewingImageIdx(idx >= 0 ? idx : 0);
