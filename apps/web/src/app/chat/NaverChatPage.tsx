@@ -304,22 +304,9 @@ export default function NaverChatPage() {
 
       {/* ① 헤더 */}
       <header style={{ position: 'sticky', top: 0, zIndex: 100, background: '#eef0f3', height: HEADER_H, display: 'flex', alignItems: 'center', padding: '0 12px', gap: 6 }}>
-        <button style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#555', padding: 4, display: 'flex', alignItems: 'center' }}><IconHamburger /></button>
         <div style={{ width: 52, height: 28, borderRadius: 7, border: '1.5px solid #555', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
           <span style={{ color: '#555', fontSize: 13, fontWeight: 900, letterSpacing: -0.5 }}>pay</span>
         </div>
-        <div style={{ flex: 1 }} />
-        <button style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#555', position: 'relative', display: 'flex', alignItems: 'center', padding: 4 }}>
-          <IconBell />
-          {totalUnread > 0 && (
-            <span style={{ position: 'absolute', top: 0, right: 0, minWidth: 16, height: 16, borderRadius: 8, background: '#f7685b', color: '#fff', fontSize: 9, fontWeight: 800, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', padding: '0 4px' }}>
-              {totalUnread > 99 ? '99+' : totalUnread}
-            </span>
-          )}
-        </button>
-        <button onClick={() => setChatTheme('slr')} title="SLR 테마로 전환" style={{ width: 34, height: 34, borderRadius: 17, background: user ? avatarColor(user.username) : '#ccc', border: 'none', cursor: 'pointer', color: '#fff', fontSize: 14, fontWeight: 800, flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-          {user?.username?.charAt(0) ?? '?'}
-        </button>
       </header>
 
       {/* ② 검색바 */}
@@ -459,12 +446,8 @@ export default function NaverChatPage() {
         </div>
       </div>
 
-      {/* 하단 바 (프로필 + SLR 전환 + 로그아웃) */}
-      <div style={{ position: 'fixed', bottom: 0, left: '50%', transform: 'translateX(-50%)', width: '100%', maxWidth: 430, background: '#fff', borderTop: '1px solid #e8e8e8', padding: '10px 16px', display: 'flex', alignItems: 'center', gap: 10, zIndex: 50 }}>
-        <div style={{ width: 34, height: 34, borderRadius: 17, background: user ? avatarColor(user.username) : '#ccc', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontSize: 14, fontWeight: 800, flexShrink: 0 }}>
-          {user?.username?.charAt(0) ?? '?'}
-        </div>
-        <span style={{ flex: 1, fontSize: 13, color: '#333', fontWeight: 600 }}>{user?.username}</span>
+      {/* 하단 바 (테마전환 + 로그아웃) */}
+      <div style={{ position: 'fixed', bottom: 0, left: '50%', transform: 'translateX(-50%)', width: '100%', maxWidth: 430, background: '#fff', borderTop: '1px solid #e8e8e8', padding: '10px 16px', display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 8, zIndex: 50 }}>
         <button onClick={() => setChatTheme('slr')} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#aaa', padding: 4, display: 'flex', alignItems: 'center' }} title="SLR 테마로 전환">
           <IconPalette />
         </button>
