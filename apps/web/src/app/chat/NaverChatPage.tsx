@@ -368,8 +368,20 @@ export default function NaverChatPage() {
           </div>
           {/* 구분선 */}
           <div style={{ width: 1, height: 46, background: '#e8e8e8', alignSelf: 'center', margin: '0 6px', flexShrink: 0 }} />
-          {['뉴스', '스포츠', '엔터', '쇼핑', '경제', '클립'].map((label) => (
-            <button key={label} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '0 10px', flexShrink: 0, fontSize: 13.5, color: '#444', height: 46, display: 'flex', alignItems: 'center' }}>{label}</button>
+          {[
+            { emoji: '📰', label: '뉴스',   bg: '#e8f0fe', fg: '#1a73e8' },
+            { emoji: '⚽', label: '스포츠', bg: '#e6f4ea', fg: '#1e8e3e' },
+            { emoji: '🎬', label: '엔터',   bg: '#fce8e6', fg: '#d93025' },
+            { emoji: '🛒', label: '쇼핑',   bg: '#fff3e0', fg: '#e37400' },
+            { emoji: '📊', label: '경제',   bg: '#e8f0fe', fg: '#1967d2' },
+            { emoji: '▶️', label: '클립',   bg: '#f3e8fd', fg: '#9334e6' },
+          ].map(({ emoji, label, bg, fg }) => (
+            <div key={label} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 5, minWidth: 60, flexShrink: 0, cursor: 'pointer' }}>
+              <div style={{ width: 46, height: 46, borderRadius: 14, background: bg, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <span style={{ fontSize: 22 }}>{emoji}</span>
+              </div>
+              <span style={{ fontSize: 11, color: fg, fontWeight: 700 }}>{label}</span>
+            </div>
           ))}
         </div>
         {/* 공지 스트립 */}
