@@ -1093,8 +1093,8 @@ export function ChatWindow({ roomId, onLeave, onImageView, naverTheme }: Props) 
           const otherMember = (activeRoom.members ?? []).find((m) => m.userId !== user?.id);
           const isOnline = otherMember ? onlineUserIds.has(otherMember.userId) : false;
           return (
-            <span className="flex items-center gap-1 text-xs" style={{ color: isOnline ? '#57f287' : 'var(--text-muted)' }}>
-              <span style={{ width: 7, height: 7, borderRadius: '50%', background: isOnline ? '#57f287' : '#72767d', display: 'inline-block', flexShrink: 0 }} />
+            <span className={`flex items-center gap-1 text-xs ${isOnline ? 'online-text-on' : 'online-text-off'}`} style={{ color: isOnline ? '#57f287' : 'var(--text-muted)' }}>
+              <span className={isOnline ? 'online-dot-on' : 'online-dot-off'} style={{ width: 7, height: 7, borderRadius: '50%', background: isOnline ? '#57f287' : '#72767d', display: 'inline-block', flexShrink: 0 }} />
               {isOnline ? '온라인' : '오프라인'}
             </span>
           );
@@ -1215,7 +1215,7 @@ export function ChatWindow({ roomId, onLeave, onImageView, naverTheme }: Props) 
             >
               설정
             </button>
-            <div className="flex items-center rounded-md p-1" style={{ background: '#2b2d31', gap: 4 }}>
+            <div className="view-mode-bar flex items-center rounded-md p-1" style={{ background: '#2b2d31', gap: 4 }}>
               <button
                 type="button"
                 onClick={() => updateSettings({ viewMode: 'bubble' })}
@@ -1244,17 +1244,17 @@ export function ChatWindow({ roomId, onLeave, onImageView, naverTheme }: Props) 
       </div>
 
       {isMobile && (
-        <div className="flex items-center gap-2 px-3 pb-2" style={{ background: 'var(--chat-bg)', borderBottom: '1px solid #1e1f22' }}>
+        <div className="toolbar-mobile flex items-center gap-2 px-3 pb-2" style={{ background: 'var(--chat-bg)', borderBottom: '1px solid #1e1f22' }}>
           <button
             type="button"
             data-chat-settings-button
             onClick={() => setSettingsOpen((current) => !current)}
-            className="text-[11px] px-2 py-1 rounded-md"
+            className="settings-btn text-[11px] px-2 py-1 rounded-md"
             style={{ background: settingsOpen ? '#3a3f4a' : '#2b2d31', color: 'var(--text-muted)' }}
           >
             설정
           </button>
-          <div className="flex items-center rounded-md p-1" style={{ background: '#2b2d31', gap: 4 }}>
+          <div className="view-mode-bar flex items-center rounded-md p-1" style={{ background: '#2b2d31', gap: 4 }}>
             <button
               type="button"
               onClick={() => updateSettings({ viewMode: 'bubble' })}

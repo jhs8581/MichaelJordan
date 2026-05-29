@@ -60,4 +60,16 @@ body {
 }
 [data-ntheme] ::-webkit-scrollbar-thumb { background: #d0d0d0; }
 [data-ntheme] ::-webkit-scrollbar-thumb:hover { background: #b8b8b8; }
+/* 읽음 표시 */
+[data-ntheme] .read-label { color: #888888 !important; }
+/* 온라인/오프라인 닷 + 텍스트 */
+[data-ntheme] .online-dot-on  { background: #03C75A !important; }
+[data-ntheme] .online-dot-off { background: #cccccc !important; }
+[data-ntheme] .online-text-on  { color: #03C75A !important; }
+[data-ntheme] .online-text-off { color: #aaaaaa !important; }
+/* 설정/말풍선/메모장 버튼 바 */
+[data-ntheme] .view-mode-bar { background: #e8e8e8 !important; }
+[data-ntheme] .settings-btn { color: #555 !important; background: #e8e8e8 !important; }
+/* 모바일 툴바 하단 보더 */
+[data-ntheme] .toolbar-mobile { border-bottom-color: #e8e8e8 !important; background: #ffffff !important; }
 

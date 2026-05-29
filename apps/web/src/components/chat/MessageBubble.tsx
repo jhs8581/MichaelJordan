@@ -132,7 +132,7 @@ export function MessageBubble({ message, isMine, isConsecutive, timeFormat, onIm
             >
               <span className="text-[10px]" style={{ color: 'var(--text-muted)', whiteSpace: 'nowrap' }}>{time}</span>
               {readCount > 0 && (
-                <span className="text-[10px] font-medium" style={{ color: '#57f287', whiteSpace: 'nowrap' }}>읽음</span>
+                <span className="read-label text-[10px] font-medium" style={{ color: '#57f287', whiteSpace: 'nowrap' }}>읽음</span>
               )}
             </div>
           )}
