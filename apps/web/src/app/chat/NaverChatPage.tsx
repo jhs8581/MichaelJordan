@@ -76,9 +76,15 @@ function IconSearch() {
 function IconMore() {
   return <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><circle cx="12" cy="5" r="1"/><circle cx="12" cy="12" r="1"/><circle cx="12" cy="19" r="1"/></svg>;
 }
+function IconMoon() {
+  return <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>;
+}
+function IconSun() {
+  return <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>;
+}
 
 // ── 카페 행 (채팅방 = 카페) ──────────────────────────────────────────────────
-function CafeRow({ room, onDoubleClick }: { room: Room; onDoubleClick: () => void }) {
+function CafeRow({ room, onDoubleClick, dark }: { room: Room; onDoubleClick: () => void; dark?: boolean }) {
   const [pressed, setPressed] = useState(false);
 
   const lastMsg = room.messages?.[0];
@@ -92,24 +98,24 @@ function CafeRow({ room, onDoubleClick }: { room: Room; onDoubleClick: () => voi
       onMouseDown={() => setPressed(true)}
       onMouseUp={() => setPressed(false)}
       onMouseLeave={() => setPressed(false)}
-      style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '14px 16px', background: pressed ? '#f5f5f5' : '#fff', borderBottom: '1px solid #f2f2f2', cursor: 'pointer', transition: 'background 80ms' }}
+      style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '14px 16px', background: pressed ? (dark ? '#252525' : '#f5f5f5') : (dark ? '#1c1c1c' : '#fff'), borderBottom: `1px solid ${dark ? '#282828' : '#f2f2f2'}`, cursor: 'pointer', transition: 'background 80ms' }}
     >
       <div style={{ width: 48, height: 48, borderRadius: 14, flexShrink: 0, background: `linear-gradient(135deg, ${color}, ${color}99)`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 22, color: '#fff', fontWeight: 900 }}>
         {room.isArchive ? '📦' : room.name.charAt(0)}
       </div>
       <div style={{ flex: 1, minWidth: 0 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 3 }}>
-          <span style={{ fontSize: 14.5, fontWeight: hasUnread ? 800 : 700, color: '#111', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{room.name}</span>
+          <span style={{ fontSize: 14.5, fontWeight: hasUnread ? 800 : 700, color: dark ? '#e0e0e0' : '#111', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{room.name}</span>
           {room.isMuted && <span style={{ fontSize: 11 }}>🔇</span>}
         </div>
-        <div style={{ fontSize: 12.5, color: hasUnread ? '#333' : '#999', fontWeight: hasUnread ? 600 : 400, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+        <div style={{ fontSize: 12.5, color: hasUnread ? (dark ? '#cccccc' : '#333') : (dark ? '#666666' : '#999'), fontWeight: hasUnread ? 600 : 400, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
           {lastMsg
             ? (lastMsg.content.startsWith('data:') || lastMsg.content.startsWith('http') ? '사진을 공유했습니다' : lastMsg.content)
             : (room.isArchive ? '나의 자료를 보관합니다' : '새 글이 없습니다')}
         </div>
       </div>
       <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 4, flexShrink: 0 }}>
-        {lastMsg && <span style={{ fontSize: 11, color: '#bbb' }}>{timeAgo(lastMsg.createdAt)}</span>}
+        {lastMsg && <span style={{ fontSize: 11, color: dark ? '#555555' : '#bbb' }}>{timeAgo(lastMsg.createdAt)}</span>}
         {hasUnread && (
           <span style={{ background: '#f7685b', color: '#fff', borderRadius: 10, fontSize: 10, fontWeight: 800, padding: '2px 7px', minWidth: 18, textAlign: 'center' as const }}>
             {unread > 99 ? '99+' : unread}
@@ -130,6 +136,8 @@ export default function NaverChatPage() {
   const rooms = useChatStore((s) => s.rooms);
   const setRooms = useChatStore((s) => s.setRooms);
   const setChatTheme = usePreferencesStore((s) => s.setChatTheme);
+  const naverDark = usePreferencesStore((s) => s.naverDark);
+  const setNaverDark = usePreferencesStore((s) => s.setNaverDark);
 
   const [view, setView] = useState<View>('home');
   const [selectedRoom, setSelectedRoom] = useState<Room | null>(null);
@@ -187,8 +195,26 @@ export default function NaverChatPage() {
 
   if (!hydrated || !accessToken) return null;
 
-  const HEADER_H = 52;
-
+  const HEADER_H = 52;  const nv = {
+    pageBg:      naverDark ? '#111111' : '#eef0f3',
+    cardBg:      naverDark ? '#1c1c1c' : '#ffffff',
+    headerBg:    naverDark ? '#161616' : '#eef0f3',
+    border:      naverDark ? '#2e2e2e' : '#e8e8e8',
+    borderFaint: naverDark ? '#252525' : '#f0f0f0',
+    text:        naverDark ? '#e0e0e0' : '#111111',
+    textMuted:   '#888888',
+    textFaint:   naverDark ? '#555555' : '#bbbbbb',
+    searchBg:    naverDark ? '#222222' : '#ffffff',
+    searchPH:    naverDark ? '#555555' : '#c8c8c8',
+    iconLabel:   naverDark ? '#bbbbbb' : '#444444',
+    payColor:    naverDark ? '#aaaaaa' : '#555555',
+    newsTagBg:   naverDark ? '#2a2a2a' : '#f5f5f5',
+    bottomBg:    naverDark ? '#1c1c1c' : '#ffffff',
+    gridGap:     naverDark ? '#111111' : '#f0f0f0',
+    cardText:    naverDark ? '#cccccc' : '#222222',
+    tabActive:   naverDark ? '#e0e0e0' : '#111111',
+    tabInactive: naverDark ? '#555555' : '#aaaaaa',
+  };
   // ── 이미지 라이트박스 ─────────────────────────────────────────────────────────
   const lightbox = viewingImages.length > 0 && viewingImage ? (
     <div
@@ -245,15 +271,15 @@ export default function NaverChatPage() {
   if (view === 'chat' && selectedRoom) {
     return (
       <div style={{ maxWidth: 430, margin: '0 auto', height: '100dvh', fontFamily: '"Apple SD Gothic Neo","Malgun Gothic",Arial,sans-serif', display: 'flex', flexDirection: 'column' }}>
-        <div style={{ height: HEADER_H, background: '#fff', borderBottom: '1px solid #e8e8e8', display: 'flex', alignItems: 'center', padding: '0 14px', gap: 10, flexShrink: 0 }}>
-          <button onClick={() => setView('rooms')} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#111', fontSize: 20, padding: '4px 8px 4px 0', lineHeight: 1 }}>←</button>
+        <div style={{ height: HEADER_H, background: naverDark ? '#161616' : '#fff', borderBottom: `1px solid ${naverDark ? '#2e2e2e' : '#e8e8e8'}`, display: 'flex', alignItems: 'center', padding: '0 14px', gap: 10, flexShrink: 0 }}>
+          <button onClick={() => setView('rooms')} style={{ background: 'none', border: 'none', cursor: 'pointer', color: naverDark ? '#aaa' : '#111', fontSize: 20, padding: '4px 8px 4px 0', lineHeight: 1 }}>←</button>
           <div style={{ width: 30, height: 30, borderRadius: 10, background: avatarColor(selectedRoom.name), display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontSize: 13, fontWeight: 800, flexShrink: 0 }}>
             {selectedRoom.isArchive ? '📦' : selectedRoom.name.charAt(0)}
           </div>
-          <span style={{ flex: 1, fontSize: 15, fontWeight: 800, color: '#111', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{selectedRoom.name}</span>
+          <span style={{ flex: 1, fontSize: 15, fontWeight: 800, color: naverDark ? '#e0e0e0' : '#111', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{selectedRoom.name}</span>
         </div>
         <div style={{ flex: 1, overflow: 'hidden' }}>
-          <ChatWindow roomId={selectedRoom.id} onLeave={() => setView('rooms')} naverTheme
+          <ChatWindow roomId={selectedRoom.id} onLeave={() => setView('rooms')} naverTheme naverDark={naverDark}
             onImageView={(url, imageList) => {
               const idx = imageList.findIndex((item) => item.url === url);
               setViewingImageItems(imageList); setViewingImageIdx(idx >= 0 ? idx : 0);
@@ -269,26 +295,26 @@ export default function NaverChatPage() {
   // ── 카페 목록 뷰 ──────────────────────────────────────────────────────────────
   if (view === 'rooms') {
     return (
-      <div style={{ maxWidth: 430, margin: '0 auto', minHeight: '100vh', background: '#f5f5f5', fontFamily: '"Apple SD Gothic Neo","Malgun Gothic",Arial,sans-serif' }}>
-        <header style={{ position: 'sticky', top: 0, zIndex: 100, height: HEADER_H, background: '#fff', borderBottom: '1px solid #e8e8e8', display: 'flex', alignItems: 'center', padding: '0 14px', gap: 10 }}>
-          <button onClick={() => setView('home')} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#111', fontSize: 20, padding: '4px 8px 4px 0', lineHeight: 1, flexShrink: 0 }}>←</button>
+      <div style={{ maxWidth: 430, margin: '0 auto', minHeight: '100vh', background: naverDark ? '#111111' : '#f5f5f5', fontFamily: '"Apple SD Gothic Neo","Malgun Gothic",Arial,sans-serif' }}>
+        <header style={{ position: 'sticky', top: 0, zIndex: 100, height: HEADER_H, background: nv.cardBg, borderBottom: `1px solid ${nv.border}`, display: 'flex', alignItems: 'center', padding: '0 14px', gap: 10 }}>
+          <button onClick={() => setView('home')} style={{ background: 'none', border: 'none', cursor: 'pointer', color: nv.text, fontSize: 20, padding: '4px 8px 4px 0', lineHeight: 1, flexShrink: 0 }}>←</button>
           <span style={{ flex: 1, fontSize: 17, fontWeight: 800, color: '#03C75A', letterSpacing: -0.5 }}>카페</span>
-          <button onClick={() => setShowCreateModal(true)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#666', display: 'flex', alignItems: 'center', padding: 4 }}><IconSearch /></button>
+          <button onClick={() => setShowCreateModal(true)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: nv.textMuted, display: 'flex', alignItems: 'center', padding: 4 }}><IconSearch /></button>
           <button onClick={() => setShowCreateModal(true)} style={{ width: 32, height: 32, borderRadius: 16, background: '#03C75A', border: 'none', cursor: 'pointer', color: '#fff', fontSize: 20, display: 'flex', alignItems: 'center', justifyContent: 'center', lineHeight: 1 }}>+</button>
         </header>
-        <div style={{ background: '#fff', borderBottom: '1px solid #e8e8e8', padding: '0 16px', display: 'flex' }}>
+        <div style={{ background: nv.cardBg, borderBottom: `1px solid ${nv.border}`, padding: '0 16px', display: 'flex' }}>
           <div style={{ padding: '12px 0', fontSize: 14, fontWeight: 800, color: '#03C75A', borderBottom: '2.5px solid #03C75A', marginBottom: -1 }}>내 카페</div>
-          <div style={{ padding: '12px 16px', fontSize: 14, color: '#aaa' }}>추천 카페</div>
+          <div style={{ padding: '12px 16px', fontSize: 14, color: nv.tabInactive }}>추천 카페</div>
         </div>
-        <div style={{ background: '#fff', marginTop: 8 }}>
+        <div style={{ background: nv.cardBg, marginTop: 8 }}>
           {rooms.length === 0 ? (
             <div style={{ padding: '60px 0', textAlign: 'center' as const }}>
               <div style={{ fontSize: 40, marginBottom: 12 }}>☕</div>
-              <div style={{ fontSize: 14, color: '#aaa', marginBottom: 20 }}>가입한 카페가 없습니다</div>
+              <div style={{ fontSize: 14, color: nv.tabInactive, marginBottom: 20 }}>가입한 카페가 없습니다</div>
               <button onClick={() => setShowCreateModal(true)} style={{ background: '#03C75A', color: '#fff', border: 'none', borderRadius: 20, padding: '10px 26px', fontSize: 13, fontWeight: 700, cursor: 'pointer' }}>카페 만들기</button>
             </div>
           ) : (
-            rooms.map((room) => <CafeRow key={room.id} room={room} onDoubleClick={() => openRoom(room)} />)
+            rooms.map((room) => <CafeRow key={room.id} room={room} onDoubleClick={() => openRoom(room)} dark={naverDark} />)
           )}
         </div>
         {showCreateModal && (
@@ -300,20 +326,20 @@ export default function NaverChatPage() {
 
   // ── 네이버 메인 홈 뷰 ─────────────────────────────────────────────────────────
   return (
-    <div style={{ maxWidth: 430, margin: '0 auto', minHeight: '100vh', background: '#eef0f3', fontFamily: '"Apple SD Gothic Neo","Malgun Gothic",Arial,sans-serif' }}>
+    <div style={{ maxWidth: 430, margin: '0 auto', minHeight: '100vh', background: nv.pageBg, fontFamily: '"Apple SD Gothic Neo","Malgun Gothic",Arial,sans-serif' }}>
 
       {/* ① 헤더 */}
-      <header style={{ position: 'sticky', top: 0, zIndex: 100, background: '#eef0f3', height: HEADER_H, display: 'flex', alignItems: 'center', padding: '0 12px', gap: 6 }}>
-        <div style={{ width: 52, height: 28, borderRadius: 7, border: '1.5px solid #555', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-          <span style={{ color: '#555', fontSize: 13, fontWeight: 900, letterSpacing: -0.5 }}>pay</span>
+      <header style={{ position: 'sticky', top: 0, zIndex: 100, background: nv.headerBg, height: HEADER_H, display: 'flex', alignItems: 'center', padding: '0 12px', gap: 6 }}>
+        <div style={{ width: 52, height: 28, borderRadius: 7, border: `1.5px solid ${nv.payColor}`, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <span style={{ color: nv.payColor, fontSize: 13, fontWeight: 900, letterSpacing: -0.5 }}>pay</span>
         </div>
       </header>
 
       {/* ② 검색바 */}
-      <div style={{ padding: '0 12px 14px', background: '#eef0f3' }}>
-        <div style={{ background: '#fff', borderRadius: 28, height: 52, display: 'flex', alignItems: 'center', paddingLeft: 18, paddingRight: 6, gap: 10, boxShadow: '0 2px 8px rgba(0,0,0,0.08)' }}>
+      <div style={{ padding: '0 12px 14px', background: nv.headerBg }}>
+        <div style={{ background: nv.searchBg, borderRadius: 28, height: 52, display: 'flex', alignItems: 'center', paddingLeft: 18, paddingRight: 6, gap: 10, boxShadow: naverDark ? '0 2px 8px rgba(0,0,0,0.4)' : '0 2px 8px rgba(0,0,0,0.08)' }}>
           <span style={{ color: '#03C75A', fontWeight: 900, fontSize: 26, fontStyle: 'italic', lineHeight: 1, flexShrink: 0 }}>N</span>
-          <span style={{ flex: 1, fontSize: 15, color: '#c8c8c8', userSelect: 'none' }}>검색어를 입력하세요</span>
+          <span style={{ flex: 1, fontSize: 15, color: nv.searchPH, userSelect: 'none' }}>검색어를 입력하세요</span>
           <button style={{ width: 40, height: 40, borderRadius: 20, background: '#03C75A', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
             <IconMic />
           </button>
@@ -321,14 +347,14 @@ export default function NaverChatPage() {
       </div>
 
       {/* ③ 빠른 서비스 아이콘 */}
-      <div style={{ background: '#fff', marginBottom: 8, padding: '0 14px' }}>
+      <div style={{ background: nv.cardBg, marginBottom: 8, padding: '0 14px' }}>
         <div style={{ display: 'flex', alignItems: 'center', overflowX: 'auto', padding: '14px 0 4px', gap: 0, scrollbarWidth: 'none' }}>
           {/* 메일 */}
           <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 5, minWidth: 68, flexShrink: 0 }}>
             <div style={{ width: 46, height: 46, borderRadius: 14, background: '#03C75A', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
               <span style={{ fontSize: 22 }}>✉️</span>
             </div>
-            <span style={{ fontSize: 11, color: '#444' }}>메일</span>
+            <span style={{ fontSize: 11, color: nv.iconLabel }}>메일</span>
           </div>
           {/* 카페 — 더블클릭/더블탭으로 카페 목록 진입 */}
           <div
@@ -344,25 +370,32 @@ export default function NaverChatPage() {
                 </span>
               )}
             </div>
-            <span style={{ fontSize: 11, color: '#444' }}>카페</span>
+            <span style={{ fontSize: 11, color: nv.iconLabel }}>카페</span>
           </div>
           {/* N쇼핑 */}
           <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 5, minWidth: 68, flexShrink: 0 }}>
             <div style={{ width: 46, height: 46, borderRadius: 14, background: '#1ec800', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
               <span style={{ fontSize: 22 }}>🛍️</span>
             </div>
-            <span style={{ fontSize: 11, color: '#444' }}>N쇼핑</span>
+            <span style={{ fontSize: 11, color: nv.iconLabel }}>N쇼핑</span>
           </div>
           {/* 구분선 */}
-          <div style={{ width: 1, height: 46, background: '#e8e8e8', alignSelf: 'center', margin: '0 6px', flexShrink: 0 }} />
-          {[
+          <div style={{ width: 1, height: 46, background: nv.border, alignSelf: 'center', margin: '0 6px', flexShrink: 0 }} />
+          {(naverDark ? [
+            { emoji: '📰', label: '뉴스',   bg: '#1a2a4a', fg: '#6ba4ff' },
+            { emoji: '⚽', label: '스포츠', bg: '#1a2e1a', fg: '#4eca71' },
+            { emoji: '🎬', label: '엔터',   bg: '#2e1a1a', fg: '#ff6b6b' },
+            { emoji: '🛒', label: '쇼핑',   bg: '#2e2214', fg: '#ffb347' },
+            { emoji: '📊', label: '경제',   bg: '#1a244a', fg: '#6b9fff' },
+            { emoji: '▶️', label: '클립',   bg: '#231a2e', fg: '#c084f5' },
+          ] : [
             { emoji: '📰', label: '뉴스',   bg: '#e8f0fe', fg: '#1a73e8' },
             { emoji: '⚽', label: '스포츠', bg: '#e6f4ea', fg: '#1e8e3e' },
             { emoji: '🎬', label: '엔터',   bg: '#fce8e6', fg: '#d93025' },
             { emoji: '🛒', label: '쇼핑',   bg: '#fff3e0', fg: '#e37400' },
             { emoji: '📊', label: '경제',   bg: '#e8f0fe', fg: '#1967d2' },
             { emoji: '▶️', label: '클립',   bg: '#f3e8fd', fg: '#9334e6' },
-          ].map(({ emoji, label, bg, fg }) => (
+          ]).map(({ emoji, label, bg, fg }) => (
             <div key={label} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 5, minWidth: 60, flexShrink: 0, cursor: 'pointer' }}>
               <div style={{ width: 46, height: 46, borderRadius: 14, background: bg, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                 <span style={{ fontSize: 22 }}>{emoji}</span>
@@ -372,50 +405,50 @@ export default function NaverChatPage() {
           ))}
         </div>
         {/* 공지 스트립 */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '12px 0', borderTop: '1px solid #f0f0f0' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '12px 0', borderTop: `1px solid ${nv.borderFaint}` }}>
           <span style={{ fontSize: 16, flexShrink: 0 }}>📢</span>
-          <span style={{ fontSize: 13, color: '#333', flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+          <span style={{ fontSize: 13, color: nv.text, flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
             코스피 8,476 마감...개인투자자 순매수 3조원 돌파
           </span>
         </div>
       </div>
 
       {/* ④ 날씨 / 주가 스트립 */}
-      <div style={{ background: '#fff', padding: '12px 16px', display: 'flex', alignItems: 'center', marginBottom: 8 }}>
+      <div style={{ background: nv.cardBg, padding: '12px 16px', display: 'flex', alignItems: 'center', marginBottom: 8 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, flex: 1 }}>
           <span style={{ fontSize: 22 }}>🌙</span>
           <div>
-            <span style={{ fontSize: 15, fontWeight: 700, color: '#111' }}>23.6°</span>
-            <span style={{ fontSize: 12, color: '#888', marginLeft: 6 }}>서울</span>
+            <span style={{ fontSize: 15, fontWeight: 700, color: nv.text }}>23.6°</span>
+            <span style={{ fontSize: 12, color: nv.textMuted, marginLeft: 6 }}>서울</span>
           </div>
         </div>
-        <div style={{ width: 1, height: 26, background: '#e8e8e8' }} />
+        <div style={{ width: 1, height: 26, background: nv.border }} />
         <div style={{ flex: 1, paddingLeft: 16, display: 'flex', alignItems: 'center', gap: 6 }}>
-          <span style={{ fontSize: 12, color: '#666' }}>다우존스</span>
-          <span style={{ fontSize: 13, fontWeight: 700, color: '#111' }}>50,865.33</span>
+          <span style={{ fontSize: 12, color: nv.textMuted }}>다우존스</span>
+          <span style={{ fontSize: 13, fontWeight: 700, color: nv.text }}>50,865.33</span>
           <span style={{ fontSize: 11, color: '#f7685b', fontWeight: 700 }}>▲0.39%</span>
         </div>
       </div>
 
       {/* ⑤ 뉴스 카드 (이코노미스트 스타일) */}
-      <div style={{ background: '#fff', marginBottom: 8 }}>
+      <div style={{ background: nv.cardBg, marginBottom: 8 }}>
         <div style={{ display: 'flex', alignItems: 'center', padding: '14px 14px 0', gap: 10 }}>
           <div style={{ width: 42, height: 42, borderRadius: 10, background: '#c8001e', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
             <span style={{ fontSize: 10, fontWeight: 900, color: '#fff', textAlign: 'center' as const, lineHeight: 1.3 }}>이코노미스트</span>
           </div>
           <div style={{ flex: 1 }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-              <span style={{ fontSize: 15, fontWeight: 800, color: '#111' }}>이코노미스트</span>
-              <span style={{ background: '#f5f5f5', color: '#888', fontSize: 10, padding: '2px 7px', borderRadius: 10 }}>100만</span>
+              <span style={{ fontSize: 15, fontWeight: 800, color: nv.text }}>이코노미스트</span>
+              <span style={{ background: nv.newsTagBg, color: nv.textMuted, fontSize: 10, padding: '2px 7px', borderRadius: 10 }}>100만</span>
             </div>
-            <span style={{ fontSize: 11.5, color: '#bbb' }}>{todayStr()}</span>
+            <span style={{ fontSize: 11.5, color: nv.textFaint }}>{todayStr()}</span>
           </div>
-          <button style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#aaa', padding: 4 }}><IconMore /></button>
+          <button style={{ background: 'none', border: 'none', cursor: 'pointer', color: nv.textFaint, padding: 4 }}><IconMore /></button>
         </div>
         {/* 탭 */}
-        <div style={{ display: 'flex', borderBottom: '1px solid #f0f0f0', padding: '0 14px', marginTop: 10 }}>
+        <div style={{ display: 'flex', borderBottom: `1px solid ${nv.borderFaint}`, padding: '0 14px', marginTop: 10 }}>
           {NEWS_TABS.map((tab, i) => (
-            <button key={tab} onClick={() => setNewsTab(i)} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '10px 14px 10px 0', fontSize: 14, fontWeight: newsTab === i ? 800 : 500, color: newsTab === i ? '#111' : '#aaa', borderBottom: newsTab === i ? '2.5px solid #111' : '2.5px solid transparent', marginBottom: -1 }}>
+            <button key={tab} onClick={() => setNewsTab(i)} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '10px 14px 10px 0', fontSize: 14, fontWeight: newsTab === i ? 800 : 500, color: newsTab === i ? nv.tabActive : nv.tabInactive, borderBottom: newsTab === i ? `2.5px solid ${nv.tabActive}` : '2.5px solid transparent', marginBottom: -1 }}>
               {tab}
             </button>
           ))}
@@ -423,35 +456,38 @@ export default function NaverChatPage() {
         {/* 뉴스 목록 */}
         <div style={{ padding: '4px 0 8px' }}>
           {NEWS_ITEMS[newsTab].map((headline, i) => (
-            <div key={i} style={{ padding: '10px 16px', borderBottom: i < NEWS_ITEMS[newsTab].length - 1 ? '1px solid #f8f8f8' : 'none', cursor: 'pointer' }}>
-              <span style={{ fontSize: 13.5, color: '#222', lineHeight: 1.5 }}>{headline}</span>
+            <div key={i} style={{ padding: '10px 16px', borderBottom: i < NEWS_ITEMS[newsTab].length - 1 ? `1px solid ${nv.borderFaint}` : 'none', cursor: 'pointer' }}>
+              <span style={{ fontSize: 13.5, color: nv.cardText, lineHeight: 1.5 }}>{headline}</span>
             </div>
           ))}
         </div>
       </div>
 
       {/* ⑥ 2열 이미지 뉴스 카드 */}
-      <div style={{ background: '#fff', marginBottom: 70 }}>
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 1, background: '#f0f0f0' }}>
+      <div style={{ background: nv.cardBg, marginBottom: 70 }}>
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 1, background: nv.gridGap }}>
           {NEWS_CARDS.map((card, i) => (
-            <div key={i} style={{ background: '#fff', cursor: 'pointer', overflow: 'hidden' }}>
+            <div key={i} style={{ background: nv.cardBg, cursor: 'pointer', overflow: 'hidden' }}>
               <div style={{ width: '100%', aspectRatio: '16/9', background: `linear-gradient(145deg, ${card.c1}, ${card.c2})`, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                 <span style={{ fontSize: 36 }}>{card.emoji}</span>
               </div>
               <div style={{ padding: '8px 10px 12px' }}>
-                <span style={{ fontSize: 12.5, color: '#222', lineHeight: 1.45 }}>{card.title}</span>
+                <span style={{ fontSize: 12.5, color: nv.cardText, lineHeight: 1.45 }}>{card.title}</span>
               </div>
             </div>
           ))}
         </div>
       </div>
 
-      {/* 하단 바 (테마전환 + 로그아웃) */}
-      <div style={{ position: 'fixed', bottom: 0, left: '50%', transform: 'translateX(-50%)', width: '100%', maxWidth: 430, background: '#fff', borderTop: '1px solid #e8e8e8', padding: '10px 16px', display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 8, zIndex: 50 }}>
+      {/* 하단 바 (다크모드 토글 + 테마전환 + 로그아웃) */}
+      <div style={{ position: 'fixed', bottom: 0, left: '50%', transform: 'translateX(-50%)', width: '100%', maxWidth: 430, background: nv.bottomBg, borderTop: `1px solid ${nv.border}`, padding: '10px 16px', display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 8, zIndex: 50 }}>
+        <button onClick={() => setNaverDark(!naverDark)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: naverDark ? '#ffd700' : '#aaa', padding: 4, display: 'flex', alignItems: 'center' }} title="다크/라이트 모드">
+          {naverDark ? <IconSun /> : <IconMoon />}
+        </button>
         <button onClick={() => setChatTheme('slr')} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#aaa', padding: 4, display: 'flex', alignItems: 'center' }} title="SLR 테마로 전환">
           <IconPalette />
         </button>
-        <button onClick={() => { clearAuth(); router.replace('/login'); }} style={{ background: '#f5f5f5', border: '1px solid #e0e0e0', borderRadius: 16, padding: '6px 14px', fontSize: 12, color: '#555', cursor: 'pointer', fontWeight: 600 }}>로그아웃</button>
+        <button onClick={() => { clearAuth(); router.replace('/login'); }} style={{ background: naverDark ? '#2a2a2a' : '#f5f5f5', border: `1px solid ${naverDark ? '#444' : '#e0e0e0'}`, borderRadius: 16, padding: '6px 14px', fontSize: 12, color: naverDark ? '#cccccc' : '#555', cursor: 'pointer', fontWeight: 600 }}>로그아웃</button>
       </div>
     </div>
   );

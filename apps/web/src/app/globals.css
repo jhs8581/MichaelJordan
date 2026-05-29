@@ -73,3 +73,30 @@ body {
 /* 모바일 툴바 하단 보더 */
 [data-ntheme] .toolbar-mobile { border-bottom-color: #e8e8e8 !important; background: #ffffff !important; }
 
+/* ── 네이버 다크 테마 ──────────────────────────────────────────────── */
+[data-ntheme][data-ndark] {
+  --chat-bg: #111111;
+  --bubble-mine: #03C75A;
+  --bubble-other: #1e1e1e;
+  --text-primary: #e0e0e0;
+  --text-muted: #888888;
+  --accent: #03C75A;
+  --input-bg: #1c1c1c;
+  color: #e0e0e0;
+}
+[data-ntheme][data-ndark] .border-b {
+  border-color: #2e2e2e !important;
+  background: #1c1c1c !important;
+}
+[data-ntheme][data-ndark] .overflow-y-auto {
+  background: #111111 !important;
+}
+[data-ntheme][data-ndark] .read-label { color: #666666 !important; }
+[data-ntheme][data-ndark] .online-dot-on  { background: #03C75A !important; }
+[data-ntheme][data-ndark] .online-dot-off { background: #444444 !important; }
+[data-ntheme][data-ndark] .online-text-on  { color: #03C75A !important; }
+[data-ntheme][data-ndark] .online-text-off { color: #555555 !important; }
+[data-ntheme][data-ndark] .view-mode-bar { background: #252525 !important; }
+[data-ntheme][data-ndark] .settings-btn { color: #aaaaaa !important; background: #252525 !important; }
+[data-ntheme][data-ndark] .toolbar-mobile { border-bottom-color: #2e2e2e !important; background: #1c1c1c !important; }
+

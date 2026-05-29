@@ -13,6 +13,7 @@ interface Props {
   onLeave?: () => void;
   onImageView?: (url: string, imageList: RoomImageItem[], options?: ImageViewOptions) => void;
   naverTheme?: boolean;
+  naverDark?: boolean;
 }
 
 type RoomImageItem = {
@@ -126,7 +127,7 @@ function loadChatViewSettings(): ChatViewSettings {
   }
 }
 
-export function ChatWindow({ roomId, onLeave, onImageView, naverTheme }: Props) {
+export function ChatWindow({ roomId, onLeave, onImageView, naverTheme, naverDark }: Props) {
   const user = useAuthStore((s) => s.user);
   const accessToken = useAuthStore((s) => s.accessToken);
   const setUser = useAuthStore((s) => s.setUser);
@@ -1070,11 +1071,11 @@ export function ChatWindow({ roomId, onLeave, onImageView, naverTheme }: Props) 
   }
 
   return (
-    <div className="relative flex flex-col h-full" style={{ background: 'var(--chat-bg)' }} {...(naverTheme ? { 'data-ntheme': '' } : {})}>
+    <div className="relative flex flex-col h-full" style={{ background: 'var(--chat-bg)' }} {...(naverTheme ? { 'data-ntheme': '', ...(naverDark ? { 'data-ndark': '' } : {}) } : {})}>
       {/* 채널 헤더 — 모바일: 헤더 길게 누르면 잠금 */}
       <div
         className="flex items-center gap-2 px-4 py-3 border-b shadow-md flex-shrink-0"
-        style={{ borderColor: naverTheme ? '#e8e8e8' : '#1e1f22', background: naverTheme ? '#ffffff' : 'var(--chat-bg)' }}
+        style={{ borderColor: naverTheme ? (naverDark ? '#2e2e2e' : '#e8e8e8') : '#1e1f22', background: naverTheme ? (naverDark ? '#161616' : '#ffffff') : 'var(--chat-bg)' }}
         onContextMenu={isMobile && canLock ? (e) => e.preventDefault() : undefined}
         onTouchStart={isMobile && canLock ? () => { longPressTimer.current = setTimeout(() => lockChat(), 2000); } : undefined}
         onTouchEnd={isMobile && canLock ? () => { if (longPressTimer.current) { clearTimeout(longPressTimer.current); longPressTimer.current = null; } } : undefined}
@@ -1822,7 +1823,7 @@ export function ChatWindow({ roomId, onLeave, onImageView, naverTheme }: Props) 
 
       {/* 입력창 */}
       <div className={`px-4 pt-3 pb-5 flex-shrink-0 ${(isLocked || !isContentUnlocked) ? 'pointer-events-none opacity-40' : ''}`}
-        style={{ borderTop: naverTheme ? '1px solid #e8e8e8' : '1px solid #24262d', background: naverTheme ? '#ffffff' : undefined }}>
+        style={{ borderTop: naverTheme ? `1px solid ${naverDark ? '#2e2e2e' : '#e8e8e8'}` : '1px solid #24262d', background: naverTheme ? (naverDark ? '#1c1c1c' : '#ffffff') : undefined }}>
         {uploadError && (
           <div className="mt-2 mb-1 px-3 py-1.5 rounded-lg text-xs font-medium" style={{ background: '#ed424522', color: '#ed4245', border: '1px solid #ed424544' }}>
             ⚠ {uploadError}
