@@ -242,7 +242,17 @@ export function ChatWindow({ roomId, onLeave, onImageView }: Props) {
     }
 
     function emitViewingState() {
-      socket.emit(isPageActive() ? 'room:viewing' : 'room:stop-viewing', roomId);
+      if (isPageActive()) {
+        socket.emit('room:viewing', roomId);
+        // 페이지 복귀 시 현재 로드된 메시지 중 최신 것까지 읽음 처리
+        const msgs = useChatStore.getState().messages[roomId];
+        if (msgs && msgs.length > 0) {
+          const maxId = Math.max(...msgs.map((m) => m.id));
+          socket.emit('message:read', { roomId, messageId: maxId });
+        }
+      } else {
+        socket.emit('room:stop-viewing', roomId);
+      }
     }
 
     function emitStopViewing() {
@@ -295,7 +305,10 @@ export function ChatWindow({ roomId, onLeave, onImageView }: Props) {
         }
       }
       addMessage(roomId, nextMsg);
-      socket.emit('message:read', { roomId, messageId: msg.id });
+      // 페이지가 활성 상태일 때만 읽음 처리 (백그라운드/잠금화면이면 포커스 복귀 시 처리됨)
+      if (isPageActive()) {
+        socket.emit('message:read', { roomId, messageId: msg.id });
+      }
     });
     socket.on('message:read', ({ roomId: rId, userId, lastReadMessageId }) => {
       markRead(rId, userId, lastReadMessageId);
