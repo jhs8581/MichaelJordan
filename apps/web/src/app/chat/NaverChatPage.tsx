@@ -154,6 +154,7 @@ export default function NaverChatPage() {
   const cafeClickCount = useRef(0);
   const cafeClickTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const cafeTouchRef = useRef<number>(0);
+  const cafeTransitionRef = useRef<number>(0);
 
   const viewingImages = useMemo(() => viewingImageItems.map((i) => i.url), [viewingImageItems]);
   const viewingImage = viewingImages[viewingImageIdx] ?? null;
@@ -184,12 +185,16 @@ export default function NaverChatPage() {
     cafeClickTimer.current = setTimeout(() => { cafeClickCount.current = 0; }, 320);
     if (cafeClickCount.current >= 2) {
       cafeClickCount.current = 0;
-      setView('rooms');
+      cafeTransitionRef.current = Date.now();
+      setTimeout(() => setView('rooms'), 80);
     }
   }
   function handleCafeTouchEnd() {
     const now = Date.now();
-    if (now - cafeTouchRef.current < 320) setView('rooms');
+    if (now - cafeTouchRef.current < 320) {
+      cafeTransitionRef.current = Date.now();
+      setTimeout(() => setView('rooms'), 80);
+    }
     cafeTouchRef.current = now;
   }
 
@@ -314,7 +319,7 @@ export default function NaverChatPage() {
               <button onClick={() => setShowCreateModal(true)} style={{ background: '#03C75A', color: '#fff', border: 'none', borderRadius: 20, padding: '10px 26px', fontSize: 13, fontWeight: 700, cursor: 'pointer' }}>카페 만들기</button>
             </div>
           ) : (
-            rooms.map((room) => <CafeRow key={room.id} room={room} onDoubleClick={() => openRoom(room)} dark={naverDark} />)
+            rooms.map((room) => <CafeRow key={room.id} room={room} onDoubleClick={() => { if (Date.now() - cafeTransitionRef.current < 350) return; openRoom(room); }} dark={naverDark} />)
           )}
         </div>
         {showCreateModal && (
