@@ -5,9 +5,11 @@ import type { RefObject } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuthStore } from '@/store/auth';
 import { useChatStore } from '@/store/chat';
+import { usePreferencesStore } from '@/store/preferences';
 import { api } from '@/lib/api';
 import { ChatWindow } from '@/components/chat/ChatWindow';
 import { CreateRoomModal } from '@/components/chat/RoomList';
+import NaverChatPage from './NaverChatPage';
 import type { Room } from '@chat/types';
 
 type RoomImageItem = {
@@ -188,6 +190,8 @@ export default function ChatPage() {
   const accessToken = useAuthStore((s) => s.accessToken);
   const user = useAuthStore((s) => s.user);
   const [hydrated, setHydrated] = useState(false);
+  const chatTheme = usePreferencesStore((s) => s.chatTheme);
+  const setChatTheme = usePreferencesStore((s) => s.setChatTheme);
   const rooms = useChatStore((s) => s.rooms);
   const setRooms = useChatStore((s) => s.setRooms);
 
@@ -310,6 +314,9 @@ export default function ChatPage() {
 
   if (!hydrated || !accessToken) return null;
 
+  // 네이버 테마 선택 시 전용 컴포넌트 렌더링
+  if (chatTheme === 'naver') return <NaverChatPage />;
+
   const HOT_POSTS = [
     { category: '자유게시판', title: '정말 좋으네요', count: 11 },
     { category: '소니포럼', title: '지금 온라인샵에서a7m5 구입하면 정품등록이벤트 있나요?', count: 3 },
@@ -358,7 +365,12 @@ export default function ChatPage() {
           fontWeight: 900, fontSize: 26, fontStyle: 'italic',
           color: '#fff', letterSpacing: -1, lineHeight: 1,
         }}>SLR</div>
-        <div style={{ flex: 1, display: 'flex', justifyContent: 'flex-end', alignItems: 'center' }}>
+        <div style={{ flex: 1, display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: 10 }}>
+          <button
+            onClick={() => setChatTheme('naver')}
+            style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'rgba(255,255,255,0.8)', fontSize: 11, fontWeight: 600, padding: '3px 7px', borderRadius: 10, border: '1px solid rgba(255,255,255,0.35)' }}
+            title="네이버 스타일로 전환"
+          >N테마</button>
           {user?.username ? (
             <button onClick={handleLogout}
               style={{ background: 'none', border: 'none', color: '#fff', fontSize: 12, fontWeight: 700, cursor: 'pointer' }}
