@@ -141,7 +141,7 @@ export function MessageBubble({ message, isMine, isConsecutive, timeFormat, onIm
             className="px-3.5 py-2 rounded-2xl text-sm leading-relaxed whitespace-pre-wrap break-words min-w-0"
             style={{
               background: isMine ? 'var(--bubble-mine)' : 'var(--bubble-other)',
-              color: '#fff',
+              color: isMine ? '#fff' : 'var(--text-primary)',
               borderRadius: isMine
                 ? (isConsecutive ? '18px 4px 18px 18px' : '18px 4px 18px 18px')
                 : (isConsecutive ? '4px 18px 18px 18px' : '4px 18px 18px 18px'),

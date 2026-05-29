@@ -79,9 +79,6 @@ function IconMore() {
 
 // ── 카페 행 (채팅방 = 카페) ──────────────────────────────────────────────────
 function CafeRow({ room, onDoubleClick }: { room: Room; onDoubleClick: () => void }) {
-  const clickCount = useRef(0);
-  const clickTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const lastTapRef = useRef<number>(0);
   const [pressed, setPressed] = useState(false);
 
   const lastMsg = room.messages?.[0];
@@ -89,25 +86,9 @@ function CafeRow({ room, onDoubleClick }: { room: Room; onDoubleClick: () => voi
   const hasUnread = unread > 0 && !room.isMuted;
   const color = room.isArchive ? '#34d399' : avatarColor(room.name);
 
-  function handleClick() {
-    clickCount.current++;
-    if (clickTimer.current) clearTimeout(clickTimer.current);
-    clickTimer.current = setTimeout(() => { clickCount.current = 0; }, 320);
-    if (clickCount.current >= 2) {
-      clickCount.current = 0;
-      onDoubleClick();
-    }
-  }
-  function handleTouchEnd() {
-    const now = Date.now();
-    if (now - lastTapRef.current < 320) onDoubleClick();
-    lastTapRef.current = now;
-  }
-
   return (
     <div
-      onClick={handleClick}
-      onTouchEnd={handleTouchEnd}
+      onClick={onDoubleClick}
       onMouseDown={() => setPressed(true)}
       onMouseUp={() => setPressed(false)}
       onMouseLeave={() => setPressed(false)}
