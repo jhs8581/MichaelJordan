@@ -368,7 +368,7 @@ export default function ChatPage() {
         <div style={{ flex: 1, display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: 10 }}>
           <button
             onClick={() => setChatTheme('naver')}
-            style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'rgba(255,255,255,0.8)', fontSize: 11, fontWeight: 600, padding: '3px 7px', borderRadius: 10, border: '1px solid rgba(255,255,255,0.35)' }}
+            style={{ background: 'none', cursor: 'pointer', color: 'rgba(255,255,255,0.8)', fontSize: 11, fontWeight: 600, padding: '3px 7px', borderRadius: 10, border: '1px solid rgba(255,255,255,0.35)' }}
             title="네이버 스타일로 전환"
           >N테마</button>
           {user?.username ? (
