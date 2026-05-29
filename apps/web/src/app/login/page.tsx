@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuthStore } from '@/store/auth';
 import { api } from '@/lib/api';
@@ -9,6 +9,19 @@ export default function LoginPage() {
   const router = useRouter();
   const setAuth = useAuthStore((s) => s.setAuth);
   const [username, setUsername] = useState('');
+
+  // 이미 로그인된 상태면 채팅으로 바로 이동
+  useEffect(() => {
+    const check = () => {
+      if (useAuthStore.persist.hasHydrated() && useAuthStore.getState().accessToken) {
+        router.replace('/chat');
+      }
+    };
+    check();
+    const unsub = useAuthStore.persist.onFinishHydration(check);
+    return unsub;
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);

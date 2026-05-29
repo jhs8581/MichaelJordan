@@ -187,6 +187,7 @@ export default function ChatPage() {
   const clear = useAuthStore((s) => s.clear);
   const accessToken = useAuthStore((s) => s.accessToken);
   const user = useAuthStore((s) => s.user);
+  const [hydrated, setHydrated] = useState(false);
   const rooms = useChatStore((s) => s.rooms);
   const setRooms = useChatStore((s) => s.setRooms);
 
@@ -224,8 +225,14 @@ export default function ChatPage() {
   }
 
   useEffect(() => {
-    if (!accessToken) router.replace('/login');
-  }, [accessToken, router]);
+    const unsub = useAuthStore.persist.onFinishHydration(() => setHydrated(true));
+    if (useAuthStore.persist.hasHydrated()) setHydrated(true);
+    return unsub;
+  }, []);
+
+  useEffect(() => {
+    if (hydrated && !accessToken) router.replace('/login');
+  }, [hydrated, accessToken, router]);
 
   // ───────── 브라우저 뒤로가기 인터셉트 ─────────
   // 문제 원인: Next.js App Router는 bubble phase에서 popstate를 수신 → history 상태에 따라
@@ -301,7 +308,7 @@ export default function ChatPage() {
     router.replace('/login');
   }
 
-  if (!accessToken) return null;
+  if (!hydrated || !accessToken) return null;
 
   const HOT_POSTS = [
     { category: '자유게시판', title: '정말 좋으네요', count: 11 },
