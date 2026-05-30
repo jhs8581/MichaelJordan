@@ -240,7 +240,9 @@ export function ChatWindow({ roomId, onLeave, onImageView, naverTheme, naverDark
     // 이 채팅방을 실제로 보고 있을 때만 서버에 알림 → 이 방의 푸시 알림 수신 제외
     // 앱/탭이 백그라운드가 되면 열린 채팅방이라도 미사용 상태로 보고 푸시를 받게 함
     function isPageActive() {
-      return document.visibilityState === 'visible' && document.hasFocus();
+      // document.hasFocus()는 Android Chrome에서 포어그라운드임에도 false를 반환하는 경우가 많아
+      // visibilityState만으로 판단 (백그라운드/잠금화면에서는 'hidden'이 됨)
+      return document.visibilityState === 'visible';
     }
 
     function emitViewingState() {
