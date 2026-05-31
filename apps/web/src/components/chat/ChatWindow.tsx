@@ -1019,17 +1019,19 @@ export function ChatWindow({ roomId, onLeave, onImageView, naverTheme, naverDark
                   color: 'var(--text-primary)',
                   background: isMine ? 'var(--bubble-mine)' : 'var(--bubble-other)',
                   border: 'none',
-                  borderLeft: '3px solid rgba(255,255,255,0.72)',
+                  borderLeft: (!isMine && naverTheme && !naverDark)
+                    ? '3px solid rgba(0,0,0,0.25)'
+                    : '3px solid rgba(255,255,255,0.72)',
                   cursor: 'pointer',
                   boxShadow: '0 1px 2px rgba(0,0,0,0.18)',
                 }}
                 title="원본 메시지로 이동"
                 aria-label="원본 메시지로 이동"
               >
-                <span className="block text-[11px] font-bold leading-tight truncate" style={{ color: '#fff' }}>
+                <span className="block text-[11px] font-bold leading-tight truncate" style={{ color: (!isMine && naverTheme && !naverDark) ? '#333' : '#fff' }}>
                   {effectiveReply.sender?.username ?? `사용자${effectiveReply.senderId}`}에게 답장
                 </span>
-                <span className="mt-1 block text-[11px] leading-tight truncate" style={{ color: 'rgba(255,255,255,0.78)' }}>
+                <span className="mt-1 block text-[11px] leading-tight truncate" style={{ color: (!isMine && naverTheme && !naverDark) ? '#666' : 'rgba(255,255,255,0.78)' }}>
                   {effectiveReply.fileUrl ? '[사진]' : (effectiveReply.content || '[메시지]')}
                 </span>
               </button>
@@ -1055,6 +1057,9 @@ export function ChatWindow({ roomId, onLeave, onImageView, naverTheme, naverDark
               isMine={isMine}
               isConsecutive={isConsecutive}
               timeFormat={settings.timeFormat}
+              showNickname={settings.showNickname}
+              naverTheme={naverTheme}
+              naverDark={naverDark}
               onImageClick={onImageView ? (url) => {
                 loadAllRoomImageItems(url)
                   .then((imageItems) => onImageView(url, imageItems))
