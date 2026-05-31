@@ -75,6 +75,7 @@ export interface MessageRead {
 // ──────────────────────────────────────────────
 export interface ServerToClientEvents {
   'message:new': (message: Message) => void;
+  'message:updated': (payload: { roomId: number; messageId: number; content: string }) => void;
   'message:read': (payload: { roomId: number; userId: number; lastReadMessageId: number }) => void;
   'message:deleted': (payload: { messageId: number; roomId: number }) => void;
   'user:status': (payload: { userId: number; isOnline: boolean }) => void;
@@ -84,6 +85,7 @@ export interface ServerToClientEvents {
 
 export interface ClientToServerEvents {
   'message:send': (payload: { roomId: number; content: string; fileUrl?: string; replyToId?: number; senderTimeZone?: string; senderLocalTime?: string }) => void;
+  'message:edit': (payload: { messageId: number; content: string }) => void;
   'message:read': (payload: { roomId: number; messageId: number }) => void;
   'message:delete': (payload: { messageId: number }) => void;
   'room:join': (roomId: number) => void;

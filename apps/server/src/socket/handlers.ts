@@ -275,6 +275,35 @@ export function registerSocketHandlers(io: ChatServer) {
     });
 
     // ── 메시지 삭제 ───────────────────────────────────────────────
+    socket.on('message:edit', async ({ messageId, content }) => {
+      const sanitizedContent = content.trim();
+      if (!sanitizedContent) return;
+
+      const message = await prisma.message.findUnique({
+        where: { id: messageId },
+        select: { id: true, roomId: true, senderId: true },
+      });
+      if (!message) return;
+      if (message.senderId !== userId) return;
+
+      const member = await prisma.roomMember.findUnique({
+        where: { userId_roomId: { userId, roomId: message.roomId } },
+      });
+      if (!member) return;
+
+      await prisma.message.update({
+        where: { id: messageId },
+        data: { content: sanitizedContent },
+      });
+
+      io.to(`room:${message.roomId}`).emit('message:updated', {
+        roomId: message.roomId,
+        messageId,
+        content: sanitizedContent,
+      });
+    });
+
+    // ── 메시지 삭제 ───────────────────────────────────────────────
     socket.on('message:delete', async ({ messageId }) => {
       const message = await prisma.message.findUnique({ where: { id: messageId } });
       if (!message) return;
