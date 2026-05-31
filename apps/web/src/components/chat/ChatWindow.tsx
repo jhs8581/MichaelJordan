@@ -361,7 +361,7 @@ export function ChatWindow({ roomId, onLeave, onImageView, naverTheme, naverDark
       socket.off('user:status');
       socket.off('message:deleted');
     };
-  }, [roomId, accessToken, addMessage, markRead, updateMessage, user?.id]);
+  }, [roomId, accessToken, addMessage, markRead, removeMessage, updateMessage, user?.id]);
 
   // 새 메시지가 오면 맨 아래로 (단, 이미 거의 아래에 있을 때만 → 위 스크롤 중에는 유지)
   const scrollContainerRef = useRef<HTMLDivElement>(null);
@@ -809,11 +809,10 @@ export function ChatWindow({ roomId, onLeave, onImageView, naverTheme, naverDark
   function handleSubmitEditMessage() {
     if (!editingMessage) return;
     const nextContent = editContent.trim();
-    if (!nextContent || nextContent === editingMessage.content) {
+    if (!nextContent || nextContent === (editingMessage.content ?? '')) {
       handleCancelEditMessage();
       return;
     }
-    updateMessage(editingMessage.roomId, editingMessage.id, nextContent); // 낙관적 수정
     const socket = getSocket();
     socket.emit('message:edit', { messageId: editingMessage.id, content: nextContent });
     handleCancelEditMessage();
@@ -946,6 +945,7 @@ export function ChatWindow({ roomId, onLeave, onImageView, naverTheme, naverDark
       showCopyNotice('원본 메시지를 찾을 수 없습니다.');
       return;
     }
+
     el.scrollIntoView({ behavior: 'smooth', block: 'center' });
     el.animate(
       [
@@ -1006,6 +1006,8 @@ export function ChatWindow({ roomId, onLeave, onImageView, naverTheme, naverDark
     });
     return previews;
   }, [messages]);
+
+  const trimmedEditContent = editContent.trim();
 
   // 날짜 구분선 렌더링
   function renderMessages() {
@@ -1735,7 +1737,7 @@ export function ChatWindow({ roomId, onLeave, onImageView, naverTheme, naverDark
               <button
                 type="button"
                 onClick={handleSubmitEditMessage}
-                disabled={!editContent.trim() || editContent.trim() === (editingMessage.content ?? '')}
+                disabled={!trimmedEditContent || trimmedEditContent === (editingMessage.content ?? '')}
                 className="flex-1 rounded-lg py-2.5 text-sm font-bold disabled:opacity-50"
                 style={{ background: 'var(--accent)', color: '#fff' }}
               >

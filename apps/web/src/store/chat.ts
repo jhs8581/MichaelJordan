@@ -62,13 +62,19 @@ export const useChatStore = create<ChatState>()((set) => ({
     set((state) => ({
       messages: {
         ...state.messages,
-        [roomId]: (state.messages[roomId] ?? []).map((m) => ({
-          ...m,
-          ...(m.id === messageId ? { content } : {}),
-          ...(m.replyTo?.id === messageId
-            ? { replyTo: { ...m.replyTo, content } }
-            : {}),
-        })),
+        [roomId]: (state.messages[roomId] ?? []).map((m) => {
+          if (m.id !== messageId && m.replyTo?.id !== messageId) {
+            return m;
+          }
+          let next = m;
+          if (m.id === messageId) {
+            next = { ...next, content };
+          }
+          if (m.replyTo?.id === messageId) {
+            next = { ...next, replyTo: { ...m.replyTo, content } };
+          }
+          return next;
+        }),
       },
     })),
 
