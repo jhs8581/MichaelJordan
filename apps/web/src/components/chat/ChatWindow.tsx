@@ -144,6 +144,7 @@ export function ChatWindow({ roomId, onLeave, onImageView, naverTheme, naverDark
   const prependMessages = useChatStore((s) => s.prependMessages);
   const setMessages = useChatStore((s) => s.setMessages);
   const markRead = useChatStore((s) => s.markRead);
+  const updateMessage = useChatStore((s) => s.updateMessage);
   const removeMessage = useChatStore((s) => s.removeMessage);
   const setRooms = useChatStore((s) => s.setRooms);
 
@@ -173,6 +174,8 @@ export function ChatWindow({ roomId, onLeave, onImageView, naverTheme, naverDark
   const [muteOverride, setMuteOverride] = useState<boolean | null>(null);
   const [socketDisconnected, setSocketDisconnected] = useState(false);
   const [contextMenu, setContextMenu] = useState<Message | null>(null);
+  const [editingMessage, setEditingMessage] = useState<Message | null>(null);
+  const [editContent, setEditContent] = useState('');
   const [partialCopyMessage, setPartialCopyMessage] = useState<Message | null>(null);
   const [replyTarget, setReplyTarget] = useState<Message | null>(null);
   const [archiveRoomId, setArchiveRoomId] = useState<number | null>(null);
@@ -206,6 +209,8 @@ export function ChatWindow({ roomId, onLeave, onImageView, naverTheme, naverDark
   useEffect(() => {
     setNextCursor(null);
     setReplyTarget(null);
+    setEditingMessage(null);
+    setEditContent('');
     allRoomImagesRef.current = null;
     api
       .get<{ data: { messages: Message[]; nextCursor: number | null } }>(`/messages/${roomId}`)
@@ -317,6 +322,9 @@ export function ChatWindow({ roomId, onLeave, onImageView, naverTheme, naverDark
     socket.on('message:read', ({ roomId: rId, userId, lastReadMessageId }) => {
       markRead(rId, userId, lastReadMessageId);
     });
+    socket.on('message:updated', ({ roomId: rId, messageId, content }) => {
+      updateMessage(rId, messageId, content);
+    });
     socket.on('typing:update', ({ roomId: rId, userId: uid, username, isTyping }) => {
       if (rId !== roomId || uid === user?.id) return;
       setTypingUsers((prev) =>
@@ -348,11 +356,12 @@ export function ChatWindow({ roomId, onLeave, onImageView, naverTheme, naverDark
       window.removeEventListener('pageshow', emitViewingState);
       socket.off('message:new');
       socket.off('message:read');
+      socket.off('message:updated');
       socket.off('typing:update');
       socket.off('user:status');
       socket.off('message:deleted');
     };
-  }, [roomId, accessToken, addMessage, markRead, user?.id]);
+  }, [roomId, accessToken, addMessage, markRead, removeMessage, updateMessage, user?.id]);
 
   // 새 메시지가 오면 맨 아래로 (단, 이미 거의 아래에 있을 때만 → 위 스크롤 중에는 유지)
   const scrollContainerRef = useRef<HTMLDivElement>(null);
@@ -786,6 +795,29 @@ export function ChatWindow({ roomId, onLeave, onImageView, naverTheme, naverDark
     socket.emit('message:delete', { messageId: msg.id });
   }
 
+  function handleStartEditMessage(msg: Message) {
+    setContextMenu(null);
+    setEditingMessage(msg);
+    setEditContent(msg.content ?? '');
+  }
+
+  function handleCancelEditMessage() {
+    setEditingMessage(null);
+    setEditContent('');
+  }
+
+  function handleSubmitEditMessage() {
+    if (!editingMessage) return;
+    const nextContent = editContent.trim();
+    if (!nextContent || nextContent === (editingMessage.content ?? '')) {
+      handleCancelEditMessage();
+      return;
+    }
+    const socket = getSocket();
+    socket.emit('message:edit', { messageId: editingMessage.id, content: nextContent });
+    handleCancelEditMessage();
+  }
+
   function showCopyNotice(message: string) {
     if (copyNoticeTimer.current) clearTimeout(copyNoticeTimer.current);
     setCopyNotice(message);
@@ -913,6 +945,7 @@ export function ChatWindow({ roomId, onLeave, onImageView, naverTheme, naverDark
       showCopyNotice('원본 메시지를 찾을 수 없습니다.');
       return;
     }
+
     el.scrollIntoView({ behavior: 'smooth', block: 'center' });
     el.animate(
       [
@@ -973,6 +1006,8 @@ export function ChatWindow({ roomId, onLeave, onImageView, naverTheme, naverDark
     });
     return previews;
   }, [messages]);
+
+  const trimmedEditContent = editContent.trim();
 
   // 날짜 구분선 렌더링
   function renderMessages() {
@@ -1624,6 +1659,17 @@ export function ChatWindow({ roomId, onLeave, onImageView, naverTheme, naverDark
               <span style={{ fontSize: 18 }}>🔖</span>
               <span className="text-sm font-medium">보관함에 저장</span>
             </button>
+            {contextMenu.senderId === user?.id && !contextMenu.fileUrl && (
+              <button
+                type="button"
+                onClick={() => handleStartEditMessage(contextMenu)}
+                className="w-full flex items-center gap-3 rounded-xl px-4 py-3 mb-2"
+                style={{ background: '#2b2d31', color: 'var(--text-primary)' }}
+              >
+                <span style={{ fontSize: 18 }}>✏️</span>
+                <span className="text-sm font-medium">수정</span>
+              </button>
+            )}
             {contextMenu.senderId === user?.id && (
               <button
                 type="button"
@@ -1643,6 +1689,61 @@ export function ChatWindow({ roomId, onLeave, onImageView, naverTheme, naverDark
             >
               취소
             </button>
+          </div>
+        </div>
+      )}
+
+      {/* 메시지 수정 팝업 */}
+      {editingMessage && (
+        <div
+          className="absolute inset-0 z-50 flex items-end justify-center"
+          style={{ background: 'rgba(0,0,0,0.62)' }}
+          onClick={handleCancelEditMessage}
+          onContextMenu={(e) => e.preventDefault()}
+        >
+          <div
+            className="w-full max-w-sm rounded-t-2xl border p-4"
+            style={{ background: '#17191d', borderColor: '#3a3f4a' }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="mb-3">
+              <h3 className="text-sm font-bold" style={{ color: 'var(--text-primary)' }}>메시지 수정</h3>
+              <p className="text-xs mt-1" style={{ color: 'var(--text-muted)' }}>
+                수정할 내용을 입력한 뒤 저장하세요.
+              </p>
+            </div>
+            <textarea
+              value={editContent}
+              onChange={(e) => setEditContent(e.target.value)}
+              rows={4}
+              className="w-full rounded-lg border px-3 py-2 text-sm resize-none"
+              style={{
+                borderColor: '#3a3f4a',
+                background: '#101216',
+                color: 'var(--text-primary)',
+                minHeight: 110,
+              }}
+              placeholder="메시지를 입력하세요."
+            />
+            <div className="mt-3 flex gap-2">
+              <button
+                type="button"
+                onClick={handleCancelEditMessage}
+                className="flex-1 rounded-lg py-2.5 text-sm"
+                style={{ background: '#2b2d31', color: 'var(--text-muted)' }}
+              >
+                취소
+              </button>
+              <button
+                type="button"
+                onClick={handleSubmitEditMessage}
+                disabled={!trimmedEditContent || trimmedEditContent === (editingMessage.content ?? '')}
+                className="flex-1 rounded-lg py-2.5 text-sm font-bold disabled:opacity-50"
+                style={{ background: 'var(--accent)', color: '#fff' }}
+              >
+                저장
+              </button>
+            </div>
           </div>
         </div>
       )}
