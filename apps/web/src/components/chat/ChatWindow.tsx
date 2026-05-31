@@ -1093,7 +1093,7 @@ export function ChatWindow({ roomId, onLeave, onImageView, naverTheme, naverDark
             ? <><line x1="4" y1="9" x2="20" y2="9"/><line x1="4" y1="15" x2="20" y2="15"/><line x1="10" y1="3" x2="8" y2="21"/><line x1="16" y1="3" x2="14" y2="21"/></>
             : <><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></>}
         </svg>
-        <span className="font-semibold text-sm" style={{ color: 'var(--text-primary)' }}>
+        <span className="font-semibold text-sm min-w-0 truncate" style={{ color: 'var(--text-primary)' }}>
           {activeRoom?.name ?? ''}
         </span>
         {/* 온라인 상태 (담화망 DM 방) */}
@@ -1101,7 +1101,7 @@ export function ChatWindow({ roomId, onLeave, onImageView, naverTheme, naverDark
           const otherMember = (activeRoom.members ?? []).find((m) => m.userId !== user?.id);
           const isOnline = otherMember ? onlineUserIds.has(otherMember.userId) : false;
           return (
-            <span className={`flex items-center gap-1 text-xs ${isOnline ? 'online-text-on' : 'online-text-off'}`} style={{ color: isOnline ? '#57f287' : 'var(--text-muted)' }}>
+            <span className={`flex items-center gap-1 text-xs flex-shrink-0 whitespace-nowrap ${isOnline ? 'online-text-on' : 'online-text-off'}`} style={{ color: isOnline ? '#57f287' : 'var(--text-muted)' }}>
               <span className={isOnline ? 'online-dot-on' : 'online-dot-off'} style={{ width: 7, height: 7, borderRadius: '50%', background: isOnline ? '#57f287' : '#72767d', display: 'inline-block', flexShrink: 0 }} />
               {isOnline ? '온라인' : '오프라인'}
             </span>
@@ -1119,7 +1119,7 @@ export function ChatWindow({ roomId, onLeave, onImageView, naverTheme, naverDark
           onTouchEnd={(e) => e.stopPropagation()}
           onContextMenu={(e) => e.preventDefault()}
           disabled={!activeRoom || muteSaving}
-          className="rounded-md px-2 py-1.5 transition-colors inline-flex items-center gap-1.5 disabled:opacity-60"
+          className="rounded-md px-2 py-1.5 transition-colors inline-flex items-center gap-1.5 flex-shrink-0 disabled:opacity-60"
           style={{
             background: isRoomMuted ? '#ed424522' : '#3ba55d22',
             color: isRoomMuted ? '#ed4245' : '#57f287',
@@ -1142,7 +1142,7 @@ export function ChatWindow({ roomId, onLeave, onImageView, naverTheme, naverDark
               <path d="M13.73 21a2 2 0 0 1-3.46 0"/>
             </svg>
           )}
-          <span className="hidden sm:inline text-[11px] font-bold">{isRoomMuted ? 'OFF' : 'ON'}</span>
+          <span className="hidden sm:inline text-[11px] font-bold whitespace-nowrap">{isRoomMuted ? 'OFF' : 'ON'}</span>
         </button>
         {/* 사진 모아보기 버튼 */}
         {onImageView && (
@@ -1153,7 +1153,7 @@ export function ChatWindow({ roomId, onLeave, onImageView, naverTheme, naverDark
               handleOpenImageCollection();
             }}
             disabled={imageCollectionLoading}
-            className="rounded-md px-2 py-1.5 transition-colors inline-flex items-center gap-1.5 disabled:opacity-60"
+            className="rounded-md px-2 py-1.5 transition-colors inline-flex items-center gap-1.5 flex-shrink-0 disabled:opacity-60"
             style={{
               background: '#5865f222',
               color: '#cdd6ff',
@@ -1168,7 +1168,7 @@ export function ChatWindow({ roomId, onLeave, onImageView, naverTheme, naverDark
               <rect x="3" y="14" width="7" height="7" rx="1"/>
               <rect x="14" y="14" width="7" height="7" rx="1"/>
             </svg>
-            <span className="hidden sm:inline text-[11px] font-bold">사진모아보기</span>
+            <span className="hidden sm:inline text-[11px] font-bold whitespace-nowrap">사진모아보기</span>
           </button>
         )}
         {/* 새로고침 버튼 */}
