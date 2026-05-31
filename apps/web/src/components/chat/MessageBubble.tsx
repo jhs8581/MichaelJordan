@@ -31,6 +31,9 @@ interface Props {
   isMine: boolean;
   isConsecutive: boolean; // 같은 사람이 연속으로 보난 메시지
   timeFormat: 'ampm' | '24h';
+  showNickname?: boolean;
+  naverTheme?: boolean;
+  naverDark?: boolean;
   onImageClick?: (url: string) => void;
   onLongPress?: (message: Message) => void;
   onReply?: (message: Message) => void;
@@ -51,7 +54,7 @@ function getValidTimeZone(timeZone?: string): string | undefined {
   }
 }
 
-export function MessageBubble({ message, isMine, isConsecutive, timeFormat, onImageClick, onLongPress, onReply, onJumpToMessage }: Props) {
+export function MessageBubble({ message, isMine, isConsecutive, timeFormat, showNickname = true, naverTheme, naverDark, onImageClick, onLongPress, onReply, onJumpToMessage }: Props) {
   const time = formatMessageTime(new Date(message.createdAt), timeFormat, message.senderTimeZone, message.senderLocalTime);
   // 보낸 사람 본인을 제외한 읽음 수 (본인 읽음은 항상 있어서 무조건 읽음으로 표시되는 버그 방지)
   const readCount = (message.reads ?? []).filter((r) => r.userId !== message.senderId).length;
@@ -113,7 +116,7 @@ export function MessageBubble({ message, isMine, isConsecutive, timeFormat, onIm
 
       <div className={`flex flex-col ${isMine ? 'items-end' : 'items-start'} max-w-[82%] sm:max-w-[70%] min-w-0`}>
         {/* 이름 + 시간 (상대 첫 메시지만) */}
-        {!isMine && !isConsecutive && (
+        {!isMine && !isConsecutive && showNickname && (
           <div className="flex items-baseline gap-2 mb-1 flex-row">
             <span className="text-sm font-semibold" style={{ color: stringToColor(message.sender?.username ?? '?') }}>
               {message.sender?.username}
@@ -170,23 +173,28 @@ export function MessageBubble({ message, isMine, isConsecutive, timeFormat, onIm
                 className="mb-2 rounded-xl px-2.5 py-2 text-left"
                 style={{
                   width: 'min(260px, 100%)',
-                  background: isMine ? 'rgba(255,255,255,0.26)' : 'rgba(255,255,255,0.10)',
+                  background: (!isMine && naverTheme && !naverDark)
+                    ? 'rgba(0,0,0,0.07)'
+                    : (isMine ? 'rgba(255,255,255,0.26)' : 'rgba(255,255,255,0.10)'),
                   border: 'none',
-                  borderLeft: '3px solid rgba(255,255,255,0.72)',
-                  color: '#fff',
+                  borderLeft: (!isMine && naverTheme && !naverDark)
+                    ? '3px solid rgba(0,0,0,0.25)'
+                    : '3px solid rgba(255,255,255,0.72)',
                   cursor: 'pointer',
                   display: 'block',
                   WebkitAppearance: 'none',
                   appearance: 'none',
-                  boxShadow: 'inset 0 0 0 1px rgba(255,255,255,0.12)',
+                  boxShadow: (!isMine && naverTheme && !naverDark)
+                    ? 'inset 0 0 0 1px rgba(0,0,0,0.06)'
+                    : 'inset 0 0 0 1px rgba(255,255,255,0.12)',
                 }}
                 title="원본 메시지로 이동"
                 aria-label={`답장 대상: ${message.replyTo.sender?.username ?? `사용자${message.replyTo.senderId}`} — 원본 메시지로 이동`}
               >
-                <p className="text-[11px] font-bold leading-tight truncate" style={{ color: '#fff', marginBottom: 4 }}>
+                <p className="text-[11px] font-bold leading-tight truncate" style={{ color: (!isMine && naverTheme && !naverDark) ? '#333' : '#fff', marginBottom: 4 }}>
                   {message.replyTo.sender?.username ?? `사용자${message.replyTo.senderId}`}에게 답장
                 </p>
-                <p className="text-[11px] leading-tight truncate" style={{ color: 'rgba(255,255,255,0.78)', maxWidth: '100%' }}>
+                <p className="text-[11px] leading-tight truncate" style={{ color: (!isMine && naverTheme && !naverDark) ? '#666' : 'rgba(255,255,255,0.78)', maxWidth: '100%' }}>
                   {message.replyTo.fileUrl ? '[사진]' : (message.replyTo.content || '[메시지]')}
                 </p>
               </div>
