@@ -125,7 +125,10 @@ export async function messageRoutes(app: FastifyInstance) {
       if (result.error === 'NOT_FOUND') {
         return reply.status(404).send({ success: false, error: '메시지를 찾을 수 없습니다.' });
       }
-      return reply.status(403).send({ success: false, error: '수정 권한이 없습니다.' });
+      if (result.error === 'FORBIDDEN') {
+        return reply.status(403).send({ success: false, error: '수정 권한이 없습니다.' });
+      }
+      return reply.status(500).send({ success: false, error: '메시지 수정 중 오류가 발생했습니다.' });
     }
 
     emitMessageUpdated(result.data);

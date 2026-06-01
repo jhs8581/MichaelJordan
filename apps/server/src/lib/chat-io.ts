@@ -10,5 +10,9 @@ export function setChatIo(io: ChatServer) {
 }
 
 export function emitMessageUpdated(payload: { roomId: number; messageId: number; content: string }) {
-  chatIo?.to(`room:${payload.roomId}`).emit('message:updated', payload);
+  if (!chatIo) {
+    console.error('[chat-io] message:update broadcast skipped before socket server initialization', payload);
+    return;
+  }
+  chatIo.to(`room:${payload.roomId}`).emit('message:updated', payload);
 }
