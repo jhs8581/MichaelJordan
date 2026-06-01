@@ -611,7 +611,7 @@ export default function ChatPage() {
               background: '#fff', borderBottom: '1px solid #e0e0e0',
               padding: '9px 14px', display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0,
             }}>
-              <button onClick={() => setSelectedRoom(null)}
+              <button onClick={() => { setSelectedRoom(null); setShowChatList(true); }}
                 style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#1a76c8', fontSize: 14, fontWeight: 700, padding: '2px 8px 2px 0', flexShrink: 0 }}
               >
                 ← 목록
