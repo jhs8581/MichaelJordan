@@ -1015,6 +1015,7 @@ export function ChatWindow({ roomId, onLeave, onImageView, naverTheme, naverDark
     setPostMsgSaving(true);
     try {
       await api.post('/posts', {
+        roomId,
         title: postMsgTitle.trim(),
         content: postFromMsg.content,
         sourceMessageId: postFromMsg.id,

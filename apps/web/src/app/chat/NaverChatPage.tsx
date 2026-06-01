@@ -10,16 +10,16 @@ import { ChatWindow } from '@/components/chat/ChatWindow';
 import { CreateRoomModal } from '@/components/chat/RoomList';
 import type { Room } from '@chat/types';
 
-type View = 'home' | 'rooms' | 'chat' | 'schedule' | 'posts';
+type View = 'home' | 'rooms' | 'chat';
 
 type Schedule = {
-  id: number; title: string; description?: string | null;
+  id: number; roomId: number; title: string; description?: string | null;
   scheduledAt: string; isAllDay: boolean; notified: boolean;
   createdById: number; createdAt: string;
   createdBy: { id: number; username: string };
 };
 type Post = {
-  id: number; title: string; content: string; authorId: number;
+  id: number; roomId: number; title: string; content: string; authorId: number;
   sourceMessageId?: number | null; createdAt: string; updatedAt: string;
   author: { id: number; username: string; avatarUrl?: string };
   sourceMessage?: { id: number; content: string; createdAt: string; sender?: { id: number; username: string } | null } | null;
@@ -154,6 +154,7 @@ export default function NaverChatPage() {
 
   const [view, setView] = useState<View>('home');
   const [selectedRoom, setSelectedRoom] = useState<Room | null>(null);
+  const [roomView, setRoomView] = useState<'' | 'schedule' | 'posts'>('');
   const [newsTab, setNewsTab] = useState(0);
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [viewingImageItems, setViewingImageItems] = useState<RoomImageItem[]>([]);
@@ -168,10 +169,6 @@ export default function NaverChatPage() {
   const cafeClickTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const cafeTouchRef = useRef<number>(0);
   const cafeTransitionRef = useRef<number>(0);
-  const schedClickCount = useRef(0);
-  const schedClickTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const postsNvClickCount = useRef(0);
-  const postsNvClickTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // 일정/게시판 상태
   const [schedules, setSchedules] = useState<Schedule[]>([]);
@@ -210,25 +207,28 @@ export default function NaverChatPage() {
   }, [accessToken, setRooms]);
 
   useEffect(() => {
-    if (view === 'schedule' && accessToken && schedules.length === 0 && !schedLoading) {
+    if (roomView === 'schedule' && selectedRoom && accessToken) {
       setSchedLoading(true);
-      api.get<{ data: { schedules: Schedule[] } }>('/schedules')
+      setSchedules([]);
+      api.get<{ data: { schedules: Schedule[] } }>(`/schedules?roomId=${selectedRoom.id}`)
         .then(res => setSchedules(res.data.data.schedules)).catch(() => {}).finally(() => setSchedLoading(false));
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [view, accessToken, schedules.length]);
+  }, [roomView, selectedRoom?.id, accessToken]);
   useEffect(() => {
-    if (view === 'posts' && accessToken && posts.length === 0 && !postsLoading) {
+    if (roomView === 'posts' && selectedRoom && accessToken) {
       setPostsLoading(true);
-      api.get<{ data: { posts: Post[] } }>('/posts')
+      setPosts([]);
+      api.get<{ data: { posts: Post[] } }>(`/posts?roomId=${selectedRoom.id}`)
         .then(res => setPosts(res.data.data.posts)).catch(() => {}).finally(() => setPostsLoading(false));
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [view, accessToken, posts.length]);
+  }, [roomView, selectedRoom?.id, accessToken]);
 
   function openRoom(room: Room) {
     setRooms(rooms.map((r) => r.id === room.id ? { ...r, unreadCount: 0 } : r));
     setSelectedRoom({ ...room, unreadCount: 0 });
+    setRoomView('');
     setView('chat');
   }
   function handleCafeClick() {
@@ -249,26 +249,6 @@ export default function NaverChatPage() {
     }
     cafeTouchRef.current = now;
   }
-  function handleSchedIconClick() {
-    schedClickCount.current += 1;
-    if (schedClickTimer.current) clearTimeout(schedClickTimer.current);
-    schedClickTimer.current = setTimeout(() => { schedClickCount.current = 0; }, 350);
-    if (schedClickCount.current >= 2) {
-      schedClickCount.current = 0;
-      if (schedClickTimer.current) clearTimeout(schedClickTimer.current);
-      setView('schedule');
-    }
-  }
-  function handlePostsIconClick() {
-    postsNvClickCount.current += 1;
-    if (postsNvClickTimer.current) clearTimeout(postsNvClickTimer.current);
-    postsNvClickTimer.current = setTimeout(() => { postsNvClickCount.current = 0; }, 350);
-    if (postsNvClickCount.current >= 2) {
-      postsNvClickCount.current = 0;
-      if (postsNvClickTimer.current) clearTimeout(postsNvClickTimer.current);
-      setView('posts');
-    }
-  }
   function openScheduleForm(edit?: Schedule) {
     setSchedEditTarget(edit ?? null);
     if (edit) {
@@ -287,14 +267,14 @@ export default function NaverChatPage() {
     setSchedFormOpen(true);
   }
   async function submitSchedule() {
-    if (!schedTitle.trim() || !schedDate) return;
+    if (!schedTitle.trim() || !schedDate || !selectedRoom) return;
     const scheduledAt = schedAllDay ? new Date(schedDate + 'T00:00:00').toISOString() : new Date(`${schedDate}T${schedTime || '00:00'}:00`).toISOString();
     try {
       if (schedEditTarget) {
         const res = await api.patch<{ data: { schedule: Schedule } }>(`/schedules/${schedEditTarget.id}`, { title: schedTitle.trim(), description: schedDesc.trim() || undefined, scheduledAt, isAllDay: schedAllDay });
         setSchedules(prev => prev.map(s => s.id === schedEditTarget.id ? res.data.data.schedule : s));
       } else {
-        const res = await api.post<{ data: { schedule: Schedule } }>('/schedules', { title: schedTitle.trim(), description: schedDesc.trim() || undefined, scheduledAt, isAllDay: schedAllDay });
+        const res = await api.post<{ data: { schedule: Schedule } }>('/schedules', { roomId: selectedRoom.id, title: schedTitle.trim(), description: schedDesc.trim() || undefined, scheduledAt, isAllDay: schedAllDay });
         setSchedules(prev => [res.data.data.schedule, ...prev]);
       }
       setSchedFormOpen(false);
@@ -306,14 +286,14 @@ export default function NaverChatPage() {
     setSchedules(prev => prev.filter(s => s.id !== id));
   }
   async function submitPost() {
-    if (!postTitle.trim() || !postContent.trim()) return;
+    if (!postTitle.trim() || !postContent.trim() || !selectedRoom) return;
     try {
       if (postEditTarget) {
         const res = await api.patch<{ data: { post: Post } }>(`/posts/${postEditTarget.id}`, { title: postTitle.trim(), content: postContent.trim() });
         setPosts(prev => prev.map(p => p.id === postEditTarget.id ? res.data.data.post : p));
         if (postDetail?.id === postEditTarget.id) setPostDetail(res.data.data.post);
       } else {
-        const res = await api.post<{ data: { post: Post } }>('/posts', { title: postTitle.trim(), content: postContent.trim() });
+        const res = await api.post<{ data: { post: Post } }>('/posts', { roomId: selectedRoom.id, title: postTitle.trim(), content: postContent.trim() });
         setPosts(prev => [res.data.data.post, ...prev]);
       }
       setPostFormOpen(false);
@@ -405,149 +385,151 @@ export default function NaverChatPage() {
     return (
       <div style={{ maxWidth: 430, margin: '0 auto', height: '100dvh', fontFamily: '"Apple SD Gothic Neo","Malgun Gothic",Arial,sans-serif', display: 'flex', flexDirection: 'column' }}>
         <div style={{ height: HEADER_H, background: naverDark ? '#161616' : '#fff', borderBottom: `1px solid ${naverDark ? '#2e2e2e' : '#e8e8e8'}`, display: 'flex', alignItems: 'center', padding: '0 14px', gap: 10, flexShrink: 0 }}>
-          <button onClick={() => setView('rooms')} style={{ background: 'none', border: 'none', cursor: 'pointer', color: naverDark ? '#aaa' : '#111', fontSize: 20, padding: '4px 8px 4px 0', lineHeight: 1 }}>←</button>
+          {roomView !== '' ? (
+            <button onClick={() => setRoomView('')} style={{ background: 'none', border: 'none', cursor: 'pointer', color: naverDark ? '#aaa' : '#111', fontSize: 20, padding: '4px 8px 4px 0', lineHeight: 1 }}>←</button>
+          ) : (
+            <button onClick={() => setView('rooms')} style={{ background: 'none', border: 'none', cursor: 'pointer', color: naverDark ? '#aaa' : '#111', fontSize: 20, padding: '4px 8px 4px 0', lineHeight: 1 }}>←</button>
+          )}
           <div style={{ width: 30, height: 30, borderRadius: 10, background: avatarColor(selectedRoom.name), display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontSize: 13, fontWeight: 800, flexShrink: 0 }}>
             {selectedRoom.isArchive ? '📦' : selectedRoom.name.charAt(0)}
           </div>
           <span style={{ flex: 1, fontSize: 15, fontWeight: 800, color: naverDark ? '#e0e0e0' : '#111', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{selectedRoom.name}</span>
+          {roomView === '' && (
+            <>
+              <button onClick={() => setRoomView('schedule')} title="일정" style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 18, padding: '2px 4px', lineHeight: 1, flexShrink: 0 }}>📅</button>
+              <button onClick={() => setRoomView('posts')} title="게시판" style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 18, padding: '2px 4px', lineHeight: 1, flexShrink: 0 }}>📝</button>
+            </>
+          )}
         </div>
         <div style={{ flex: 1, overflow: 'hidden' }}>
-          <ChatWindow roomId={selectedRoom.id} onLeave={() => setView('rooms')} naverTheme naverDark={naverDark}
-            onImageView={(url, imageList) => {
-              const idx = imageList.findIndex((item) => item.url === url);
-              setViewingImageItems(imageList); setViewingImageIdx(idx >= 0 ? idx : 0);
-              setImageZoom(1); setImagePan({ x: 0, y: 0 });
-            }}
-          />
-        </div>
-        {lightbox}
-      </div>
-    );
-  }
-
-  // ── 일정 뷰 ──────────────────────────────────────────────────────────────────
-  if (view === 'schedule') {
-    return (
-      <div style={{ maxWidth: 430, margin: '0 auto', minHeight: '100vh', background: naverDark ? '#111' : '#f5f5f5', fontFamily: '"Apple SD Gothic Neo","Malgun Gothic",Arial,sans-serif' }}>
-        <header style={{ position: 'sticky', top: 0, zIndex: 100, height: HEADER_H, background: nv.cardBg, borderBottom: `1px solid ${nv.border}`, display: 'flex', alignItems: 'center', padding: '0 14px', gap: 10 }}>
-          <button onClick={() => setView('home')} style={{ background: 'none', border: 'none', cursor: 'pointer', color: nv.text, fontSize: 20, padding: '4px 8px 4px 0', lineHeight: 1, flexShrink: 0 }}>←</button>
-          <span style={{ flex: 1, fontSize: 17, fontWeight: 800, color: '#03C75A', letterSpacing: -0.5 }}>📅 일정</span>
-          <button onClick={() => openScheduleForm()} style={{ background: '#03C75A', color: '#fff', border: 'none', borderRadius: 8, padding: '6px 14px', fontSize: 13, fontWeight: 700, cursor: 'pointer' }}>+ 등록</button>
-        </header>
-        <div style={{ paddingBottom: 20 }}>
-          {schedLoading ? (
-            <p style={{ textAlign: 'center', color: '#aaa', padding: '40px 0', fontSize: 13 }}>불러오는 중...</p>
-          ) : schedules.length === 0 ? (
-            <p style={{ textAlign: 'center', color: '#aaa', padding: '40px 0', fontSize: 13 }}>등록된 일정이 없습니다</p>
-          ) : schedules.map(sc => {
-            const d = new Date(sc.scheduledAt);
-            const timeStr = sc.isAllDay ? '종일' : d.toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' });
-            const isPast = d < new Date();
-            return (
-              <div key={sc.id} style={{ background: nv.cardBg, marginBottom: 1, padding: '14px 16px', display: 'flex', alignItems: 'flex-start', gap: 12, borderBottom: `1px solid ${nv.borderFaint}` }}>
-                <div style={{ width: 42, flexShrink: 0, textAlign: 'center' as const }}>
-                  <div style={{ fontSize: 20, fontWeight: 900, color: isPast ? '#666' : '#03C75A', lineHeight: 1 }}>{d.getDate()}</div>
-                  <div style={{ fontSize: 10, color: nv.textMuted, marginTop: 1 }}>{d.toLocaleDateString('ko-KR', { weekday: 'short' })}</div>
-                </div>
-                <div style={{ flex: 1 }}>
-                  <div style={{ fontWeight: 700, fontSize: 14, color: isPast ? '#666' : nv.text, marginBottom: 2, textDecoration: isPast ? 'line-through' : 'none' }}>{sc.title}</div>
-                  <div style={{ fontSize: 12, color: nv.textMuted }}>{d.toLocaleDateString('ko-KR', { year: 'numeric', month: 'short', day: 'numeric' })} · {timeStr}</div>
-                  {sc.description && <div style={{ fontSize: 12, color: nv.textMuted, marginTop: 4, whiteSpace: 'pre-wrap' }}>{sc.description}</div>}
-                  <div style={{ fontSize: 11, color: nv.textFaint, marginTop: 4 }}>등록: {sc.createdBy.username}</div>
-                </div>
-                {sc.createdById === user?.id && (
-                  <div style={{ display: 'flex', gap: 6, flexShrink: 0 }}>
-                    <button onClick={() => openScheduleForm(sc)} style={{ background: 'none', border: `1px solid ${nv.border}`, borderRadius: 6, padding: '4px 8px', fontSize: 11, cursor: 'pointer', color: nv.text }}>수정</button>
-                    <button onClick={() => deleteSchedule(sc.id)} style={{ background: 'none', border: '1px solid #f5c6c6', borderRadius: 6, padding: '4px 8px', fontSize: 11, cursor: 'pointer', color: '#f7685b' }}>삭제</button>
+          {roomView === 'schedule' ? (
+            /* ── 채팅방 일정 패널 ── */
+            <div style={{ background: naverDark ? '#111' : '#f5f5f5', height: '100%', overflowY: 'auto' }}>
+              <div style={{ background: nv.cardBg, borderBottom: `1px solid ${nv.border}`, padding: '9px 14px', display: 'flex', alignItems: 'center', gap: 8 }}>
+                <span style={{ flex: 1, fontSize: 15, fontWeight: 800, color: '#03C75A' }}>📅 {selectedRoom.name} 일정</span>
+                <button onClick={() => openScheduleForm()} style={{ background: '#03C75A', color: '#fff', border: 'none', borderRadius: 8, padding: '5px 14px', fontSize: 13, fontWeight: 700, cursor: 'pointer' }}>+ 등록</button>
+              </div>
+              {schedLoading ? (
+                <p style={{ textAlign: 'center', color: '#aaa', padding: '40px 0', fontSize: 13 }}>불러오는 중...</p>
+              ) : schedules.length === 0 ? (
+                <p style={{ textAlign: 'center', color: '#aaa', padding: '40px 0', fontSize: 13 }}>등록된 일정이 없습니다</p>
+              ) : schedules.map(sc => {
+                const d = new Date(sc.scheduledAt);
+                const timeStr = sc.isAllDay ? '종일' : d.toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' });
+                const isPast = d < new Date();
+                return (
+                  <div key={sc.id} style={{ background: nv.cardBg, marginBottom: 1, padding: '14px 16px', display: 'flex', alignItems: 'flex-start', gap: 12, borderBottom: `1px solid ${nv.borderFaint}` }}>
+                    <div style={{ width: 42, flexShrink: 0, textAlign: 'center' as const }}>
+                      <div style={{ fontSize: 20, fontWeight: 900, color: isPast ? '#666' : '#03C75A', lineHeight: 1 }}>{d.getDate()}</div>
+                      <div style={{ fontSize: 10, color: nv.textMuted, marginTop: 1 }}>{d.toLocaleDateString('ko-KR', { weekday: 'short' })}</div>
+                    </div>
+                    <div style={{ flex: 1 }}>
+                      <div style={{ fontWeight: 700, fontSize: 14, color: isPast ? '#666' : nv.text, marginBottom: 2, textDecoration: isPast ? 'line-through' : 'none' }}>{sc.title}</div>
+                      <div style={{ fontSize: 12, color: nv.textMuted }}>{d.toLocaleDateString('ko-KR', { year: 'numeric', month: 'short', day: 'numeric' })} · {timeStr}</div>
+                      {sc.description && <div style={{ fontSize: 12, color: nv.textMuted, marginTop: 4, whiteSpace: 'pre-wrap' }}>{sc.description}</div>}
+                      <div style={{ fontSize: 11, color: nv.textFaint, marginTop: 4 }}>등록: {sc.createdBy.username}</div>
+                    </div>
+                    {sc.createdById === user?.id && (
+                      <div style={{ display: 'flex', gap: 6, flexShrink: 0 }}>
+                        <button onClick={() => openScheduleForm(sc)} style={{ background: 'none', border: `1px solid ${nv.border}`, borderRadius: 6, padding: '4px 8px', fontSize: 11, cursor: 'pointer', color: nv.text }}>수정</button>
+                        <button onClick={() => deleteSchedule(sc.id)} style={{ background: 'none', border: '1px solid #f5c6c6', borderRadius: 6, padding: '4px 8px', fontSize: 11, cursor: 'pointer', color: '#f7685b' }}>삭제</button>
+                      </div>
+                    )}
                   </div>
-                )}
-              </div>
-            );
-          })}
-        </div>
-        {schedFormOpen && (
-          <div style={{ position: 'fixed', inset: 0, zIndex: 200, background: 'rgba(0,0,0,0.55)', display: 'flex', alignItems: 'flex-end', justifyContent: 'center' }} onClick={() => setSchedFormOpen(false)}>
-            <div style={{ background: nv.cardBg, borderRadius: '16px 16px 0 0', padding: '20px 16px 32px', width: '100%', maxWidth: 430 }} onClick={e => e.stopPropagation()}>
-              <h3 style={{ fontSize: 16, fontWeight: 700, marginBottom: 16, color: nv.text }}>{schedEditTarget ? '일정 수정' : '일정 등록'}</h3>
-              <input value={schedTitle} onChange={e => setSchedTitle(e.target.value)} placeholder="일정 제목 *" maxLength={200} style={{ width: '100%', border: `1px solid ${nv.border}`, borderRadius: 8, padding: '10px 12px', fontSize: 14, marginBottom: 10, boxSizing: 'border-box' as const, background: nv.searchBg, color: nv.text }} />
-              <textarea value={schedDesc} onChange={e => setSchedDesc(e.target.value)} placeholder="설명 (선택)" rows={2} style={{ width: '100%', border: `1px solid ${nv.border}`, borderRadius: 8, padding: '10px 12px', fontSize: 14, resize: 'none' as const, marginBottom: 10, boxSizing: 'border-box' as const, background: nv.searchBg, color: nv.text }} />
-              <div style={{ display: 'flex', gap: 8, marginBottom: 10 }}>
-                <input type="date" value={schedDate} onChange={e => setSchedDate(e.target.value)} style={{ flex: 1, border: `1px solid ${nv.border}`, borderRadius: 8, padding: '10px 12px', fontSize: 14, background: nv.searchBg, color: nv.text }} />
-                {!schedAllDay && <input type="time" value={schedTime} onChange={e => setSchedTime(e.target.value)} style={{ width: 100, border: `1px solid ${nv.border}`, borderRadius: 8, padding: '10px 12px', fontSize: 14, background: nv.searchBg, color: nv.text }} />}
-              </div>
-              <label style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 16, fontSize: 13, color: nv.textMuted, cursor: 'pointer' }}>
-                <input type="checkbox" checked={schedAllDay} onChange={e => setSchedAllDay(e.target.checked)} /> 종일
-              </label>
-              <div style={{ display: 'flex', gap: 8 }}>
-                <button onClick={() => setSchedFormOpen(false)} style={{ flex: 1, padding: '12px', borderRadius: 10, border: `1px solid ${nv.border}`, background: nv.searchBg, fontSize: 14, cursor: 'pointer', color: nv.text }}>취소</button>
-                <button onClick={submitSchedule} disabled={!schedTitle.trim() || !schedDate} style={{ flex: 1, padding: '12px', borderRadius: 10, border: 'none', background: '#03C75A', color: '#fff', fontSize: 14, fontWeight: 700, cursor: 'pointer', opacity: (!schedTitle.trim() || !schedDate) ? 0.5 : 1 }}>저장</button>
-              </div>
-            </div>
-          </div>
-        )}
-        {lightbox}
-      </div>
-    );
-  }
-
-  // ── 게시글 뷰 ─────────────────────────────────────────────────────────────────
-  if (view === 'posts') {
-    return (
-      <div style={{ maxWidth: 430, margin: '0 auto', minHeight: '100vh', background: naverDark ? '#111' : '#f5f5f5', fontFamily: '"Apple SD Gothic Neo","Malgun Gothic",Arial,sans-serif' }}>
-        <header style={{ position: 'sticky', top: 0, zIndex: 100, height: HEADER_H, background: nv.cardBg, borderBottom: `1px solid ${nv.border}`, display: 'flex', alignItems: 'center', padding: '0 14px', gap: 10 }}>
-          <button onClick={() => { setPostDetail(null); setView('home'); }} style={{ background: 'none', border: 'none', cursor: 'pointer', color: nv.text, fontSize: 20, padding: '4px 8px 4px 0', lineHeight: 1, flexShrink: 0 }}>←</button>
-          <span style={{ flex: 1, fontSize: 17, fontWeight: 800, color: '#03C75A', letterSpacing: -0.5 }}>
-            {postDetail ? postDetail.title : '📝 게시판'}
-          </span>
-          {!postDetail && <button onClick={() => { setPostEditTarget(null); setPostTitle(''); setPostContent(''); setPostFormOpen(true); }} style={{ background: '#03C75A', color: '#fff', border: 'none', borderRadius: 8, padding: '6px 14px', fontSize: 13, fontWeight: 700, cursor: 'pointer' }}>+ 글쓰기</button>}
-          {postDetail && postDetail.authorId === user?.id && (
-            <div style={{ display: 'flex', gap: 6 }}>
-              <button onClick={() => { setPostEditTarget(postDetail); setPostTitle(postDetail.title); setPostContent(postDetail.content); setPostFormOpen(true); }} style={{ background: 'none', border: `1px solid ${nv.border}`, borderRadius: 6, padding: '4px 10px', fontSize: 12, cursor: 'pointer', color: nv.text }}>수정</button>
-              <button onClick={() => deletePost(postDetail.id)} style={{ background: 'none', border: '1px solid #f5c6c6', borderRadius: 6, padding: '4px 10px', fontSize: 12, cursor: 'pointer', color: '#f7685b' }}>삭제</button>
-            </div>
-          )}
-        </header>
-        <div>
-          {postDetail ? (
-            <div style={{ background: nv.cardBg, minHeight: '100%', padding: '16px' }}>
-              <div style={{ fontSize: 11, color: nv.textFaint, marginBottom: 12 }}>
-                {postDetail.author.username} · {new Date(postDetail.createdAt).toLocaleDateString('ko-KR', { year: 'numeric', month: 'short', day: 'numeric' })}
-              </div>
-              {postDetail.sourceMessage && (
-                <div style={{ background: naverDark ? '#1a2e20' : '#e6f7f0', borderLeft: '3px solid #03C75A', borderRadius: 6, padding: '10px 12px', marginBottom: 14 }}>
-                  <div style={{ fontSize: 11, color: nv.textMuted, marginBottom: 4 }}>💬 원본 메시지 · {postDetail.sourceMessage.sender?.username}</div>
-                  <div style={{ fontSize: 13, color: nv.text, whiteSpace: 'pre-wrap' }}>{postDetail.sourceMessage.content}</div>
+                );
+              })}
+              {schedFormOpen && (
+                <div style={{ position: 'fixed', inset: 0, zIndex: 200, background: 'rgba(0,0,0,0.55)', display: 'flex', alignItems: 'flex-end', justifyContent: 'center' }} onClick={() => setSchedFormOpen(false)}>
+                  <div style={{ background: nv.cardBg, borderRadius: '16px 16px 0 0', padding: '20px 16px 32px', width: '100%', maxWidth: 430 }} onClick={e => e.stopPropagation()}>
+                    <h3 style={{ fontSize: 16, fontWeight: 700, marginBottom: 16, color: nv.text }}>{schedEditTarget ? '일정 수정' : '일정 등록'}</h3>
+                    <input value={schedTitle} onChange={e => setSchedTitle(e.target.value)} placeholder="일정 제목 *" maxLength={200} style={{ width: '100%', border: `1px solid ${nv.border}`, borderRadius: 8, padding: '10px 12px', fontSize: 14, marginBottom: 10, boxSizing: 'border-box' as const, background: nv.searchBg, color: nv.text }} />
+                    <textarea value={schedDesc} onChange={e => setSchedDesc(e.target.value)} placeholder="설명 (선택)" rows={2} style={{ width: '100%', border: `1px solid ${nv.border}`, borderRadius: 8, padding: '10px 12px', fontSize: 14, resize: 'none' as const, marginBottom: 10, boxSizing: 'border-box' as const, background: nv.searchBg, color: nv.text }} />
+                    <div style={{ display: 'flex', gap: 8, marginBottom: 10 }}>
+                      <input type="date" value={schedDate} onChange={e => setSchedDate(e.target.value)} style={{ flex: 1, border: `1px solid ${nv.border}`, borderRadius: 8, padding: '10px 12px', fontSize: 14, background: nv.searchBg, color: nv.text }} />
+                      {!schedAllDay && <input type="time" value={schedTime} onChange={e => setSchedTime(e.target.value)} style={{ width: 100, border: `1px solid ${nv.border}`, borderRadius: 8, padding: '10px 12px', fontSize: 14, background: nv.searchBg, color: nv.text }} />}
+                    </div>
+                    <label style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 16, fontSize: 13, color: nv.textMuted, cursor: 'pointer' }}>
+                      <input type="checkbox" checked={schedAllDay} onChange={e => setSchedAllDay(e.target.checked)} /> 종일
+                    </label>
+                    <div style={{ display: 'flex', gap: 8 }}>
+                      <button onClick={() => setSchedFormOpen(false)} style={{ flex: 1, padding: '12px', borderRadius: 10, border: `1px solid ${nv.border}`, background: nv.searchBg, fontSize: 14, cursor: 'pointer', color: nv.text }}>취소</button>
+                      <button onClick={submitSchedule} disabled={!schedTitle.trim() || !schedDate} style={{ flex: 1, padding: '12px', borderRadius: 10, border: 'none', background: '#03C75A', color: '#fff', fontSize: 14, fontWeight: 700, cursor: 'pointer', opacity: (!schedTitle.trim() || !schedDate) ? 0.5 : 1 }}>저장</button>
+                    </div>
+                  </div>
                 </div>
               )}
-              <p style={{ fontSize: 14.5, color: nv.text, lineHeight: 1.75, whiteSpace: 'pre-wrap' }}>{postDetail.content}</p>
             </div>
-          ) : postsLoading ? (
-            <p style={{ textAlign: 'center', color: '#aaa', padding: '40px 0', fontSize: 13 }}>불러오는 중...</p>
-          ) : posts.length === 0 ? (
-            <p style={{ textAlign: 'center', color: '#aaa', padding: '40px 0', fontSize: 13 }}>게시글이 없습니다</p>
-          ) : posts.map(p => (
-            <div key={p.id} onClick={() => setPostDetail(p)} style={{ background: nv.cardBg, padding: '13px 16px', cursor: 'pointer', borderBottom: `1px solid ${nv.borderFaint}` }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 4 }}>
-                {p.sourceMessageId && <span style={{ fontSize: 10, background: naverDark ? '#1a2e20' : '#e6f7f0', color: '#03C75A', borderRadius: 4, padding: '1px 5px', fontWeight: 700 }}>채팅</span>}
-                <span style={{ fontWeight: 700, fontSize: 14, color: nv.text, flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{p.title}</span>
-              </div>
-              <div style={{ fontSize: 12, color: nv.textMuted }}>{p.author.username} · {new Date(p.createdAt).toLocaleDateString('ko-KR', { month: 'short', day: 'numeric' })}</div>
+          ) : roomView === 'posts' ? (
+            /* ── 채팅방 게시판 패널 ── */
+            <div style={{ background: naverDark ? '#111' : '#f5f5f5', height: '100%', overflowY: 'auto' }}>
+              {postDetail ? (
+                <div style={{ background: nv.cardBg, minHeight: '100%', padding: '16px' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', marginBottom: 12, gap: 8 }}>
+                    <button onClick={() => setPostDetail(null)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#03C75A', fontSize: 13, fontWeight: 700, padding: 0 }}>← 목록</button>
+                    {postDetail.authorId === user?.id && (
+                      <div style={{ marginLeft: 'auto', display: 'flex', gap: 6 }}>
+                        <button onClick={() => { setPostEditTarget(postDetail); setPostTitle(postDetail.title); setPostContent(postDetail.content); setPostFormOpen(true); }} style={{ background: 'none', border: `1px solid ${nv.border}`, borderRadius: 6, padding: '4px 10px', fontSize: 12, cursor: 'pointer', color: nv.text }}>수정</button>
+                        <button onClick={() => deletePost(postDetail.id)} style={{ background: 'none', border: '1px solid #f5c6c6', borderRadius: 6, padding: '4px 10px', fontSize: 12, cursor: 'pointer', color: '#f7685b' }}>삭제</button>
+                      </div>
+                    )}
+                  </div>
+                  <div style={{ fontSize: 16, fontWeight: 800, color: nv.text, marginBottom: 8 }}>{postDetail.title}</div>
+                  <div style={{ fontSize: 11, color: nv.textFaint, marginBottom: 12 }}>
+                    {postDetail.author.username} · {new Date(postDetail.createdAt).toLocaleDateString('ko-KR', { year: 'numeric', month: 'short', day: 'numeric' })}
+                  </div>
+                  {postDetail.sourceMessage && (
+                    <div style={{ background: naverDark ? '#1a2e20' : '#e6f7f0', borderLeft: '3px solid #03C75A', borderRadius: 6, padding: '10px 12px', marginBottom: 14 }}>
+                      <div style={{ fontSize: 11, color: nv.textMuted, marginBottom: 4 }}>💬 원본 메시지 · {postDetail.sourceMessage.sender?.username}</div>
+                      <div style={{ fontSize: 13, color: nv.text, whiteSpace: 'pre-wrap' }}>{postDetail.sourceMessage.content}</div>
+                    </div>
+                  )}
+                  <p style={{ fontSize: 14.5, color: nv.text, lineHeight: 1.75, whiteSpace: 'pre-wrap' }}>{postDetail.content}</p>
+                </div>
+              ) : (
+                <>
+                  <div style={{ background: nv.cardBg, borderBottom: `1px solid ${nv.border}`, padding: '9px 14px', display: 'flex', alignItems: 'center', gap: 8 }}>
+                    <span style={{ flex: 1, fontSize: 15, fontWeight: 800, color: '#03C75A' }}>📝 {selectedRoom.name} 게시판</span>
+                    <button onClick={() => { setPostEditTarget(null); setPostTitle(''); setPostContent(''); setPostFormOpen(true); }} style={{ background: '#03C75A', color: '#fff', border: 'none', borderRadius: 8, padding: '5px 14px', fontSize: 13, fontWeight: 700, cursor: 'pointer' }}>+ 글쓰기</button>
+                  </div>
+                  {postsLoading ? (
+                    <p style={{ textAlign: 'center', color: '#aaa', padding: '40px 0', fontSize: 13 }}>불러오는 중...</p>
+                  ) : posts.length === 0 ? (
+                    <p style={{ textAlign: 'center', color: '#aaa', padding: '40px 0', fontSize: 13 }}>게시글이 없습니다</p>
+                  ) : posts.map(p => (
+                    <div key={p.id} onClick={() => setPostDetail(p)} style={{ background: nv.cardBg, padding: '13px 16px', cursor: 'pointer', borderBottom: `1px solid ${nv.borderFaint}` }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 4 }}>
+                        {p.sourceMessageId && <span style={{ fontSize: 10, background: naverDark ? '#1a2e20' : '#e6f7f0', color: '#03C75A', borderRadius: 4, padding: '1px 5px', fontWeight: 700 }}>채팅</span>}
+                        <span style={{ fontWeight: 700, fontSize: 14, color: nv.text, flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{p.title}</span>
+                      </div>
+                      <div style={{ fontSize: 12, color: nv.textMuted }}>{p.author.username} · {new Date(p.createdAt).toLocaleDateString('ko-KR', { month: 'short', day: 'numeric' })}</div>
+                    </div>
+                  ))}
+                </>
+              )}
+              {postFormOpen && (
+                <div style={{ position: 'fixed', inset: 0, zIndex: 200, background: 'rgba(0,0,0,0.55)', display: 'flex', alignItems: 'flex-end', justifyContent: 'center' }} onClick={() => setPostFormOpen(false)}>
+                  <div style={{ background: nv.cardBg, borderRadius: '16px 16px 0 0', padding: '20px 16px 32px', width: '100%', maxWidth: 430 }} onClick={e => e.stopPropagation()}>
+                    <h3 style={{ fontSize: 16, fontWeight: 700, marginBottom: 16, color: nv.text }}>{postEditTarget ? '게시글 수정' : '게시글 작성'}</h3>
+                    <input value={postTitle} onChange={e => setPostTitle(e.target.value)} placeholder="제목 *" maxLength={200} style={{ width: '100%', border: `1px solid ${nv.border}`, borderRadius: 8, padding: '10px 12px', fontSize: 14, marginBottom: 10, boxSizing: 'border-box' as const, background: nv.searchBg, color: nv.text }} />
+                    <textarea value={postContent} onChange={e => setPostContent(e.target.value)} placeholder="내용 *" rows={6} style={{ width: '100%', border: `1px solid ${nv.border}`, borderRadius: 8, padding: '10px 12px', fontSize: 14, resize: 'none' as const, marginBottom: 16, boxSizing: 'border-box' as const, background: nv.searchBg, color: nv.text }} />
+                    <div style={{ display: 'flex', gap: 8 }}>
+                      <button onClick={() => setPostFormOpen(false)} style={{ flex: 1, padding: '12px', borderRadius: 10, border: `1px solid ${nv.border}`, background: nv.searchBg, fontSize: 14, cursor: 'pointer', color: nv.text }}>취소</button>
+                      <button onClick={submitPost} disabled={!postTitle.trim() || !postContent.trim()} style={{ flex: 1, padding: '12px', borderRadius: 10, border: 'none', background: '#03C75A', color: '#fff', fontSize: 14, fontWeight: 700, cursor: 'pointer', opacity: (!postTitle.trim() || !postContent.trim()) ? 0.5 : 1 }}>저장</button>
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
-          ))}
+          ) : (
+            <ChatWindow roomId={selectedRoom.id} onLeave={() => setView('rooms')} naverTheme naverDark={naverDark}
+              onImageView={(url, imageList) => {
+                const idx = imageList.findIndex((item) => item.url === url);
+                setViewingImageItems(imageList); setViewingImageIdx(idx >= 0 ? idx : 0);
+                setImageZoom(1); setImagePan({ x: 0, y: 0 });
+              }}
+            />
+          )}
         </div>
-        {postFormOpen && (
-          <div style={{ position: 'fixed', inset: 0, zIndex: 200, background: 'rgba(0,0,0,0.55)', display: 'flex', alignItems: 'flex-end', justifyContent: 'center' }} onClick={() => setPostFormOpen(false)}>
-            <div style={{ background: nv.cardBg, borderRadius: '16px 16px 0 0', padding: '20px 16px 32px', width: '100%', maxWidth: 430 }} onClick={e => e.stopPropagation()}>
-              <h3 style={{ fontSize: 16, fontWeight: 700, marginBottom: 16, color: nv.text }}>{postEditTarget ? '게시글 수정' : '게시글 작성'}</h3>
-              <input value={postTitle} onChange={e => setPostTitle(e.target.value)} placeholder="제목 *" maxLength={200} style={{ width: '100%', border: `1px solid ${nv.border}`, borderRadius: 8, padding: '10px 12px', fontSize: 14, marginBottom: 10, boxSizing: 'border-box' as const, background: nv.searchBg, color: nv.text }} />
-              <textarea value={postContent} onChange={e => setPostContent(e.target.value)} placeholder="내용 *" rows={6} style={{ width: '100%', border: `1px solid ${nv.border}`, borderRadius: 8, padding: '10px 12px', fontSize: 14, resize: 'none' as const, marginBottom: 16, boxSizing: 'border-box' as const, background: nv.searchBg, color: nv.text }} />
-              <div style={{ display: 'flex', gap: 8 }}>
-                <button onClick={() => setPostFormOpen(false)} style={{ flex: 1, padding: '12px', borderRadius: 10, border: `1px solid ${nv.border}`, background: nv.searchBg, fontSize: 14, cursor: 'pointer', color: nv.text }}>취소</button>
-                <button onClick={submitPost} disabled={!postTitle.trim() || !postContent.trim()} style={{ flex: 1, padding: '12px', borderRadius: 10, border: 'none', background: '#03C75A', color: '#fff', fontSize: 14, fontWeight: 700, cursor: 'pointer', opacity: (!postTitle.trim() || !postContent.trim()) ? 0.5 : 1 }}>저장</button>
-              </div>
-            </div>
-          </div>
-        )}
         {lightbox}
       </div>
     );
@@ -639,20 +621,6 @@ export default function NaverChatPage() {
               <span style={{ fontSize: 22 }}>🛍️</span>
             </div>
             <span style={{ fontSize: 11, color: nv.iconLabel }}>N쇼핑</span>
-          </div>
-          {/* 일정 */}
-          <div onClick={handleSchedIconClick} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 5, minWidth: 68, flexShrink: 0, cursor: 'pointer' }}>
-            <div style={{ width: 46, height: 46, borderRadius: 14, background: naverDark ? '#1a2e2a' : '#e6f7f0', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-              <span style={{ fontSize: 22 }}>📅</span>
-            </div>
-            <span style={{ fontSize: 11, color: (view as string) === 'schedule' ? '#03C75A' : nv.iconLabel, fontWeight: (view as string) === 'schedule' ? 700 : 400 }}>일정</span>
-          </div>
-          {/* 게시판 */}
-          <div onClick={handlePostsIconClick} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 5, minWidth: 68, flexShrink: 0, cursor: 'pointer' }}>
-            <div style={{ width: 46, height: 46, borderRadius: 14, background: naverDark ? '#2a1a2e' : '#f3e8fd', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-              <span style={{ fontSize: 22 }}>📝</span>
-            </div>
-            <span style={{ fontSize: 11, color: (view as string) === 'posts' ? '#03C75A' : nv.iconLabel, fontWeight: (view as string) === 'posts' ? 700 : 400 }}>게시판</span>
           </div>
           {/* 구분선 */}
           <div style={{ width: 1, height: 46, background: nv.border, alignSelf: 'center', margin: '0 6px', flexShrink: 0 }} />

@@ -98,10 +98,12 @@ async function main() {
       });
       if (dueSchedules.length === 0) return;
 
-      const allUsers = await prisma.user.findMany({ select: { id: true } });
-      const userIds = allUsers.map((u) => u.id);
-
       for (const schedule of dueSchedules) {
+        const members = await prisma.roomMember.findMany({
+          where: { roomId: schedule.roomId },
+          select: { userId: true },
+        });
+        const userIds = members.map((m) => m.userId);
         await sendPushToUsers(userIds, {
           type: 'schedule',
           title: '📅 일정 알람',

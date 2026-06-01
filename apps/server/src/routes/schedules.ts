@@ -3,6 +3,7 @@ import { z } from 'zod';
 import { prisma } from '../lib/prisma';
 
 const createSchema = z.object({
+  roomId: z.number().int().positive(),
   title: z.string().min(1).max(200),
   description: z.string().max(2000).optional(),
   scheduledAt: z.string().datetime(),
@@ -28,7 +29,18 @@ export async function scheduleRoutes(app: FastifyInstance) {
 
   // 일정 목록 조회
   app.get('/', async (req, reply) => {
+    const { roomId } = req.query as { roomId?: string };
+    if (!roomId || isNaN(Number(roomId))) {
+      return reply.status(400).send({ error: 'roomId가 필요합니다' });
+    }
+    const rid = Number(roomId);
+    const payload = req.user as { sub?: number | string };
+    const userId = Number(payload?.sub);
+    const member = await prisma.roomMember.findUnique({ where: { roomId_userId: { roomId: rid, userId } } });
+    if (!member) return reply.status(403).send({ error: '채팅방 멤버가 아닙니다' });
+
     const schedules = await prisma.schedule.findMany({
+      where: { roomId: rid },
       orderBy: { scheduledAt: 'asc' },
       include: { createdBy: { select: { id: true, username: true } } },
     });
@@ -43,9 +55,15 @@ export async function scheduleRoutes(app: FastifyInstance) {
     const body = createSchema.safeParse(req.body);
     if (!body.success) return reply.status(400).send({ error: '입력값 오류', details: body.error.flatten() });
 
-    const { title, description, scheduledAt, isAllDay } = body.data;
+    const { roomId, title, description, scheduledAt, isAllDay } = body.data;
+
+    // 채팅방 멤버 검증
+    const member = await prisma.roomMember.findUnique({ where: { roomId_userId: { roomId, userId } } });
+    if (!member) return reply.status(403).send({ error: '채팅방 멤버가 아닙니다' });
+
     const schedule = await prisma.schedule.create({
       data: {
+        roomId,
         title: title.trim(),
         description: description?.trim(),
         scheduledAt: new Date(scheduledAt),

@@ -3,6 +3,7 @@ import { z } from 'zod';
 import { prisma } from '../lib/prisma';
 
 const createSchema = z.object({
+  roomId: z.number().int().positive(),
   title: z.string().min(1).max(200),
   content: z.string().min(1).max(10000),
   sourceMessageId: z.number().int().positive().optional(),
@@ -32,10 +33,20 @@ export async function postRoutes(app: FastifyInstance) {
 
   // 게시글 목록 조회
   app.get('/', async (req, reply) => {
-    const { cursor, limit = 20 } = req.query as { cursor?: string; limit?: number };
+    const { cursor, limit = 20, roomId } = req.query as { cursor?: string; limit?: number; roomId?: string };
+    if (!roomId || isNaN(Number(roomId))) {
+      return reply.status(400).send({ error: 'roomId가 필요합니다' });
+    }
+    const rid = Number(roomId);
+    const payload = req.user as { sub?: number | string };
+    const userId = Number(payload?.sub);
+    const member = await prisma.roomMember.findUnique({ where: { roomId_userId: { roomId: rid, userId } } });
+    if (!member) return reply.status(403).send({ error: '채팅방 멤버가 아닙니다' });
+
     const take = Math.min(Number(limit), 50);
 
     const posts = await prisma.post.findMany({
+      where: { roomId: rid },
       take: take + 1,
       ...(cursor ? { skip: 1, cursor: { id: Number(cursor) } } : {}),
       orderBy: { createdAt: 'desc' },
@@ -65,7 +76,11 @@ export async function postRoutes(app: FastifyInstance) {
     const body = createSchema.safeParse(req.body);
     if (!body.success) return reply.status(400).send({ error: '입력값 오류', details: body.error.flatten() });
 
-    const { title, content, sourceMessageId } = body.data;
+    const { roomId, title, content, sourceMessageId } = body.data;
+
+    // 채팅방 멤버 검증
+    const member = await prisma.roomMember.findUnique({ where: { roomId_userId: { roomId, userId } } });
+    if (!member) return reply.status(403).send({ error: '채팅방 멤버가 아닙니다' });
 
     // sourceMessageId 검증
     if (sourceMessageId) {
@@ -75,6 +90,7 @@ export async function postRoutes(app: FastifyInstance) {
 
     const post = await prisma.post.create({
       data: {
+        roomId,
         title: title.trim(),
         content: content.trim(),
         authorId: userId,

@@ -55,8 +55,10 @@ model Room {
   isArchive Boolean      @default(false)
   createdAt DateTime     @default(now())
 
-  members  RoomMember[]
-  messages Message[]
+  members   RoomMember[]
+  messages  Message[]
+  schedules Schedule[]
+  posts     Post[]
 }
 
 // ─────────────────────────────────────────
@@ -129,6 +131,7 @@ model PushSubscription {
 // ─────────────────────────────────────────
 model Schedule {
   id          Int      @id @default(autoincrement())
+  roomId      Int
   title       String   @db.NVarChar(200)
   description String?  @db.NVarChar(Max)
   scheduledAt DateTime
@@ -137,6 +140,7 @@ model Schedule {
   createdById Int
   createdAt   DateTime @default(now())
 
+  room      Room @relation(fields: [roomId], references: [id], onDelete: Cascade)
   createdBy User @relation(fields: [createdById], references: [id], onDelete: Cascade)
 
   @@map("schedules")
@@ -147,6 +151,7 @@ model Schedule {
 // ─────────────────────────────────────────
 model Post {
   id              Int      @id @default(autoincrement())
+  roomId          Int
   title           String   @db.NVarChar(200)
   content         String   @db.NVarChar(Max)
   authorId        Int
@@ -154,6 +159,7 @@ model Post {
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
 
+  room          Room     @relation(fields: [roomId], references: [id], onDelete: Cascade)
   author        User     @relation("AuthoredPosts", fields: [authorId], references: [id], onDelete: Cascade)
   sourceMessage Message? @relation("PostSourceMessage", fields: [sourceMessageId], references: [id], onDelete: NoAction, onUpdate: NoAction)
 
