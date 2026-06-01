@@ -301,10 +301,13 @@ export default function ChatPage() {
   //   /login 으로 이동해버림. capture phase로 먼저 잡고 stopImmediatePropagation으로 차단.
   // 각 상태 진입시 별도 history 항목을 push → 뒤로가기 1회 = 상태 1단계 닫기
   popStateHandlerRef.current = () => {
-    if (viewingImages.length > 0) {
+    if (showMenu) {
+      setShowMenu(false);
+    } else if (viewingImages.length > 0) {
       setViewingImageItems([]);
     } else if (selectedRoom) {
       setSelectedRoom(null);
+      setShowChatList(true);
     } else if (showChatList) {
       setShowChatList(false);
     } else if (activeView !== '') {
@@ -341,6 +344,9 @@ export default function ChatPage() {
   useEffect(() => {
     if (viewingImages.length > 0) history.pushState({ _chat: true }, '', window.location.href);
   }, [viewingImages.length]);
+  useEffect(() => {
+    if (showMenu) history.pushState({ _chat: true }, '', window.location.href);
+  }, [showMenu]);
 
   useEffect(() => {
     setImageZoom(1);
@@ -384,6 +390,7 @@ export default function ChatPage() {
   const [postTitle, setPostTitle] = useState('');
   const [postContent, setPostContent] = useState('');
   const [postDetail, setPostDetail] = useState<Post | null>(null);
+  const [showMenu, setShowMenu] = useState(false);
 
   // 일정 데이터 로드
   useEffect(() => {
@@ -537,7 +544,11 @@ export default function ChatPage() {
         position: 'sticky', top: 0, zIndex: 100, height: HEADER_H,
         background: '#1a76c8', display: 'flex', alignItems: 'center', padding: '0 14px',
       }}>
-        <div style={{ flex: 1 }} />
+        <button
+          onClick={() => setShowMenu(true)}
+          style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#fff', fontSize: 24, padding: '4px 6px', display: 'flex', alignItems: 'center', flexShrink: 0, lineHeight: 1 }}
+          aria-label="메뉴"
+        >☰</button>
         <div style={{
           position: 'absolute', left: '50%', transform: 'translateX(-50%)',
           fontWeight: 900, fontSize: 26, fontStyle: 'italic',
@@ -908,6 +919,53 @@ export default function ChatPage() {
       </div>
 
       {!selectedRoom && !showChatList && <ScrollToTopBtn containerRef={scrollRef} />}
+
+      {/* 햄버거 메뉴 바텀시트 */}
+      {showMenu && (
+        <>
+          <div
+            style={{ position: 'fixed', inset: 0, zIndex: 300, background: 'rgba(0,0,0,0.45)' }}
+            onClick={() => setShowMenu(false)}
+          />
+          <div style={{
+            position: 'fixed', bottom: 0, left: '50%', transform: 'translateX(-50%)',
+            width: '100%', maxWidth: 430, background: '#fff',
+            borderRadius: '16px 16px 0 0', zIndex: 301,
+            boxShadow: '0 -4px 20px rgba(0,0,0,0.18)',
+            paddingBottom: 'env(safe-area-inset-bottom, 20px)',
+          }}>
+            <div style={{ padding: '12px 0 4px', textAlign: 'center' }}>
+              <div style={{ width: 36, height: 4, borderRadius: 2, background: '#ddd', margin: '0 auto' }} />
+            </div>
+            {user?.username && (
+              <div style={{ padding: '10px 20px 10px', borderBottom: '1px solid #f0f0f0' }}>
+                <span style={{ fontSize: 13, color: '#888' }}>안녕하세요, </span>
+                <span style={{ fontSize: 13, fontWeight: 700, color: '#222' }}>{user.username}</span>
+                <span style={{ fontSize: 13, color: '#888' }}>님</span>
+              </div>
+            )}
+            {([
+              { icon: '💬', label: '채팅 목록', action: () => { setSelectedRoom(null); setShowChatList(true); setActiveView(''); setShowMenu(false); } },
+              { icon: '📅', label: '일정', action: () => { setSelectedRoom(null); setShowChatList(false); setActiveView('schedule'); setShowMenu(false); } },
+              { icon: '📝', label: '게시판', action: () => { setSelectedRoom(null); setShowChatList(false); setActiveView('posts'); setShowMenu(false); } },
+            ] as { icon: string; label: string; action: () => void }[]).map(({ icon, label, action }) => (
+              <button key={label} onClick={action} style={{
+                width: '100%', padding: '15px 20px', background: 'none', border: 'none',
+                borderBottom: '1px solid #f5f5f5', cursor: 'pointer',
+                display: 'flex', alignItems: 'center', gap: 14,
+                fontSize: 15, fontWeight: 600, color: '#222', textAlign: 'left',
+              }}>
+                <span style={{ fontSize: 22, width: 28, textAlign: 'center' }}>{icon}</span>
+                {label}
+              </button>
+            ))}
+            <button onClick={() => setShowMenu(false)} style={{
+              width: '100%', padding: '14px 20px', background: 'none', border: 'none',
+              cursor: 'pointer', fontSize: 14, color: '#aaa', textAlign: 'center',
+            }}>닫기</button>
+          </div>
+        </>
+      )}
 
       {/* 이미지 라이트박스 오버레이 — 어떤 상태에서도 렌더럁 되도록 최상단에 배치 */}
       {viewingImages.length > 0 && viewingImage && (
