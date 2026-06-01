@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from 'react';
 import type { RefObject } from 'react';
-import { useRouter, useSearchParams } from 'next/navigation';
+import { useRouter } from 'next/navigation';
 import { useAuthStore } from '@/store/auth';
 import { useChatStore } from '@/store/chat';
 import { usePreferencesStore } from '@/store/preferences';
@@ -236,7 +236,6 @@ function groupImagesByDate(items: RoomImageItem[]) {
 
 export default function ChatPage() {
   const router = useRouter();
-  const searchParams = useSearchParams();
   const clear = useAuthStore((s) => s.clear);
   const accessToken = useAuthStore((s) => s.accessToken);
   const user = useAuthStore((s) => s.user);
@@ -293,9 +292,9 @@ export default function ChatPage() {
   // 푸시 알림 클릭으로 ?view=schedule 진입 시 일정 뷰 자동 오픈
   useEffect(() => {
     if (!hydrated || !accessToken) return;
-    const view = searchParams.get('view');
-    if (view === 'schedule') setActiveView('schedule');
-  }, [hydrated, accessToken, searchParams]);
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('view') === 'schedule') setActiveView('schedule');
+  }, [hydrated, accessToken]);
 
   // ───────── 브라우저 뒤로가기 인터셉트 ─────────
   // 문제 원인: Next.js App Router는 bubble phase에서 popstate를 수신 → history 상태에 따라
