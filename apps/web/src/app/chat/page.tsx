@@ -1119,7 +1119,7 @@ export default function ChatPage() {
       {/* 이미지 라이트박스 오버레이 — 어떤 상태에서도 렌더럁 되도록 최상단에 배치 */}
       {viewingImages.length > 0 && viewingImage && (
         <div
-          onClick={() => setViewingImageItems([])}
+          onClick={() => { if (!showImageGrid) setViewingImageItems([]); }}
           onKeyDown={(e) => {
             if (showImageGrid) {
               if (e.key === 'Escape') setShowImageGrid(false);
@@ -1224,7 +1224,7 @@ export default function ChatPage() {
                         title={`${item.index + 1}번째 이미지`}
                       >
                         {/* eslint-disable-next-line @next/next/no-img-element */}
-                        <img src={item.url} alt="이미지 썸네일" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
+                        <img src={item.url} alt="이미지 썸네일" loading="lazy" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
                         <span style={{
                           position: 'absolute', right: 6, bottom: 6, minWidth: 20, height: 20, borderRadius: 10,
                           background: 'rgba(0,0,0,0.55)', color: '#fff', fontSize: 11,

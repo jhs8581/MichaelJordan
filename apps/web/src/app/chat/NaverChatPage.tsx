@@ -375,7 +375,7 @@ export default function NaverChatPage({ backRef }: { backRef?: MutableRefObject<
   // ── 이미지 라이트박스 ─────────────────────────────────────────────────────────
   const lightbox = viewingImages.length > 0 && viewingImage ? (
     <div
-      onClick={() => { setViewingImageItems([]); setShowImageGrid(false); }}
+      onClick={() => { if (!showImageGrid) { setViewingImageItems([]); setShowImageGrid(false); } }}
       onTouchStart={(e) => {
         if (showImageGrid) return;
         if (e.touches.length >= 2) {
@@ -432,7 +432,7 @@ export default function NaverChatPage({ backRef }: { backRef?: MutableRefObject<
                     title={`${item.index + 1}번째 이미지`}
                   >
                     {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img src={item.url} alt="이미지 썸네일" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
+                    <img src={item.url} alt="이미지 썸네일" loading="lazy" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
                     <span style={{ position: 'absolute', right: 6, bottom: 6, minWidth: 20, height: 20, borderRadius: 10, background: 'rgba(0,0,0,0.55)', color: '#fff', fontSize: 11, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', padding: '0 6px' }}>{item.index + 1}</span>
                   </button>
                 ))}
