@@ -270,6 +270,10 @@ export default function ChatPage() {
   const popStateHandlerRef = useRef<(() => void) | null>(null);
 
   function handleGalleryClick() {
+    setActiveTab('갤러리');
+    setSelectedRoom(null);
+    setShowChatList(false);
+    setRoomView('');
     galleryClickCount.current += 1;
     if (galleryClickTimer.current) clearTimeout(galleryClickTimer.current);
     galleryClickTimer.current = setTimeout(() => { galleryClickCount.current = 0; }, 350);
@@ -390,6 +394,7 @@ export default function ChatPage() {
   const [postContent, setPostContent] = useState('');
   const [postDetail, setPostDetail] = useState<Post | null>(null);
   const [showMenu, setShowMenu] = useState(false);
+  const [activeTab, setActiveTab] = useState<'커뮤니티' | '포럼' | '갤러리' | '인포메이션' | '마켓'>('커뮤니티');
 
   useEffect(() => {
     if (showMenu) history.pushState({ _chat: true }, '', window.location.href);
@@ -537,6 +542,30 @@ export default function ChatPage() {
     { category: '식품', title: '[지마켓]K2 히말라야 숙취해소제 젤리형 10개입(6,900원/무배)', count: 1 },
     { category: '식품', title: '[옥션]1++ 투뿔 한우 골라담기(18,610원~/무배)', count: 1 },
   ];
+  const INFO_POSTS = [
+    { category: '소니', title: 'Sony a7R V 리뷰 — 6100만 화소의 위엄과 한계', count: 45 },
+    { category: '캐논', title: 'EOS R5 Mark II 출시 예정 주요 스펙 유출 정리', count: 32 },
+    { category: '니콘', title: 'Nikon Z8 펌웨어 5.0 업데이트 변경사항 총정리', count: 28 },
+    { category: '후지', title: 'X-T5 vs X-H2S — 2024 스틸/영상 선택 가이드', count: 19 },
+    { category: '렌즈', title: 'Sigma 35mm f/1.4 DG DN Art 실사 테스트', count: 41 },
+    { category: '소니', title: 'a9 III 글로벌셔터 실전 스포츠 촬영 후기', count: 56 },
+    { category: '악세서리', title: 'L-마운트 어댑터 총정리 2024 최신판', count: 14 },
+  ];
+  const MARKET_BUY = [
+    { title: 'Sony FE 85mm f/1.4 GM 판매합니다 (민트급)', price: '950,000원', tag: '판매' },
+    { title: 'Nikon Z 24-70mm f/2.8 S 팝니다 상태 최상', price: '1,250,000원', tag: '판매' },
+    { title: '[구매] 캐논 RF 50mm f/1.2L 구합니다', price: '협의', tag: '구매' },
+    { title: '소니 a7 IV 바디 판매 — 셔터 3천컷', price: '2,300,000원', tag: '판매' },
+    { title: '[판매] Godox V1 소니용 플래시 박스 있음', price: '180,000원', tag: '판매' },
+  ];
+  const GALLERY_ITEMS = [
+    { label: 'Sony a7R V', color: '#2a2a3a', emoji: '📷' },
+    { label: 'Canon EOS R5', color: '#3a2a2a', emoji: '🎞️' },
+    { label: 'Nikon Z8', color: '#2a3a2a', emoji: '🔭' },
+    { label: 'Fuji X-T5', color: '#3a3a2a', emoji: '🌅' },
+    { label: 'Sony a9 III', color: '#2a2a4a', emoji: '🏆' },
+    { label: 'Leica M11', color: '#3a2a3a', emoji: '🎨' },
+  ];
 
   const HEADER_H = 48;
   const NAV_H    = 80;
@@ -581,29 +610,37 @@ export default function ChatPage() {
         position: 'sticky', top: HEADER_H, zIndex: 99,
         background: '#fff', borderBottom: '1px solid #e0e0e0',
       }}>
-        <div style={{ display: 'flex' }}>
+        <div style={{ display: 'flex', overflowX: 'auto', scrollbarWidth: 'none' }}>
           {([
-            { icon: <IconCommunity />, label: '커뮤니티', home: true },
-            { icon: <IconForum />,     label: '포럼', home: true },
-            { icon: <IconGallery />,   label: '갤러리', gallery: true },
-          ] as { icon: React.ReactNode; label: string; home?: boolean; gallery?: boolean }[]).map(({ icon, label, home, gallery }) => (
-            <button key={label}
-              onClick={
-                gallery ? handleGalleryClick
-                : home ? () => { setSelectedRoom(null); setShowChatList(false); setRoomView(''); }
-                : undefined
-              }
-              style={{
-                flex: 1, display: 'flex', flexDirection: 'column',
-                alignItems: 'center', justifyContent: 'center',
-                padding: '10px 0 8px', background: 'none', border: 'none',
-                cursor: 'pointer', fontSize: 10.5,
-                color: '#444', gap: 4,
-              }}>
-              {icon}
-              <span>{label}</span>
-            </button>
-          ))}
+            { icon: <IconCommunity />, label: '커뮤니티' },
+            { icon: <IconForum />,     label: '포럼' },
+            { icon: <IconGallery />,   label: '갤러리' },
+            { icon: <IconInfo />,      label: '인포메이션' },
+            { icon: <IconCart />,      label: '마켓' },
+          ] as { icon: React.ReactNode; label: string }[]).map(({ icon, label }) => {
+            const isActive = activeTab === label && !selectedRoom && !showChatList;
+            return (
+              <button key={label}
+                onClick={label === '갤러리' ? handleGalleryClick : () => {
+                  setActiveTab(label as typeof activeTab);
+                  setSelectedRoom(null);
+                  setShowChatList(false);
+                  setRoomView('');
+                }}
+                style={{
+                  flex: '0 0 20%', minWidth: 72, display: 'flex', flexDirection: 'column',
+                  alignItems: 'center', justifyContent: 'center',
+                  padding: '10px 0 8px', background: 'none', border: 'none',
+                  borderBottom: isActive ? '2.5px solid #1a76c8' : '2.5px solid transparent',
+                  marginBottom: -1,
+                  cursor: 'pointer', fontSize: 10.5,
+                  color: isActive ? '#1a76c8' : '#444', gap: 4,
+                }}>
+                {icon}
+                <span style={{ fontWeight: isActive ? 700 : 400 }}>{label}</span>
+              </button>
+            );
+          })}
         </div>
       </nav>
 
@@ -898,6 +935,90 @@ export default function ChatPage() {
             </button>
           </div>
 
+        ) : activeTab === '인포메이션' ? (
+          <>
+            <div style={{ background: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '8px 0', borderBottom: '1px solid #e8e8e8' }}>
+              <div style={{ width: '92%', height: 72, background: '#f0f0f0', display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: 3, color: '#bbb', fontSize: 13, letterSpacing: 1 }}>AD</div>
+            </div>
+            <div style={{ background: '#fff' }}>
+              <SectionHeader title='최신 정보 & 리뷰' />
+              {INFO_POSTS.map((p, i) => (
+                <PostRow key={i} category={p.category} title={p.title} count={p.count} />
+              ))}
+            </div>
+            <SectionGap />
+            <div style={{ background: '#fff' }}>
+              <SectionHeader title='카메라 스펙 비교' />
+              {[
+                { category: '소니 vs 캐논', title: 'a7C II vs EOS R8 — 보급형 풀프레임 완전 비교', count: 62 },
+                { category: '니콘 vs 후지', title: 'Z5 II vs X-S20 — 입문자 추천 2024', count: 44 },
+                { category: '렌즈 가이드', title: '소니 FE 50mm 삼파전 — f/1.2 vs f/1.4 vs f/1.8', count: 38 },
+              ].map((p, i) => (
+                <PostRow key={i} category={p.category} title={p.title} count={p.count} />
+              ))}
+            </div>
+            <SectionGap />
+          </>
+        ) : activeTab === '마켓' ? (
+          <>
+            <div style={{ background: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '8px 0', borderBottom: '1px solid #e8e8e8' }}>
+              <div style={{ width: '92%', height: 72, background: '#f0f0f0', display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: 3, color: '#bbb', fontSize: 13, letterSpacing: 1 }}>AD</div>
+            </div>
+            <div style={{ background: '#fff', padding: '4px 0' }}>
+              <SectionHeader title='중고 장터' />
+              {MARKET_BUY.map((item, i) => (
+                <div key={i} style={{ display: 'flex', alignItems: 'center', padding: '11px 14px', borderBottom: '1px solid #efefef', gap: 10, cursor: 'pointer' }}>
+                  <span style={{
+                    fontSize: 10, fontWeight: 700, padding: '2px 6px', borderRadius: 4, flexShrink: 0,
+                    background: item.tag === '판매' ? '#e8f4ff' : '#fff3e0',
+                    color: item.tag === '판매' ? '#1a76c8' : '#e67e22',
+                  }}>{item.tag}</span>
+                  <span style={{ flex: 1, fontSize: 13.5, color: '#222', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{item.title}</span>
+                  <span style={{ fontSize: 12, color: '#e74c3c', fontWeight: 700, flexShrink: 0 }}>{item.price}</span>
+                </div>
+              ))}
+            </div>
+            <SectionGap />
+            <div style={{ background: '#fff' }}>
+              <SectionHeader title='공동구매 / 핫딜' />
+              {MARKET_POSTS.map((p, i) => (
+                <PostRow key={i} category={p.category} title={p.title} count={p.count} />
+              ))}
+            </div>
+            <SectionGap />
+          </>
+        ) : activeTab === '갤러리' ? (
+          <>
+            <div style={{ background: '#fff', borderBottom: '1px solid #e8e8e8', padding: '9px 14px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+              <span style={{ fontSize: 13, fontWeight: 700, color: '#111' }}>전체 갤러리</span>
+              <span style={{ fontSize: 11, color: '#aaa' }}>더보기 →</span>
+            </div>
+            <div style={{ background: '#f0f0f0', padding: '10px', display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 8 }}>
+              {GALLERY_ITEMS.map((item, i) => (
+                <div key={i} style={{
+                  background: item.color, borderRadius: 6, aspectRatio: '4/3',
+                  display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 6,
+                  cursor: 'pointer', overflow: 'hidden', position: 'relative',
+                }}>
+                  <span style={{ fontSize: 32 }}>{item.emoji}</span>
+                  <span style={{ fontSize: 11, color: 'rgba(255,255,255,0.8)', fontWeight: 600 }}>{item.label}</span>
+                </div>
+              ))}
+            </div>
+            <SectionGap />
+            <div style={{ background: '#fff' }}>
+              <SectionHeader title='최신 갤러리 포스트' />
+              {[
+                { category: '소니갤러리', title: 'ZV-E1 + 35.4GM 점수용', count: 12 },
+                { category: '니콘갤러리', title: 'Z6III 야경 테스트 — 명동', count: 8 },
+                { category: '캐논갤러리', title: 'R6m2 인물 스냅 봄 나들이', count: 23 },
+                { category: '후지갤러리', title: 'X100VI 필름 시뮬레이션 비교 18종', count: 31 },
+              ].map((p, i) => (
+                <PostRow key={i} category={p.category} title={p.title} count={p.count} />
+              ))}
+            </div>
+            <SectionGap />
+          </>
         ) : (
           <>
             <div style={{ background: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '8px 0', borderBottom: '1px solid #e8e8e8' }}>
