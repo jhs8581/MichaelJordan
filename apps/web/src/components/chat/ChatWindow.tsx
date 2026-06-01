@@ -819,11 +819,20 @@ export function ChatWindow({ roomId, onLeave, onImageView, naverTheme, naverDark
     }
     setEditSaving(true);
     try {
-      const res = await api.patch<{ data: { roomId: number; messageId: number; content: string } }>(
-        `/messages/${targetMessage.id}`,
-        { content: nextContent }
-      );
-      updateMessage(res.data.data.roomId, res.data.data.messageId, res.data.data.content);
+      const socket = getSocket();
+      const result = await new Promise<{ ok: boolean; error?: string; data?: { roomId: number; messageId: number; content: string } }>((resolve, reject) => {
+        const timeout = setTimeout(() => reject(new Error('Message edit timed out')), 10000);
+        socket.emit('message:edit', { messageId: targetMessage.id, content: nextContent }, (res: { ok: boolean; error?: string; data?: { roomId: number; messageId: number; content: string } }) => {
+          clearTimeout(timeout);
+          resolve(res);
+        });
+      });
+      if (!result.ok) {
+        throw new Error(result.error ?? 'edit failed');
+      }
+      if (result.data) {
+        updateMessage(result.data.roomId, result.data.messageId, result.data.content);
+      }
       handleCancelEditMessage();
     } catch (error) {
       console.error('Failed to save edited message', error);
