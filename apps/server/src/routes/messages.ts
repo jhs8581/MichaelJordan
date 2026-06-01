@@ -271,7 +271,7 @@ export async function messageRoutes(app: FastifyInstance) {
     });
 
     const urlRegex = /https?:\/\/[^\s<]+/g;
-    const links: Array<{ url: string; messageId: number; sender: { id: number; username: string } | null; createdAt: string }> = [];
+    const links: Array<{ url: string; messageId: number; sender: { id: number; username: string } | null; createdAt: Date }> = [];
 
     for (const msg of msgs) {
       if (!msg.content) continue;
