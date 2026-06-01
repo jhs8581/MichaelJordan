@@ -85,7 +85,10 @@ export interface ServerToClientEvents {
 
 export interface ClientToServerEvents {
   'message:send': (payload: { roomId: number; content: string; fileUrl?: string; replyToId?: number; senderTimeZone?: string; senderLocalTime?: string }) => void;
-  'message:edit': (payload: { messageId: number; content: string }) => void;
+  'message:edit': (
+    payload: { messageId: number; content: string },
+    ack?: (result: { success: boolean; roomId?: number; messageId?: number; content?: string; error?: string }) => void,
+  ) => void;
   'message:read': (payload: { roomId: number; messageId: number }) => void;
   'message:delete': (payload: { messageId: number }) => void;
   'room:join': (roomId: number) => void;

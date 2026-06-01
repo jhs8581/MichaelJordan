@@ -806,16 +806,35 @@ export function ChatWindow({ roomId, onLeave, onImageView, naverTheme, naverDark
     setEditContent('');
   }
 
-  function handleSubmitEditMessage() {
+  async function handleSubmitEditMessage() {
     if (!editingMessage) return;
     const nextContent = editContent.trim();
     if (!nextContent || nextContent === (editingMessage.content ?? '')) {
       handleCancelEditMessage();
       return;
     }
-    updateMessage(editingMessage.roomId, editingMessage.id, nextContent); // 낙관적 업데이트
+    const targetRoomId = editingMessage.roomId;
+    const targetMessageId = editingMessage.id;
     const socket = getSocket();
-    socket.emit('message:edit', { messageId: editingMessage.id, content: nextContent });
+    const result = await new Promise<{ success: boolean; roomId?: number; messageId?: number; content?: string }>((resolve) => {
+      let finished = false;
+      const timeout = setTimeout(() => {
+        if (finished) return;
+        finished = true;
+        resolve({ success: false });
+      }, 4000);
+      socket.emit('message:edit', { messageId: targetMessageId, content: nextContent }, (ack) => {
+        if (finished) return;
+        finished = true;
+        clearTimeout(timeout);
+        resolve(ack);
+      });
+    });
+    if (result.success && result.roomId && result.messageId && typeof result.content === 'string') {
+      updateMessage(result.roomId, result.messageId, result.content);
+    } else {
+      await handleRefresh();
+    }
     handleCancelEditMessage();
   }
 

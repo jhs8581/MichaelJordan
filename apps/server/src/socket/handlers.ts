@@ -275,21 +275,33 @@ export function registerSocketHandlers(io: ChatServer) {
     });
 
     // ── 메시지 삭제 ───────────────────────────────────────────────
-    socket.on('message:edit', async ({ messageId, content }) => {
+    socket.on('message:edit', async ({ messageId, content }, ack) => {
       const sanitizedContent = content.trim();
-      if (!sanitizedContent) return;
+      if (!sanitizedContent) {
+        ack?.({ success: false, error: '메시지 내용이 비어 있습니다.' });
+        return;
+      }
 
       const message = await prisma.message.findUnique({
         where: { id: messageId },
         select: { id: true, roomId: true, senderId: true },
       });
-      if (!message) return;
-      if (message.senderId !== userId) return;
+      if (!message) {
+        ack?.({ success: false, error: '메시지를 찾을 수 없습니다.' });
+        return;
+      }
+      if (message.senderId !== userId) {
+        ack?.({ success: false, error: '수정 권한이 없습니다.' });
+        return;
+      }
 
       const member = await prisma.roomMember.findUnique({
         where: { userId_roomId: { userId, roomId: message.roomId } },
       });
-      if (!member) return;
+      if (!member) {
+        ack?.({ success: false, error: '채팅방 멤버가 아닙니다.' });
+        return;
+      }
 
       await prisma.message.update({
         where: { id: messageId },
@@ -301,6 +313,7 @@ export function registerSocketHandlers(io: ChatServer) {
         messageId,
         content: sanitizedContent,
       });
+      ack?.({ success: true, roomId: message.roomId, messageId, content: sanitizedContent });
     });
 
     // ── 메시지 삭제 ───────────────────────────────────────────────
