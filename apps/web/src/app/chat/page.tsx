@@ -10,7 +10,36 @@ import { api } from '@/lib/api';
 import { ChatWindow } from '@/components/chat/ChatWindow';
 import { CreateRoomModal } from '@/components/chat/RoomList';
 import NaverChatPage from './NaverChatPage';
-import type { Room, Schedule, Post } from '@chat/types';
+import type { Room } from '@chat/types';
+
+type Schedule = {
+  id: number;
+  title: string;
+  description?: string | null;
+  scheduledAt: string;
+  isAllDay: boolean;
+  notified: boolean;
+  createdById: number;
+  createdAt: string;
+  createdBy: { id: number; username: string };
+};
+
+type Post = {
+  id: number;
+  title: string;
+  content: string;
+  authorId: number;
+  sourceMessageId?: number | null;
+  createdAt: string;
+  updatedAt: string;
+  author: { id: number; username: string; avatarUrl?: string };
+  sourceMessage?: {
+    id: number;
+    content: string;
+    createdAt: string;
+    sender?: { id: number; username: string } | null;
+  } | null;
+};
 
 type RoomImageItem = {
   url: string;
