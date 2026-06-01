@@ -813,6 +813,7 @@ export function ChatWindow({ roomId, onLeave, onImageView, naverTheme, naverDark
       handleCancelEditMessage();
       return;
     }
+    updateMessage(editingMessage.roomId, editingMessage.id, nextContent); // 낙관적 업데이트
     const socket = getSocket();
     socket.emit('message:edit', { messageId: editingMessage.id, content: nextContent });
     handleCancelEditMessage();
@@ -1624,7 +1625,7 @@ export function ChatWindow({ roomId, onLeave, onImageView, naverTheme, naverDark
               type="button"
               onClick={() => handleReplyMessage(contextMenu)}
               className="w-full flex items-center gap-3 rounded-xl px-4 py-3 mb-2"
-              style={{ background: '#2b2d31', color: 'var(--text-primary)' }}
+              style={{ background: isNaverLight ? '#f5f6f8' : '#2b2d31', color: 'var(--text-primary)' }}
             >
               <span style={{ fontSize: 18 }}>↩️</span>
               <span className="text-sm font-medium">답장</span>
@@ -1634,7 +1635,7 @@ export function ChatWindow({ roomId, onLeave, onImageView, naverTheme, naverDark
                 type="button"
                 onClick={() => handleCopyMessage(contextMenu)}
                 className="w-full flex items-center gap-3 rounded-xl px-4 py-3 mb-2"
-                style={{ background: '#2b2d31', color: 'var(--text-primary)' }}
+                style={{ background: isNaverLight ? '#f5f6f8' : '#2b2d31', color: 'var(--text-primary)' }}
               >
                 <span style={{ fontSize: 18 }}>📋</span>
                 <span className="text-sm font-medium">전체 복사</span>
@@ -1645,7 +1646,7 @@ export function ChatWindow({ roomId, onLeave, onImageView, naverTheme, naverDark
                 type="button"
                 onClick={() => openPartialCopyPopup(contextMenu)}
                 className="w-full flex items-center gap-3 rounded-xl px-4 py-3 mb-2"
-                style={{ background: '#2b2d31', color: 'var(--text-primary)' }}
+                style={{ background: isNaverLight ? '#f5f6f8' : '#2b2d31', color: 'var(--text-primary)' }}
               >
                 <span style={{ fontSize: 18 }}>✂️</span>
                 <span className="text-sm font-medium">선택 부분 복사</span>
@@ -1655,7 +1656,7 @@ export function ChatWindow({ roomId, onLeave, onImageView, naverTheme, naverDark
               type="button"
               onClick={() => handleSaveToArchive(contextMenu)}
               className="w-full flex items-center gap-3 rounded-xl px-4 py-3 mb-2"
-              style={{ background: '#2b2d31', color: 'var(--text-primary)' }}
+              style={{ background: isNaverLight ? '#f5f6f8' : '#2b2d31', color: 'var(--text-primary)' }}
             >
               <span style={{ fontSize: 18 }}>🔖</span>
               <span className="text-sm font-medium">보관함에 저장</span>
@@ -1665,7 +1666,7 @@ export function ChatWindow({ roomId, onLeave, onImageView, naverTheme, naverDark
                 type="button"
                 onClick={() => handleStartEditMessage(contextMenu)}
                 className="w-full flex items-center gap-3 rounded-xl px-4 py-3 mb-2"
-                style={{ background: '#2b2d31', color: 'var(--text-primary)' }}
+                style={{ background: isNaverLight ? '#f5f6f8' : '#2b2d31', color: 'var(--text-primary)' }}
               >
                 <span style={{ fontSize: 18 }}>✏️</span>
                 <span className="text-sm font-medium">수정</span>
@@ -1686,7 +1687,7 @@ export function ChatWindow({ roomId, onLeave, onImageView, naverTheme, naverDark
               type="button"
               onClick={() => setContextMenu(null)}
               className="w-full rounded-xl px-4 py-2.5 text-sm"
-              style={{ background: '#2b2d31', color: 'var(--text-muted)' }}
+              style={{ background: isNaverLight ? '#f5f6f8' : '#2b2d31', color: 'var(--text-muted)' }}
             >
               취소
             </button>
@@ -1704,7 +1705,7 @@ export function ChatWindow({ roomId, onLeave, onImageView, naverTheme, naverDark
         >
           <div
             className="w-full max-w-sm rounded-t-2xl border p-4"
-            style={{ background: '#17191d', borderColor: '#3a3f4a' }}
+            style={{ background: isNaverLight ? '#ffffff' : '#17191d', borderColor: isNaverLight ? '#e8e8e8' : '#3a3f4a' }}
             onClick={(e) => e.stopPropagation()}
           >
             <div className="mb-3">
