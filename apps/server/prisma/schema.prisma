@@ -28,6 +28,8 @@ model User {
   sentMessages      Message[]           @relation("SentMessages")
   messageReads      MessageRead[]
   pushSubscriptions PushSubscription[]
+  createdSchedules  Schedule[]
+  posts             Post[]              @relation("AuthoredPosts")
 }
 
 // ─────────────────────────────────────────
@@ -91,6 +93,7 @@ model Message {
   replyTo Message?     @relation("MessageReplies", fields: [replyToId], references: [id], onDelete: NoAction, onUpdate: NoAction)
   replies Message[]    @relation("MessageReplies")
   reads  MessageRead[]
+  posts  Post[]        @relation("PostSourceMessage")
 }
 
 // ─────────────────────────────────────────
@@ -119,4 +122,40 @@ model PushSubscription {
   createdAt DateTime @default(now())
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+// ─────────────────────────────────────────
+// 일정
+// ─────────────────────────────────────────
+model Schedule {
+  id          Int      @id @default(autoincrement())
+  title       String   @db.NVarChar(200)
+  description String?  @db.NVarChar(Max)
+  scheduledAt DateTime
+  isAllDay    Boolean  @default(false)
+  notified    Boolean  @default(false)
+  createdById Int
+  createdAt   DateTime @default(now())
+
+  createdBy User @relation(fields: [createdById], references: [id], onDelete: Cascade)
+
+  @@map("schedules")
+}
+
+// ─────────────────────────────────────────
+// 게시글
+// ─────────────────────────────────────────
+model Post {
+  id              Int      @id @default(autoincrement())
+  title           String   @db.NVarChar(200)
+  content         String   @db.NVarChar(Max)
+  authorId        Int
+  sourceMessageId Int?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  author        User     @relation("AuthoredPosts", fields: [authorId], references: [id], onDelete: Cascade)
+  sourceMessage Message? @relation("PostSourceMessage", fields: [sourceMessageId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+
+  @@map("posts")
 }

@@ -71,6 +71,41 @@ export interface MessageRead {
 }
 
 // ──────────────────────────────────────────────
+// 일정
+// ──────────────────────────────────────────────
+export interface Schedule {
+  id: number;
+  title: string;
+  description?: string | null;
+  scheduledAt: string;
+  isAllDay: boolean;
+  notified: boolean;
+  createdById: number;
+  createdAt: string;
+  createdBy: Pick<User, 'id' | 'username'>;
+}
+
+// ──────────────────────────────────────────────
+// 게시글
+// ──────────────────────────────────────────────
+export interface Post {
+  id: number;
+  title: string;
+  content: string;
+  authorId: number;
+  sourceMessageId?: number | null;
+  createdAt: string;
+  updatedAt: string;
+  author: Pick<User, 'id' | 'username' | 'avatarUrl'>;
+  sourceMessage?: {
+    id: number;
+    content: string;
+    createdAt: string;
+    sender?: Pick<User, 'id' | 'username'> | null;
+  } | null;
+}
+
+// ──────────────────────────────────────────────
 // Socket.io 이벤트 페이로드
 // ──────────────────────────────────────────────
 export interface ServerToClientEvents {
