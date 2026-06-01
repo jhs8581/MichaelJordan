@@ -1935,7 +1935,9 @@ export function ChatWindow({ roomId, onLeave, onImageView, naverTheme, naverDark
           roomId={roomId}
           onClose={() => setRoomInfoOpen(false)}
           onImageClick={onImageView ? (url, all) => {
-            setRoomInfoOpen(false);
+            // 패널을 먼저 닫으면 cleanup의 history.back()이 popstate를 발생시켜
+            // 방금 열린 lightbox를 즉시 닫아버리는 버그가 있음.
+            // lightbox(zIndex:9999)가 패널(zIndex:25) 위를 완전히 덮으므로 패널은 그대로 둠.
             onImageView(url, all);
           } : undefined}
         />
