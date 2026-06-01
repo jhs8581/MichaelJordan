@@ -402,7 +402,8 @@ export default function ChatPage() {
         .catch(() => {})
         .finally(() => setSchedLoading(false));
     }
-  }, [activeView, accessToken, schedules.length, schedLoading]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeView, accessToken, schedules.length]);
 
   // 게시글 데이터 로드
   useEffect(() => {
@@ -413,7 +414,8 @@ export default function ChatPage() {
         .catch(() => {})
         .finally(() => setPostsLoading(false));
     }
-  }, [activeView, accessToken, posts.length, postsLoading]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeView, accessToken, posts.length]);
 
   function openScheduleForm(edit?: Schedule) {
     setSchedEditTarget(edit ?? null);
