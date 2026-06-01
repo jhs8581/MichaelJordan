@@ -930,10 +930,14 @@ export function ChatWindow({ roomId, onLeave, onImageView, naverTheme, naverDark
     const merged = new Map<string, RoomImageItem>();
     loadedImages.forEach((item) => merged.set(item.url, item));
     let cursor = nextCursor;
-    while (cursor) {
-      const res = await api.get<{ data: { messages: Message[]; nextCursor: number | null } }>(`/messages/${roomId}?cursor=${cursor}`);
-      getImageItemsFromMessages(res.data.data.messages).forEach((item) => merged.set(item.url, item));
-      cursor = res.data.data.nextCursor;
+    try {
+      while (cursor) {
+        const res = await api.get<{ data: { messages: Message[]; nextCursor: number | null } }>(`/messages/${roomId}?cursor=${cursor}`);
+        getImageItemsFromMessages(res.data.data.messages).forEach((item) => merged.set(item.url, item));
+        cursor = res.data.data.nextCursor;
+      }
+    } catch {
+      // 페이지네이션 실패 시 지금까지 로드된 이미지 사용 (로드 안됨 버그 방지)
     }
 
     const images = Array.from(merged);

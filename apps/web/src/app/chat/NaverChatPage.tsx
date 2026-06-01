@@ -71,6 +71,26 @@ function todayStr(): string {
   return `${d.getMonth() + 1}월 ${d.getDate()}일 ${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
 }
 
+function getImageDateLabel(createdAt?: string): string {
+  if (!createdAt) return '날짜 없음';
+  const date = new Date(createdAt);
+  if (Number.isNaN(date.getTime())) return '날짜 없음';
+  return date.toLocaleDateString('ko-KR', { year: 'numeric', month: 'long', day: 'numeric' });
+}
+function groupImagesByDate(items: RoomImageItem[]) {
+  const groups: { label: string; items: Array<RoomImageItem & { index: number }> }[] = [];
+  items.forEach((item, index) => {
+    const label = getImageDateLabel(item.createdAt);
+    const lastGroup = groups[groups.length - 1];
+    if (lastGroup?.label === label) {
+      lastGroup.items.push({ ...item, index });
+    } else {
+      groups.push({ label, items: [{ ...item, index }] });
+    }
+  });
+  return groups;
+}
+
 // ── 아이콘 ────────────────────────────────────────────────────────────────────
 function IconHamburger() {
   return <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>;
@@ -162,6 +182,7 @@ export default function NaverChatPage({ backRef }: { backRef?: MutableRefObject<
   const [viewingImageIdx, setViewingImageIdx] = useState(0);
   const [imageZoom, setImageZoom] = useState(1);
   const [imagePan, setImagePan] = useState({ x: 0, y: 0 });
+  const [showImageGrid, setShowImageGrid] = useState(false);
   const touchStartX = useRef<number | null>(null);
   const imageDragStart = useRef<{ x: number; y: number; panX: number; panY: number } | null>(null);
   const pinchStart = useRef<{ distance: number; zoom: number } | null>(null);
@@ -191,12 +212,13 @@ export default function NaverChatPage({ backRef }: { backRef?: MutableRefObject<
 
   const viewingImages = useMemo(() => viewingImageItems.map((i) => i.url), [viewingImageItems]);
   const viewingImage = viewingImages[viewingImageIdx] ?? null;
+  const imageDateGroups = useMemo(() => groupImagesByDate(viewingImageItems), [viewingImageItems]);
   const totalUnread = useMemo(() =>
     rooms.reduce((acc, r) => acc + (!r.isMuted ? (r.unreadCount ?? 0) : 0), 0), [rooms]);
 
   // backRef 업데이트 — 렌더마다 갱신해서 최신 클로저 유지 (stale closure 방지)
   if (backRef) backRef.current = () => {
-    if (viewingImages.length > 0) { setViewingImageItems([]); return; }
+    if (showImageGrid || viewingImages.length > 0) { setViewingImageItems([]); setShowImageGrid(false); return; }
     if (roomView !== '') { setRoomView(''); return; }
     if (view === 'chat') { setView('rooms'); return; }
     if (view === 'rooms') { setView('home'); return; }
@@ -353,8 +375,9 @@ export default function NaverChatPage({ backRef }: { backRef?: MutableRefObject<
   // ── 이미지 라이트박스 ─────────────────────────────────────────────────────────
   const lightbox = viewingImages.length > 0 && viewingImage ? (
     <div
-      onClick={() => setViewingImageItems([])}
+      onClick={() => { setViewingImageItems([]); setShowImageGrid(false); }}
       onTouchStart={(e) => {
+        if (showImageGrid) return;
         if (e.touches.length >= 2) {
           pinchStart.current = { distance: getTouchDistance(e.touches), zoom: imageZoom };
           pinchMoved.current = false; touchStartX.current = null; return;
@@ -362,7 +385,7 @@ export default function NaverChatPage({ backRef }: { backRef?: MutableRefObject<
         touchStartX.current = e.touches[0].clientX;
       }}
       onTouchMove={(e) => {
-        if (!pinchStart.current || e.touches.length < 2) return;
+        if (showImageGrid || !pinchStart.current || e.touches.length < 2) return;
         e.preventDefault();
         const d = getTouchDistance(e.touches);
         if (pinchStart.current.distance <= 0 || d <= 0) return;
@@ -371,6 +394,7 @@ export default function NaverChatPage({ backRef }: { backRef?: MutableRefObject<
         if (nz === 1) setImagePan({ x: 0, y: 0 });
       }}
       onTouchEnd={(e) => {
+        if (showImageGrid) return;
         if (pinchStart.current) {
           if (e.touches.length >= 2) return;
           pinchStart.current = null;
@@ -384,21 +408,59 @@ export default function NaverChatPage({ backRef }: { backRef?: MutableRefObject<
         else setViewingImageIdx((i) => Math.max(0, i - 1));
       }}
       tabIndex={0}
-      style={{ position: 'fixed', inset: 0, zIndex: 9999, background: '#000', display: 'flex', alignItems: 'center', justifyContent: 'center', outline: 'none', touchAction: 'none' }}
+      style={{ position: 'fixed', inset: 0, zIndex: 9999, background: '#000', display: 'flex', alignItems: 'center', justifyContent: 'center', outline: 'none', touchAction: showImageGrid ? 'auto' : 'none' }}
     >
-      {/* eslint-disable-next-line @next/next/no-img-element */}
-      <img src={viewingImage} alt="이미지" onClick={(e) => e.stopPropagation()}
-        onDoubleClick={(e) => { e.stopPropagation(); setImageZoom((z) => z > 1 ? 1 : 2); setImagePan({ x: 0, y: 0 }); }}
-        onPointerDown={(e) => { if (imageZoom <= 1) return; e.stopPropagation(); e.currentTarget.setPointerCapture(e.pointerId); imageDragStart.current = { x: e.clientX, y: e.clientY, panX: imagePan.x, panY: imagePan.y }; }}
-        onPointerMove={(e) => { if (!imageDragStart.current) return; e.stopPropagation(); const s = imageDragStart.current; setImagePan({ x: s.panX + e.clientX - s.x, y: s.panY + e.clientY - s.y }); }}
-        onPointerUp={(e) => { e.stopPropagation(); imageDragStart.current = null; }}
-        onPointerCancel={() => { imageDragStart.current = null; }}
-        style={{ maxWidth: '95vw', maxHeight: '78vh', borderRadius: 8, objectFit: 'contain', userSelect: 'none', cursor: imageZoom > 1 ? 'grab' : 'zoom-in', transform: `translate(${imagePan.x}px, ${imagePan.y}px) scale(${imageZoom})`, transition: imageDragStart.current ? 'none' : 'transform 120ms ease' }}
-      />
-      <button onClick={(e) => { e.stopPropagation(); setViewingImageItems([]); }} style={{ position: 'absolute', top: 16, right: 16, background: 'rgba(255,255,255,0.15)', border: 'none', borderRadius: '50%', width: 36, height: 36, color: '#fff', fontSize: 20, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>✕</button>
-      {viewingImageIdx > 0 && <button onClick={(e) => { e.stopPropagation(); setViewingImageIdx((i) => i - 1); }} style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', background: 'rgba(255,255,255,0.15)', border: 'none', borderRadius: '50%', width: 44, height: 44, color: '#fff', fontSize: 22, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>‹</button>}
-      {viewingImageIdx < viewingImages.length - 1 && <button onClick={(e) => { e.stopPropagation(); setViewingImageIdx((i) => i + 1); }} style={{ position: 'absolute', right: 12, top: '50%', transform: 'translateY(-50%)', background: 'rgba(255,255,255,0.15)', border: 'none', borderRadius: '50%', width: 44, height: 44, color: '#fff', fontSize: 22, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>›</button>}
-      <div style={{ position: 'absolute', bottom: 16, left: '50%', transform: 'translateX(-50%)', color: 'rgba(255,255,255,0.7)', fontSize: 13 }}>{viewingImageIdx + 1} / {viewingImages.length}</div>
+      {showImageGrid ? (
+        <div
+          onClick={(e) => e.stopPropagation()}
+          style={{ position: 'absolute', inset: '60px 10px 20px', overflowY: 'auto', padding: '2px 6px 20px' }}
+        >
+          {imageDateGroups.map((group) => (
+            <section key={group.label} style={{ marginBottom: 22 }}>
+              <div style={{ position: 'sticky', top: 0, zIndex: 1, display: 'flex', alignItems: 'center', gap: 10, padding: '8px 2px 10px', background: '#000' }}>
+                <span style={{ color: '#fff', fontSize: 13, fontWeight: 800 }}>{group.label}</span>
+                <span style={{ color: 'rgba(255,255,255,0.55)', fontSize: 11 }}>{group.items.length}장</span>
+                <span style={{ height: 1, flex: 1, background: 'rgba(255,255,255,0.16)' }} />
+              </div>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: 12, alignContent: 'start' }}>
+                {group.items.map((item) => (
+                  <button
+                    key={`${item.url}-${item.index}`}
+                    type="button"
+                    onClick={(e) => { e.stopPropagation(); setViewingImageIdx(item.index); setShowImageGrid(false); setImageZoom(1); setImagePan({ x: 0, y: 0 }); }}
+                    style={{ aspectRatio: '1 / 1', borderRadius: 12, padding: 0, overflow: 'hidden', border: item.index === viewingImageIdx ? '3px solid #fff' : '1px solid rgba(255,255,255,0.22)', background: 'rgba(255,255,255,0.08)', cursor: 'pointer', position: 'relative', boxShadow: '0 4px 14px rgba(0,0,0,0.24)' }}
+                    title={`${item.index + 1}번째 이미지`}
+                  >
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img src={item.url} alt="이미지 썸네일" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
+                    <span style={{ position: 'absolute', right: 6, bottom: 6, minWidth: 20, height: 20, borderRadius: 10, background: 'rgba(0,0,0,0.55)', color: '#fff', fontSize: 11, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', padding: '0 6px' }}>{item.index + 1}</span>
+                  </button>
+                ))}
+              </div>
+            </section>
+          ))}
+        </div>
+      ) : (
+        /* eslint-disable-next-line @next/next/no-img-element */
+        <img src={viewingImage} alt="이미지" onClick={(e) => e.stopPropagation()}
+          onDoubleClick={(e) => { e.stopPropagation(); setImageZoom((z) => z > 1 ? 1 : 2); setImagePan({ x: 0, y: 0 }); }}
+          onPointerDown={(e) => { if (imageZoom <= 1) return; e.stopPropagation(); e.currentTarget.setPointerCapture(e.pointerId); imageDragStart.current = { x: e.clientX, y: e.clientY, panX: imagePan.x, panY: imagePan.y }; }}
+          onPointerMove={(e) => { if (!imageDragStart.current) return; e.stopPropagation(); const s = imageDragStart.current; setImagePan({ x: s.panX + e.clientX - s.x, y: s.panY + e.clientY - s.y }); }}
+          onPointerUp={(e) => { e.stopPropagation(); imageDragStart.current = null; }}
+          onPointerCancel={() => { imageDragStart.current = null; }}
+          style={{ maxWidth: '95vw', maxHeight: '78vh', borderRadius: 8, objectFit: 'contain', userSelect: 'none', cursor: imageZoom > 1 ? 'grab' : 'zoom-in', transform: `translate(${imagePan.x}px, ${imagePan.y}px) scale(${imageZoom})`, transition: imageDragStart.current ? 'none' : 'transform 120ms ease' }}
+        />
+      )}
+      {/* 도구 버튼 (왼쪽 상단) */}
+      <div onClick={(e) => e.stopPropagation()} style={{ position: 'absolute', top: 14, left: 14 }}>
+        <button onClick={() => setShowImageGrid((v) => !v)} style={{ background: showImageGrid ? 'rgba(255,255,255,0.92)' : 'rgba(255,255,255,0.15)', border: '1px solid rgba(255,255,255,0.28)', borderRadius: 18, color: showImageGrid ? '#111' : '#fff', height: 34, padding: '0 12px', cursor: 'pointer', fontSize: 13, fontWeight: 700 }}>▦ 사진목록</button>
+      </div>
+      {/* 닫기 버튼 */}
+      <button onClick={(e) => { e.stopPropagation(); setViewingImageItems([]); setShowImageGrid(false); }} style={{ position: 'absolute', top: 14, right: 14, background: 'rgba(255,255,255,0.15)', border: 'none', borderRadius: '50%', width: 36, height: 36, color: '#fff', fontSize: 20, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>✕</button>
+      {/* 이전/다음 버튼 */}
+      {!showImageGrid && viewingImageIdx > 0 && <button onClick={(e) => { e.stopPropagation(); setViewingImageIdx((i) => i - 1); }} style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', background: 'rgba(255,255,255,0.15)', border: 'none', borderRadius: '50%', width: 44, height: 44, color: '#fff', fontSize: 22, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>‹</button>}
+      {!showImageGrid && viewingImageIdx < viewingImages.length - 1 && <button onClick={(e) => { e.stopPropagation(); setViewingImageIdx((i) => i + 1); }} style={{ position: 'absolute', right: 12, top: '50%', transform: 'translateY(-50%)', background: 'rgba(255,255,255,0.15)', border: 'none', borderRadius: '50%', width: 44, height: 44, color: '#fff', fontSize: 22, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>›</button>}
+      {!showImageGrid && <div style={{ position: 'absolute', bottom: 16, left: '50%', transform: 'translateX(-50%)', color: 'rgba(255,255,255,0.7)', fontSize: 13 }}>{viewingImageIdx + 1} / {viewingImages.length}</div>}
     </div>
   ) : null;
 
@@ -544,10 +606,11 @@ export default function NaverChatPage({ backRef }: { backRef?: MutableRefObject<
             </div>
           ) : (
             <ChatWindow roomId={selectedRoom.id} onLeave={() => setView('rooms')} naverTheme naverDark={naverDark}
-              onImageView={(url, imageList) => {
+              onImageView={(url, imageList, options) => {
                 const idx = imageList.findIndex((item) => item.url === url);
                 setViewingImageItems(imageList); setViewingImageIdx(idx >= 0 ? idx : 0);
                 setImageZoom(1); setImagePan({ x: 0, y: 0 });
+                setShowImageGrid(Boolean(options?.showGrid));
               }}
             />
           )}

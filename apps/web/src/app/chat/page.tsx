@@ -319,6 +319,7 @@ export default function ChatPage() {
       setShowMenu(false);
     } else if (viewingImages.length > 0) {
       setViewingImageItems([]);
+      setShowImageGrid(false);
     } else if (roomView !== '') {
       setRoomView('');
     } else if (selectedRoom) {
@@ -362,7 +363,8 @@ export default function ChatPage() {
   useEffect(() => {
     setImageZoom(1);
     setImagePan({ x: 0, y: 0 });
-    setShowImageGrid(false);
+    // showImageGrid는 여기서 false로 리셋하지 않음:
+    // onImageView({ showGrid: true }) 로 열린 경우 즉시 닫혀버리는 버그 방지
     imageDragStart.current = null;
     pinchStart.current = null;
     pinchMoved.current = false;
@@ -1212,7 +1214,7 @@ export default function ChatPage() {
                       <button
                         key={`${item.url}-${item.index}`}
                         type="button"
-                        onClick={() => { setViewingImageIdx(item.index); setShowImageGrid(false); }}
+                        onClick={(e) => { e.stopPropagation(); setViewingImageIdx(item.index); setShowImageGrid(false); }}
                         style={{
                           aspectRatio: '1 / 1', borderRadius: 12, padding: 0, overflow: 'hidden',
                           border: item.index === viewingImageIdx ? '3px solid #fff' : '1px solid rgba(255,255,255,0.22)',
