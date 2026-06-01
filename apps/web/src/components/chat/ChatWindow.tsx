@@ -182,6 +182,10 @@ export function ChatWindow({ roomId, onLeave, onImageView, naverTheme, naverDark
   const [replyTarget, setReplyTarget] = useState<Message | null>(null);
   const [archiveRoomId, setArchiveRoomId] = useState<number | null>(null);
   const [editSaving, setEditSaving] = useState(false);
+  // 게시글 등록 (from message)
+  const [postFromMsg, setPostFromMsg] = useState<Message | null>(null);
+  const [postMsgTitle, setPostMsgTitle] = useState('');
+  const [postMsgSaving, setPostMsgSaving] = useState(false);
   // 이전 메시지 페이지네이션
   const [nextCursor, setNextCursor] = useState<number | null>(null);
   const [loadingOlder, setLoadingOlder] = useState(false);
@@ -1000,6 +1004,30 @@ export function ChatWindow({ roomId, onLeave, onImageView, naverTheme, naverDark
     }
   }
 
+  function handleRegisterAsPost(msg: Message) {
+    setContextMenu(null);
+    setPostFromMsg(msg);
+    setPostMsgTitle('');
+  }
+
+  async function submitPostFromMessage() {
+    if (!postFromMsg || !postMsgTitle.trim()) return;
+    setPostMsgSaving(true);
+    try {
+      await api.post('/posts', {
+        title: postMsgTitle.trim(),
+        content: postFromMsg.content,
+        sourceMessageId: postFromMsg.id,
+      });
+      setPostFromMsg(null);
+      showCopyNotice('게시글로 등록되었습니다');
+    } catch {
+      showCopyNotice('등록 실패. 다시 시도해주세요.');
+    } finally {
+      setPostMsgSaving(false);
+    }
+  }
+
   const replyPreviewByMessageId = useMemo(() => {
     const messageById = new Map(messages.map((message) => [message.id, message]));
     const previews = new Map<number, Message['replyTo']>();
@@ -1666,6 +1694,17 @@ export function ChatWindow({ roomId, onLeave, onImageView, naverTheme, naverDark
               <span style={{ fontSize: 18 }}>🔖</span>
               <span className="text-sm font-medium">보관함에 저장</span>
             </button>
+            {!contextMenu.fileUrl && (
+              <button
+                type="button"
+                onClick={() => handleRegisterAsPost(contextMenu)}
+                className="w-full flex items-center gap-3 rounded-xl px-4 py-3 mb-2"
+                style={{ background: isNaverLight ? '#f5f6f8' : '#2b2d31', color: 'var(--text-primary)' }}
+              >
+                <span style={{ fontSize: 18 }}>📝</span>
+                <span className="text-sm font-medium">게시글로 등록</span>
+              </button>
+            )}
             {contextMenu.senderId === user?.id && !contextMenu.fileUrl && (
               <button
                 type="button"
@@ -1826,6 +1865,61 @@ export function ChatWindow({ roomId, onLeave, onImageView, naverTheme, naverDark
             >
               선택한 부분 복사
             </button>
+          </div>
+        </div>
+      )}
+
+      {/* 게시글 등록 (메시지 → 게시글) 모달 */}
+      {postFromMsg && (
+        <div
+          className="absolute inset-0 z-50 flex items-end justify-center"
+          style={{ background: 'rgba(0,0,0,0.62)' }}
+          onClick={() => { setPostFromMsg(null); setPostMsgTitle(''); }}
+        >
+          <div
+            className="w-full max-w-sm rounded-t-2xl border p-4"
+            style={{ background: isNaverLight ? '#ffffff' : '#17191d', borderColor: isNaverLight ? '#e8e8e8' : '#3a3f4a' }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="mb-3">
+              <h3 className="text-sm font-bold" style={{ color: 'var(--text-primary)' }}>게시글로 등록</h3>
+              <p className="text-xs mt-1" style={{ color: 'var(--text-muted)' }}>제목을 입력하면 이 메시지 내용이 게시글로 등록됩니다.</p>
+            </div>
+            <div
+              className="rounded-lg border px-3 py-2 mb-3 text-xs"
+              style={{ borderColor: isNaverLight ? '#e8e8e8' : '#3a3f4a', background: isNaverLight ? '#f5f6f8' : '#101216', color: 'var(--text-muted)', maxHeight: 80, overflowY: 'auto', whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}
+            >
+              {(postFromMsg.content ?? '').slice(0, 200)}{(postFromMsg.content ?? '').length > 200 ? '...' : ''}
+            </div>
+            <input
+              value={postMsgTitle}
+              onChange={(e) => setPostMsgTitle(e.target.value)}
+              placeholder="게시글 제목 *"
+              maxLength={200}
+              autoFocus
+              onKeyDown={(e) => { if (e.key === 'Enter' && postMsgTitle.trim()) submitPostFromMessage(); }}
+              className="w-full rounded-lg border px-3 py-2 text-sm mb-3"
+              style={{ borderColor: isNaverLight ? '#e8e8e8' : '#3a3f4a', background: isNaverLight ? '#ffffff' : '#101216', color: 'var(--text-primary)', outline: 'none' }}
+            />
+            <div className="flex gap-2">
+              <button
+                type="button"
+                onClick={() => { setPostFromMsg(null); setPostMsgTitle(''); }}
+                className="flex-1 rounded-lg py-2.5 text-sm"
+                style={{ background: isNaverLight ? '#f5f6f8' : '#2b2d31', color: 'var(--text-muted)' }}
+              >
+                취소
+              </button>
+              <button
+                type="button"
+                onClick={submitPostFromMessage}
+                disabled={postMsgSaving || !postMsgTitle.trim()}
+                className="flex-1 rounded-lg py-2.5 text-sm font-bold disabled:opacity-50"
+                style={{ background: 'var(--accent)', color: '#fff' }}
+              >
+                {postMsgSaving ? '등록 중...' : '등록'}
+              </button>
+            </div>
           </div>
         </div>
       )}

@@ -38,7 +38,10 @@ self.addEventListener('push', (e) => {
 self.addEventListener('notificationclick', (e) => {
   e.notification.close();
   const roomId = e.notification.data?.roomId;
-  const url = roomId ? `/chat?room=${roomId}` : '/chat';
+  const scheduleId = e.notification.data?.scheduleId;
+  let url = '/chat';
+  if (roomId) url = `/chat?room=${roomId}`;
+  else if (scheduleId) url = `/chat?view=schedule`;
   e.waitUntil(
     self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((clients) => {
       const existing = clients.find((c) => c.url.includes('/chat'));

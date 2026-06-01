@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from 'react';
 import type { RefObject } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { useAuthStore } from '@/store/auth';
 import { useChatStore } from '@/store/chat';
 import { usePreferencesStore } from '@/store/preferences';
@@ -10,7 +10,7 @@ import { api } from '@/lib/api';
 import { ChatWindow } from '@/components/chat/ChatWindow';
 import { CreateRoomModal } from '@/components/chat/RoomList';
 import NaverChatPage from './NaverChatPage';
-import type { Room } from '@chat/types';
+import type { Room, Schedule, Post } from '@chat/types';
 
 type RoomImageItem = {
   url: string;
@@ -59,6 +59,27 @@ function IconCart() {
       <circle cx='9' cy='21' r='1'/>
       <circle cx='20' cy='21' r='1'/>
       <path d='M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6'/>
+    </svg>
+  );
+}
+function IconCalendar() {
+  return (
+    <svg width='26' height='26' viewBox='0 0 24 24' fill='none' stroke='currentColor' strokeWidth='1.6'>
+      <rect x='3' y='4' width='18' height='18' rx='2'/>
+      <line x1='16' y1='2' x2='16' y2='6'/>
+      <line x1='8' y1='2' x2='8' y2='6'/>
+      <line x1='3' y1='10' x2='21' y2='10'/>
+    </svg>
+  );
+}
+function IconBoard() {
+  return (
+    <svg width='26' height='26' viewBox='0 0 24 24' fill='none' stroke='currentColor' strokeWidth='1.6'>
+      <path d='M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z'/>
+      <polyline points='14 2 14 8 20 8'/>
+      <line x1='16' y1='13' x2='8' y2='13'/>
+      <line x1='16' y1='17' x2='8' y2='17'/>
+      <polyline points='10 9 9 9 8 9'/>
     </svg>
   );
 }
@@ -186,6 +207,7 @@ function groupImagesByDate(items: RoomImageItem[]) {
 
 export default function ChatPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const clear = useAuthStore((s) => s.clear);
   const accessToken = useAuthStore((s) => s.accessToken);
   const user = useAuthStore((s) => s.user);
@@ -197,6 +219,7 @@ export default function ChatPage() {
 
   const [selectedRoom, setSelectedRoom] = useState<Room | null>(null);
   const [showChatList, setShowChatList] = useState(false);
+  const [activeView, setActiveView] = useState<'' | 'schedule' | 'posts'>('');
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [viewingImageItems, setViewingImageItems] = useState<RoomImageItem[]>([]);
   const [viewingImageIdx, setViewingImageIdx] = useState(0);
@@ -238,6 +261,13 @@ export default function ChatPage() {
     if (hydrated && !accessToken) router.replace('/login');
   }, [hydrated, accessToken, router]);
 
+  // 푸시 알림 클릭으로 ?view=schedule 진입 시 일정 뷰 자동 오픈
+  useEffect(() => {
+    if (!hydrated || !accessToken) return;
+    const view = searchParams.get('view');
+    if (view === 'schedule') setActiveView('schedule');
+  }, [hydrated, accessToken, searchParams]);
+
   // ───────── 브라우저 뒤로가기 인터셉트 ─────────
   // 문제 원인: Next.js App Router는 bubble phase에서 popstate를 수신 → history 상태에 따라
   //   /login 으로 이동해버림. capture phase로 먼저 잡고 stopImmediatePropagation으로 차단.
@@ -249,6 +279,8 @@ export default function ChatPage() {
       setSelectedRoom(null);
     } else if (showChatList) {
       setShowChatList(false);
+    } else if (activeView !== '') {
+      setActiveView('');
     }
     // 다음 뒤로가기도 가로채기 위해 센티넬 재push
     history.pushState({ _chat: true }, '', window.location.href);
@@ -269,6 +301,9 @@ export default function ChatPage() {
   }, []);
 
   // 각 상태 진입시 별도 history 항목 push (레이어별 1개)
+  useEffect(() => {
+    if (activeView !== '') history.pushState({ _chat: true }, '', window.location.href);
+  }, [activeView]);
   useEffect(() => {
     if (showChatList) history.pushState({ _chat: true }, '', window.location.href);
   }, [showChatList]);
@@ -302,14 +337,129 @@ export default function ChatPage() {
     return () => clearInterval(timer);
   }, [accessToken, showChatList, selectedRoom, setRooms]);
 
-  function openRoom(room: Room) {
-    setRooms(rooms.map((r) => r.id === room.id ? { ...r, unreadCount: 0 } : r));
-    setSelectedRoom({ ...room, unreadCount: 0 });
+  // ── 일정 상태
+  const [schedules, setSchedules] = useState<Schedule[]>([]);
+  const [schedLoading, setSchedLoading] = useState(false);
+  const [schedFormOpen, setSchedFormOpen] = useState(false);
+  const [schedEditTarget, setSchedEditTarget] = useState<Schedule | null>(null);
+  const [schedTitle, setSchedTitle] = useState('');
+  const [schedDesc, setSchedDesc] = useState('');
+  const [schedDate, setSchedDate] = useState('');
+  const [schedTime, setSchedTime] = useState('');
+  const [schedAllDay, setSchedAllDay] = useState(false);
+
+  // ── 게시글 상태
+  const [posts, setPosts] = useState<Post[]>([]);
+  const [postsLoading, setPostsLoading] = useState(false);
+  const [postFormOpen, setPostFormOpen] = useState(false);
+  const [postEditTarget, setPostEditTarget] = useState<Post | null>(null);
+  const [postTitle, setPostTitle] = useState('');
+  const [postContent, setPostContent] = useState('');
+  const [postDetail, setPostDetail] = useState<Post | null>(null);
+
+  // 일정 데이터 로드
+  useEffect(() => {
+    if (activeView === 'schedule' && accessToken && schedules.length === 0 && !schedLoading) {
+      setSchedLoading(true);
+      api.get<{ data: { schedules: Schedule[] } }>('/schedules')
+        .then(res => setSchedules(res.data.data.schedules))
+        .catch(() => {})
+        .finally(() => setSchedLoading(false));
+    }
+  }, [activeView, accessToken, schedules.length, schedLoading]);
+
+  // 게시글 데이터 로드
+  useEffect(() => {
+    if (activeView === 'posts' && accessToken && posts.length === 0 && !postsLoading) {
+      setPostsLoading(true);
+      api.get<{ data: { posts: Post[] } }>('/posts')
+        .then(res => setPosts(res.data.data.posts))
+        .catch(() => {})
+        .finally(() => setPostsLoading(false));
+    }
+  }, [activeView, accessToken, posts.length, postsLoading]);
+
+  function openScheduleForm(edit?: Schedule) {
+    setSchedEditTarget(edit ?? null);
+    if (edit) {
+      setSchedTitle(edit.title);
+      setSchedDesc(edit.description ?? '');
+      const d = new Date(edit.scheduledAt);
+      setSchedDate(d.toISOString().slice(0, 10));
+      setSchedTime(edit.isAllDay ? '' : `${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`);
+      setSchedAllDay(edit.isAllDay);
+    } else {
+      const now = new Date(); now.setMinutes(now.getMinutes() + 30);
+      setSchedTitle('');
+      setSchedDesc('');
+      setSchedDate(now.toISOString().slice(0, 10));
+      setSchedTime(`${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}`);
+      setSchedAllDay(false);
+    }
+    setSchedFormOpen(true);
+  }
+
+  async function submitSchedule() {
+    if (!schedTitle.trim() || !schedDate) return;
+    const scheduledAt = schedAllDay
+      ? new Date(schedDate + 'T00:00:00').toISOString()
+      : new Date(`${schedDate}T${schedTime || '00:00'}:00`).toISOString();
+    try {
+      if (schedEditTarget) {
+        const res = await api.patch<{ data: { schedule: Schedule } }>(`/schedules/${schedEditTarget.id}`, { title: schedTitle.trim(), description: schedDesc.trim() || undefined, scheduledAt, isAllDay: schedAllDay });
+        setSchedules(prev => prev.map(s => s.id === schedEditTarget.id ? res.data.data.schedule : s));
+      } else {
+        const res = await api.post<{ data: { schedule: Schedule } }>('/schedules', { title: schedTitle.trim(), description: schedDesc.trim() || undefined, scheduledAt, isAllDay: schedAllDay });
+        setSchedules(prev => [res.data.data.schedule, ...prev]);
+      }
+      setSchedFormOpen(false);
+    } catch { /* 무시 */ }
+  }
+
+  async function deleteSchedule(id: number) {
+    if (!confirm('일정을 삭제하시겠습니까?')) return;
+    await api.delete(`/schedules/${id}`);
+    setSchedules(prev => prev.filter(s => s.id !== id));
+  }
+
+  function openPostForm(edit?: Post, prefill?: { title?: string; content?: string }) {
+    setPostEditTarget(edit ?? null);
+    setPostTitle(edit?.title ?? prefill?.title ?? '');
+    setPostContent(edit?.content ?? prefill?.content ?? '');
+    setPostFormOpen(true);
+  }
+
+  async function submitPost() {
+    if (!postTitle.trim() || !postContent.trim()) return;
+    try {
+      if (postEditTarget) {
+        const res = await api.patch<{ data: { post: Post } }>(`/posts/${postEditTarget.id}`, { title: postTitle.trim(), content: postContent.trim() });
+        setPosts(prev => prev.map(p => p.id === postEditTarget.id ? res.data.data.post : p));
+        if (postDetail?.id === postEditTarget.id) setPostDetail(res.data.data.post);
+      } else {
+        const res = await api.post<{ data: { post: Post } }>('/posts', { title: postTitle.trim(), content: postContent.trim() });
+        setPosts(prev => [res.data.data.post, ...prev]);
+      }
+      setPostFormOpen(false);
+    } catch { /* 무시 */ }
+  }
+
+  async function deletePost(id: number) {
+    if (!confirm('게시글을 삭제하시겠습니까?')) return;
+    await api.delete(`/posts/${id}`);
+    setPosts(prev => prev.filter(p => p.id !== id));
+    if (postDetail?.id === id) setPostDetail(null);
   }
 
   function handleLogout() {
     clear();
     router.replace('/login');
+  }
+
+  function openRoom(room: Room) {
+    setSelectedRoom(room);
+    setShowChatList(false);
+    setActiveView('');
   }
 
   if (!hydrated || !accessToken) return null;
@@ -390,13 +540,14 @@ export default function ChatPage() {
             { icon: <IconCommunity />, label: '커뮤니티', home: true },
             { icon: <IconForum />,     label: '포럼', home: true },
             { icon: <IconGallery />,   label: '갤러리', gallery: true },
-            { icon: <IconInfo />,      label: '인포메이션', home: true },
-            { icon: <IconCart />,      label: '마켓', home: true },
-          ] as { icon: React.ReactNode; label: string; home?: boolean; gallery?: boolean }[]).map(({ icon, label, home, gallery }) => (
+            { icon: <IconCalendar />,  label: '일정', view: 'schedule' as const },
+            { icon: <IconBoard />,     label: '게시판', view: 'posts' as const },
+          ] as { icon: React.ReactNode; label: string; home?: boolean; gallery?: boolean; view?: 'schedule' | 'posts' }[]).map(({ icon, label, home, gallery, view }) => (
             <button key={label}
               onClick={
                 gallery ? handleGalleryClick
-                : home ? () => { setSelectedRoom(null); setShowChatList(false); }
+                : home ? () => { setSelectedRoom(null); setShowChatList(false); setActiveView(''); }
+                : view ? () => { setSelectedRoom(null); setShowChatList(false); setActiveView(view); }
                 : undefined
               }
               style={{
@@ -404,7 +555,7 @@ export default function ChatPage() {
                 alignItems: 'center', justifyContent: 'center',
                 padding: '10px 0 8px', background: 'none', border: 'none',
                 cursor: 'pointer', fontSize: 10.5,
-                color: (showChatList && gallery) ? '#1a76c8' : '#444', gap: 4,
+                color: (activeView === view && view) ? '#1a76c8' : '#444', gap: 4,
               }}>
               {icon}
               <span>{label}</span>
@@ -540,6 +691,154 @@ export default function ChatPage() {
               +
             </button>
           </div>
+
+        ) : activeView === 'schedule' ? (
+          /* ───── 일정 뷰 ───── */
+          <div style={{ background: '#f8f9fa', minHeight: '100%', paddingBottom: 80 }}>
+            <div style={{ background: '#fff', borderBottom: '1px solid #e0e0e0', padding: '9px 14px', display: 'flex', alignItems: 'center', gap: 8 }}>
+              <button onClick={() => setActiveView('')} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#1a76c8', fontSize: 14, fontWeight: 700, padding: '2px 8px 2px 0' }}>← 게시판</button>
+              <span style={{ fontWeight: 700, fontSize: 15, color: '#111', flex: 1 }}>📅 일정</span>
+              <button onClick={() => openScheduleForm()} style={{ background: '#1a76c8', color: '#fff', border: 'none', borderRadius: 8, padding: '5px 14px', fontSize: 13, fontWeight: 700, cursor: 'pointer' }}>+ 등록</button>
+            </div>
+            {schedLoading ? (
+              <p style={{ textAlign: 'center', color: '#aaa', padding: '40px 0', fontSize: 13 }}>불러오는 중...</p>
+            ) : schedules.length === 0 ? (
+              <p style={{ textAlign: 'center', color: '#aaa', padding: '40px 0', fontSize: 13 }}>등록된 일정이 없습니다</p>
+            ) : schedules.map(sc => {
+              const d = new Date(sc.scheduledAt);
+              const dateStr = d.toLocaleDateString('ko-KR', { year: 'numeric', month: 'long', day: 'numeric', weekday: 'short' });
+              const timeStr = sc.isAllDay ? '종일' : d.toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' });
+              const isPast = d < new Date();
+              return (
+                <div key={sc.id} style={{ background: '#fff', marginBottom: 1, padding: '14px 16px', display: 'flex', alignItems: 'flex-start', gap: 12 }}>
+                  <div style={{ width: 42, flexShrink: 0, textAlign: 'center' }}>
+                    <div style={{ fontSize: 20, fontWeight: 900, color: isPast ? '#bbb' : '#1a76c8', lineHeight: 1 }}>{d.getDate()}</div>
+                    <div style={{ fontSize: 10, color: '#999', marginTop: 1 }}>{d.toLocaleDateString('ko-KR', { weekday: 'short' })}</div>
+                  </div>
+                  <div style={{ flex: 1 }}>
+                    <div style={{ fontWeight: 700, fontSize: 14, color: isPast ? '#aaa' : '#111', marginBottom: 2, textDecoration: isPast ? 'line-through' : 'none' }}>{sc.title}</div>
+                    <div style={{ fontSize: 12, color: '#888' }}>{dateStr} · {timeStr}</div>
+                    {sc.description && <div style={{ fontSize: 12, color: '#555', marginTop: 4, whiteSpace: 'pre-wrap' }}>{sc.description}</div>}
+                    <div style={{ fontSize: 11, color: '#bbb', marginTop: 4 }}>등록: {sc.createdBy.username}</div>
+                  </div>
+                  {sc.createdById === user?.id && (
+                    <div style={{ display: 'flex', gap: 6, flexShrink: 0 }}>
+                      <button onClick={() => openScheduleForm(sc)} style={{ background: 'none', border: '1px solid #ddd', borderRadius: 6, padding: '4px 8px', fontSize: 11, cursor: 'pointer', color: '#555' }}>수정</button>
+                      <button onClick={() => deleteSchedule(sc.id)} style={{ background: 'none', border: '1px solid #f5c6c6', borderRadius: 6, padding: '4px 8px', fontSize: 11, cursor: 'pointer', color: '#e74c3c' }}>삭제</button>
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+            {/* 일정 등록/수정 모달 */}
+            {schedFormOpen && (
+              <div style={{ position: 'fixed', inset: 0, zIndex: 200, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'flex-end', justifyContent: 'center' }}
+                onClick={() => setSchedFormOpen(false)}>
+                <div style={{ background: '#fff', borderRadius: '16px 16px 0 0', padding: '20px 16px 32px', width: '100%', maxWidth: 430 }}
+                  onClick={e => e.stopPropagation()}>
+                  <h3 style={{ fontSize: 16, fontWeight: 700, marginBottom: 16, color: '#111' }}>{schedEditTarget ? '일정 수정' : '일정 등록'}</h3>
+                  <input value={schedTitle} onChange={e => setSchedTitle(e.target.value)} placeholder="일정 제목 *" maxLength={200}
+                    style={{ width: '100%', border: '1px solid #e0e0e0', borderRadius: 8, padding: '10px 12px', fontSize: 14, marginBottom: 10, boxSizing: 'border-box' }} />
+                  <textarea value={schedDesc} onChange={e => setSchedDesc(e.target.value)} placeholder="설명 (선택)" rows={2}
+                    style={{ width: '100%', border: '1px solid #e0e0e0', borderRadius: 8, padding: '10px 12px', fontSize: 14, resize: 'none', marginBottom: 10, boxSizing: 'border-box' }} />
+                  <div style={{ display: 'flex', gap: 8, marginBottom: 10 }}>
+                    <input type="date" value={schedDate} onChange={e => setSchedDate(e.target.value)}
+                      style={{ flex: 1, border: '1px solid #e0e0e0', borderRadius: 8, padding: '10px 12px', fontSize: 14 }} />
+                    {!schedAllDay && (
+                      <input type="time" value={schedTime} onChange={e => setSchedTime(e.target.value)}
+                        style={{ width: 100, border: '1px solid #e0e0e0', borderRadius: 8, padding: '10px 12px', fontSize: 14 }} />
+                    )}
+                  </div>
+                  <label style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 16, fontSize: 13, color: '#555', cursor: 'pointer' }}>
+                    <input type="checkbox" checked={schedAllDay} onChange={e => setSchedAllDay(e.target.checked)} />
+                    종일
+                  </label>
+                  <div style={{ display: 'flex', gap: 8 }}>
+                    <button onClick={() => setSchedFormOpen(false)} style={{ flex: 1, padding: '12px', borderRadius: 10, border: '1px solid #ddd', background: '#f8f8f8', fontSize: 14, cursor: 'pointer' }}>취소</button>
+                    <button onClick={submitSchedule} disabled={!schedTitle.trim() || !schedDate}
+                      style={{ flex: 1, padding: '12px', borderRadius: 10, border: 'none', background: '#1a76c8', color: '#fff', fontSize: 14, fontWeight: 700, cursor: 'pointer', opacity: (!schedTitle.trim() || !schedDate) ? 0.5 : 1 }}>저장</button>
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+
+        ) : activeView === 'posts' ? (
+          /* ───── 게시글 뷰 ───── */
+          <div style={{ background: '#f8f9fa', minHeight: '100%', paddingBottom: 80 }}>
+            {postDetail ? (
+              /* 게시글 상세 */
+              <div style={{ background: '#fff', minHeight: '100%' }}>
+                <div style={{ borderBottom: '1px solid #e0e0e0', padding: '9px 14px', display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <button onClick={() => setPostDetail(null)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#1a76c8', fontSize: 14, fontWeight: 700, padding: '2px 8px 2px 0' }}>← 목록</button>
+                  <span style={{ fontWeight: 700, fontSize: 15, color: '#111', flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{postDetail.title}</span>
+                  {postDetail.authorId === user?.id && (
+                    <div style={{ display: 'flex', gap: 6 }}>
+                      <button onClick={() => openPostForm(postDetail)} style={{ background: 'none', border: '1px solid #ddd', borderRadius: 6, padding: '4px 10px', fontSize: 12, cursor: 'pointer', color: '#555' }}>수정</button>
+                      <button onClick={() => deletePost(postDetail.id)} style={{ background: 'none', border: '1px solid #f5c6c6', borderRadius: 6, padding: '4px 10px', fontSize: 12, cursor: 'pointer', color: '#e74c3c' }}>삭제</button>
+                    </div>
+                  )}
+                </div>
+                <div style={{ padding: '16px' }}>
+                  <div style={{ fontSize: 11, color: '#aaa', marginBottom: 12 }}>
+                    {postDetail.author.username} · {new Date(postDetail.createdAt).toLocaleDateString('ko-KR', { year: 'numeric', month: 'short', day: 'numeric' })}
+                  </div>
+                  {postDetail.sourceMessage && (
+                    <div style={{ background: '#f0f7ff', borderLeft: '3px solid #1a76c8', borderRadius: 6, padding: '10px 12px', marginBottom: 14 }}>
+                      <div style={{ fontSize: 11, color: '#888', marginBottom: 4 }}>💬 원본 메시지 · {postDetail.sourceMessage.sender?.username}</div>
+                      <div style={{ fontSize: 13, color: '#333', whiteSpace: 'pre-wrap' }}>{postDetail.sourceMessage.content}</div>
+                    </div>
+                  )}
+                  <p style={{ fontSize: 14.5, color: '#222', lineHeight: 1.75, whiteSpace: 'pre-wrap' }}>{postDetail.content}</p>
+                </div>
+              </div>
+            ) : (
+              /* 게시글 목록 */
+              <>
+                <div style={{ background: '#fff', borderBottom: '1px solid #e0e0e0', padding: '9px 14px', display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <button onClick={() => setActiveView('')} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#1a76c8', fontSize: 14, fontWeight: 700, padding: '2px 8px 2px 0' }}>← 게시판</button>
+                  <span style={{ fontWeight: 700, fontSize: 15, color: '#111', flex: 1 }}>📝 게시판</span>
+                  <button onClick={() => openPostForm()} style={{ background: '#1a76c8', color: '#fff', border: 'none', borderRadius: 8, padding: '5px 14px', fontSize: 13, fontWeight: 700, cursor: 'pointer' }}>+ 글쓰기</button>
+                </div>
+                {postsLoading ? (
+                  <p style={{ textAlign: 'center', color: '#aaa', padding: '40px 0', fontSize: 13 }}>불러오는 중...</p>
+                ) : posts.length === 0 ? (
+                  <p style={{ textAlign: 'center', color: '#aaa', padding: '40px 0', fontSize: 13 }}>게시글이 없습니다</p>
+                ) : posts.map(p => (
+                  <div key={p.id} onClick={() => setPostDetail(p)}
+                    style={{ background: '#fff', marginBottom: 1, padding: '13px 16px', cursor: 'pointer', borderBottom: '1px solid #f0f0f0' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 4 }}>
+                      {p.sourceMessageId && <span style={{ fontSize: 10, background: '#e8f4ff', color: '#1a76c8', borderRadius: 4, padding: '1px 5px', fontWeight: 700 }}>채팅</span>}
+                      <span style={{ fontWeight: 700, fontSize: 14, color: '#111', flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{p.title}</span>
+                    </div>
+                    <div style={{ fontSize: 12, color: '#888' }}>
+                      {p.author.username} · {new Date(p.createdAt).toLocaleDateString('ko-KR', { month: 'short', day: 'numeric' })}
+                    </div>
+                  </div>
+                ))}
+              </>
+            )}
+            {/* 게시글 작성/수정 모달 */}
+            {postFormOpen && (
+              <div style={{ position: 'fixed', inset: 0, zIndex: 200, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'flex-end', justifyContent: 'center' }}
+                onClick={() => setPostFormOpen(false)}>
+                <div style={{ background: '#fff', borderRadius: '16px 16px 0 0', padding: '20px 16px 32px', width: '100%', maxWidth: 430 }}
+                  onClick={e => e.stopPropagation()}>
+                  <h3 style={{ fontSize: 16, fontWeight: 700, marginBottom: 16, color: '#111' }}>{postEditTarget ? '게시글 수정' : '게시글 작성'}</h3>
+                  <input value={postTitle} onChange={e => setPostTitle(e.target.value)} placeholder="제목 *" maxLength={200}
+                    style={{ width: '100%', border: '1px solid #e0e0e0', borderRadius: 8, padding: '10px 12px', fontSize: 14, marginBottom: 10, boxSizing: 'border-box' }} />
+                  <textarea value={postContent} onChange={e => setPostContent(e.target.value)} placeholder="내용 *" rows={6}
+                    style={{ width: '100%', border: '1px solid #e0e0e0', borderRadius: 8, padding: '10px 12px', fontSize: 14, resize: 'none', marginBottom: 16, boxSizing: 'border-box' }} />
+                  <div style={{ display: 'flex', gap: 8 }}>
+                    <button onClick={() => setPostFormOpen(false)} style={{ flex: 1, padding: '12px', borderRadius: 10, border: '1px solid #ddd', background: '#f8f8f8', fontSize: 14, cursor: 'pointer' }}>취소</button>
+                    <button onClick={submitPost} disabled={!postTitle.trim() || !postContent.trim()}
+                      style={{ flex: 1, padding: '12px', borderRadius: 10, border: 'none', background: '#1a76c8', color: '#fff', fontSize: 14, fontWeight: 700, cursor: 'pointer', opacity: (!postTitle.trim() || !postContent.trim()) ? 0.5 : 1 }}>저장</button>
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+
         ) : (
           <>
             <div style={{ background: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '8px 0', borderBottom: '1px solid #e8e8e8' }}>
