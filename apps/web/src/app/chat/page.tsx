@@ -344,9 +344,6 @@ export default function ChatPage() {
   useEffect(() => {
     if (viewingImages.length > 0) history.pushState({ _chat: true }, '', window.location.href);
   }, [viewingImages.length]);
-  useEffect(() => {
-    if (showMenu) history.pushState({ _chat: true }, '', window.location.href);
-  }, [showMenu]);
 
   useEffect(() => {
     setImageZoom(1);
@@ -391,6 +388,10 @@ export default function ChatPage() {
   const [postContent, setPostContent] = useState('');
   const [postDetail, setPostDetail] = useState<Post | null>(null);
   const [showMenu, setShowMenu] = useState(false);
+
+  useEffect(() => {
+    if (showMenu) history.pushState({ _chat: true }, '', window.location.href);
+  }, [showMenu]);
 
   // 일정 데이터 로드
   useEffect(() => {
