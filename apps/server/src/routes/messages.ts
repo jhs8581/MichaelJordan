@@ -4,6 +4,8 @@ import { prisma } from '../lib/prisma';
 import { pipeline } from 'node:stream/promises';
 import fs from 'node:fs';
 import path from 'node:path';
+import { emitMessageUpdated } from '../lib/chat-io';
+import { editMessageContent } from '../lib/message-edit';
 
 const PAGE_SIZE = 50;
 const ALLOWED_EXTS = new Set(['.jpg', '.jpeg', '.png', '.gif', '.webp', '.mp4', '.webm', '.mov', '.m4v']);
@@ -103,6 +105,31 @@ export async function messageRoutes(app: FastifyInstance) {
       success: true,
       data: { messages: messages.reverse(), nextCursor },
     });
+  });
+
+  auth.patch('/:messageId', async (req, reply) => {
+    const userId = (req.user as { sub: number }).sub;
+    const { messageId } = req.params as { messageId: string };
+    const { content } = req.body as { content?: string };
+
+    const result = await editMessageContent({
+      messageId: Number(messageId),
+      userId,
+      content: content ?? '',
+    });
+
+    if (!result.ok) {
+      if (result.error === 'EMPTY_CONTENT') {
+        return reply.status(400).send({ success: false, error: '메시지 내용이 필요합니다.' });
+      }
+      if (result.error === 'NOT_FOUND') {
+        return reply.status(404).send({ success: false, error: '메시지를 찾을 수 없습니다.' });
+      }
+      return reply.status(403).send({ success: false, error: '수정 권한이 없습니다.' });
+    }
+
+    emitMessageUpdated(result.data);
+    return reply.send({ success: true, data: result.data });
   });
 
   // ── 메시지 검색 ──────────────────────────────────────────────

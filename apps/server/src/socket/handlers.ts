@@ -3,6 +3,8 @@ import type { ServerToClientEvents, ClientToServerEvents } from '@chat/types';
 import { prisma } from '../lib/prisma';
 import jwt from 'jsonwebtoken';
 import { sendPushToUsers } from '../routes/push';
+import { emitMessageUpdated } from '../lib/chat-io';
+import { editMessageContent } from '../lib/message-edit';
 
 type ChatServer = Server<ClientToServerEvents, ServerToClientEvents>;
 type ChatSocket = Socket<ClientToServerEvents, ServerToClientEvents>;
@@ -276,31 +278,9 @@ export function registerSocketHandlers(io: ChatServer) {
 
     // ── 메시지 삭제 ───────────────────────────────────────────────
     socket.on('message:edit', async ({ messageId, content }) => {
-      const sanitizedContent = content.trim();
-      if (!sanitizedContent) return;
-
-      const message = await prisma.message.findUnique({
-        where: { id: messageId },
-        select: { id: true, roomId: true, senderId: true },
-      });
-      if (!message) return;
-      if (message.senderId !== userId) return;
-
-      const member = await prisma.roomMember.findUnique({
-        where: { userId_roomId: { userId, roomId: message.roomId } },
-      });
-      if (!member) return;
-
-      await prisma.message.update({
-        where: { id: messageId },
-        data: { content: sanitizedContent },
-      });
-
-      io.to(`room:${message.roomId}`).emit('message:updated', {
-        roomId: message.roomId,
-        messageId,
-        content: sanitizedContent,
-      });
+      const result = await editMessageContent({ messageId, userId, content });
+      if (!result.ok) return;
+      emitMessageUpdated(result.data);
     });
 
     // ── 메시지 삭제 ───────────────────────────────────────────────
