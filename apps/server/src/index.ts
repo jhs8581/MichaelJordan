@@ -52,8 +52,11 @@ async function main() {
   });
 
   await app.register(rateLimit, {
-    max: 100,
+    max: 300,
     timeWindow: '1 minute',
+    // 이미지/파일 서빙 경로는 rate limit 제외 (썸네일 대량 로딩)
+    skipOnError: true,
+    allowList: (req) => req.url.startsWith('/api/messages/file/'),
   });
 
   await app.register(multipart, {
