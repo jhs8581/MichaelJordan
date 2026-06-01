@@ -1,6 +1,7 @@
 ﻿'use client';
 
 import { useEffect, useMemo, useRef, useState } from 'react';
+import type { MutableRefObject } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuthStore } from '@/store/auth';
 import { useChatStore } from '@/store/chat';
@@ -140,7 +141,7 @@ function CafeRow({ room, onDoubleClick, dark }: { room: Room; onDoubleClick: () 
 }
 
 // ── 메인 컴포넌트 ─────────────────────────────────────────────────────────────
-export default function NaverChatPage() {
+export default function NaverChatPage({ backRef }: { backRef?: MutableRefObject<(() => void) | null> }) {
   const router = useRouter();
   const clearAuth = useAuthStore((s) => s.clear);
   const accessToken = useAuthStore((s) => s.accessToken);
@@ -193,6 +194,14 @@ export default function NaverChatPage() {
   const totalUnread = useMemo(() =>
     rooms.reduce((acc, r) => acc + (!r.isMuted ? (r.unreadCount ?? 0) : 0), 0), [rooms]);
 
+  // backRef 업데이트 — 렌더마다 갱신해서 최신 클로저 유지 (stale closure 방지)
+  if (backRef) backRef.current = () => {
+    if (viewingImages.length > 0) { setViewingImageItems([]); return; }
+    if (roomView !== '') { setRoomView(''); return; }
+    if (view === 'chat') { setView('rooms'); return; }
+    if (view === 'rooms') { setView('home'); return; }
+  };
+
   useEffect(() => {
     const unsub = useAuthStore.persist.onFinishHydration(() => setHydrated(true));
     if (useAuthStore.persist.hasHydrated()) setHydrated(true);
@@ -205,6 +214,19 @@ export default function NaverChatPage() {
     if (!accessToken) return;
     api.get<{ data: Room[] }>('/rooms').then((res) => setRooms(res.data.data)).catch(() => {});
   }, [accessToken, setRooms]);
+
+  // 각 상태 진입 시 history 항목 push → 뒤로가기 1회 = 상태 1단계 닫기
+  useEffect(() => {
+    if (view === 'chat' || view === 'rooms') {
+      history.pushState({ _chat: true }, '', window.location.href);
+    }
+  }, [view]);
+  useEffect(() => {
+    if (roomView !== '') history.pushState({ _chat: true }, '', window.location.href);
+  }, [roomView]);
+  useEffect(() => {
+    if (viewingImages.length > 0) history.pushState({ _chat: true }, '', window.location.href);
+  }, [viewingImages.length]);
 
   useEffect(() => {
     if (roomView === 'schedule' && selectedRoom && accessToken) {
@@ -254,13 +276,13 @@ export default function NaverChatPage() {
     if (edit) {
       setSchedTitle(edit.title); setSchedDesc(edit.description ?? '');
       const d = new Date(edit.scheduledAt);
-      setSchedDate(d.toISOString().slice(0, 10));
+      setSchedDate([d.getFullYear(), String(d.getMonth()+1).padStart(2,'0'), String(d.getDate()).padStart(2,'0')].join('-'));
       setSchedTime(edit.isAllDay ? '' : `${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`);
       setSchedAllDay(edit.isAllDay);
     } else {
       const now = new Date(); now.setMinutes(now.getMinutes() + 30);
       setSchedTitle(''); setSchedDesc('');
-      setSchedDate(now.toISOString().slice(0, 10));
+      setSchedDate([now.getFullYear(), String(now.getMonth()+1).padStart(2,'0'), String(now.getDate()).padStart(2,'0')].join('-'));
       setSchedTime(`${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}`);
       setSchedAllDay(false);
     }

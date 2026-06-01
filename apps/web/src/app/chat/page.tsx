@@ -266,8 +266,10 @@ export default function ChatPage() {
   const scrollRef = useRef<HTMLDivElement>(null);
   const galleryClickCount = useRef(0);
   const galleryClickTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  // popstate 핸들러를 ref로 관리 → capture phase로 等록해 Next.js router보다 먼저 실행
+  // popstate 핸들러를 ref로 관리 → capture phase로 등록해 Next.js router보다 먼저 실행
   const popStateHandlerRef = useRef<(() => void) | null>(null);
+  // 네이버 테마용 뒤로가기 핸들러 ref
+  const naverBackRef = useRef<(() => void) | null>(null);
 
   function handleGalleryClick() {
     setActiveTab('갤러리');
@@ -307,6 +309,12 @@ export default function ChatPage() {
   //   /login 으로 이동해버림. capture phase로 먼저 잡고 stopImmediatePropagation으로 차단.
   // 각 상태 진입시 별도 history 항목을 push → 뒤로가기 1회 = 상태 1단계 닫기
   popStateHandlerRef.current = () => {
+    // 네이버 테마일 때는 NaverChatPage의 핸들러에 위임
+    if (chatTheme === 'naver') {
+      naverBackRef.current?.();
+      history.pushState({ _chat: true }, '', window.location.href);
+      return;
+    }
     if (showMenu) {
       setShowMenu(false);
     } else if (viewingImages.length > 0) {
@@ -432,14 +440,14 @@ export default function ChatPage() {
       setSchedTitle(edit.title);
       setSchedDesc(edit.description ?? '');
       const d = new Date(edit.scheduledAt);
-      setSchedDate(d.toISOString().slice(0, 10));
+      setSchedDate([d.getFullYear(), String(d.getMonth()+1).padStart(2,'0'), String(d.getDate()).padStart(2,'0')].join('-'));
       setSchedTime(edit.isAllDay ? '' : `${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`);
       setSchedAllDay(edit.isAllDay);
     } else {
       const now = new Date(); now.setMinutes(now.getMinutes() + 30);
       setSchedTitle('');
       setSchedDesc('');
-      setSchedDate(now.toISOString().slice(0, 10));
+      setSchedDate([now.getFullYear(), String(now.getMonth()+1).padStart(2,'0'), String(now.getDate()).padStart(2,'0')].join('-'));
       setSchedTime(`${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}`);
       setSchedAllDay(false);
     }
@@ -512,7 +520,7 @@ export default function ChatPage() {
   if (!hydrated || !accessToken) return null;
 
   // 네이버 테마 선택 시 전용 컴포넌트 렌더링
-  if (chatTheme === 'naver') return <NaverChatPage />;
+  if (chatTheme === 'naver') return <NaverChatPage backRef={naverBackRef} />;
 
   const HOT_POSTS = [
     { category: '자유게시판', title: '정말 좋으네요', count: 11 },
