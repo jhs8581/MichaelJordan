@@ -11,7 +11,7 @@ export function setChatIo(io: ChatServer) {
 
 export function emitMessageUpdated(payload: { roomId: number; messageId: number; content: string }) {
   if (!chatIo) {
-    console.error('[chat-io] message:update broadcast skipped before socket server initialization', payload);
+    console.error('[chat-io] message:updated broadcast skipped before socket server initialization', payload);
     return;
   }
   chatIo.to(`room:${payload.roomId}`).emit('message:updated', payload);

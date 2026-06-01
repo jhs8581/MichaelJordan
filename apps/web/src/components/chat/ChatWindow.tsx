@@ -825,7 +825,8 @@ export function ChatWindow({ roomId, onLeave, onImageView, naverTheme, naverDark
       );
       updateMessage(res.data.data.roomId, res.data.data.messageId, res.data.data.content);
       handleCancelEditMessage();
-    } catch {
+    } catch (error) {
+      console.error('Failed to save edited message', error);
       showCopyNotice('메시지 수정에 실패했습니다.');
       setEditSaving(false);
     }
