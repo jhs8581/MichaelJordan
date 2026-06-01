@@ -1,0 +1,177 @@
+'use client';
+
+import { useEffect, useState } from 'react';
+import { api } from '@/lib/api';
+import { useAuthStore } from '@/store/auth';
+
+type RoomImageItem = { url: string; createdAt?: string };
+type LinkItem = { url: string; messageId: number; sender: { id: number; username: string } | null; createdAt: string };
+type Tab = 'photos' | 'links';
+
+interface Props {
+  roomId: number;
+  onClose: () => void;
+  onImageClick?: (url: string, all: RoomImageItem[]) => void;
+}
+
+const API_BASE = (process.env.NEXT_PUBLIC_API_URL ?? '') + '/api';
+
+export function RoomInfoPanel({ roomId, onClose, onImageClick }: Props) {
+  const [tab, setTab] = useState<Tab>('photos');
+  const [images, setImages] = useState<RoomImageItem[] | null>(null);
+  const [links, setLinks] = useState<LinkItem[] | null>(null);
+  const [loadingImages, setLoadingImages] = useState(false);
+  const [loadingLinks, setLoadingLinks] = useState(false);
+
+  useEffect(() => {
+    if (tab === 'photos' && images === null && !loadingImages) {
+      setLoadingImages(true);
+      api.get<{ data: { imageItems?: RoomImageItem[]; images?: string[] } }>(`/messages/${roomId}/images`)
+        .then(res => {
+          const items = res.data.data.imageItems ?? (res.data.data.images ?? []).map(url => ({ url }));
+          setImages(items);
+        })
+        .catch(() => setImages([]))
+        .finally(() => setLoadingImages(false));
+    }
+  }, [tab, roomId, images, loadingImages]);
+
+  useEffect(() => {
+    if (tab === 'links' && links === null && !loadingLinks) {
+      setLoadingLinks(true);
+      api.get<{ data: { links: LinkItem[] } }>(`/messages/${roomId}/links`)
+        .then(res => setLinks(res.data.data.links))
+        .catch(() => setLinks([]))
+        .finally(() => setLoadingLinks(false));
+    }
+  }, [tab, roomId, links, loadingLinks]);
+
+  return (
+    <div style={{ position: 'absolute', inset: 0, zIndex: 25, display: 'flex', flexDirection: 'column', background: 'var(--chat-bg)' }}>
+      {/* 헤더 */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '10px 16px', flexShrink: 0, borderBottom: '1px solid #1e1f22' }}>
+        <button
+          onClick={onClose}
+          style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', padding: 4, display: 'flex', alignItems: 'center' }}
+          aria-label="뒤로"
+        >
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
+            <polyline points="15 18 9 12 15 6" />
+          </svg>
+        </button>
+        <span style={{ fontWeight: 600, fontSize: 15, color: 'var(--text-primary)' }}>채팅방 정보</span>
+      </div>
+
+      {/* 탭 */}
+      <div style={{ display: 'flex', flexShrink: 0, borderBottom: '1px solid #1e1f22' }}>
+        {(['photos', 'links'] as const).map(t => (
+          <button
+            key={t}
+            onClick={() => setTab(t)}
+            style={{
+              flex: 1, padding: '10px 0', fontWeight: 600, fontSize: 13,
+              border: 'none', borderBottom: `2px solid ${tab === t ? 'var(--accent)' : 'transparent'}`,
+              cursor: 'pointer', background: 'transparent',
+              color: tab === t ? 'var(--accent)' : 'var(--text-muted)',
+            }}
+          >
+            {t === 'photos' ? '📷 사진' : '🔗 링크'}
+          </button>
+        ))}
+      </div>
+
+      {/* 콘텐츠 */}
+      <div style={{ flex: 1, overflowY: 'auto', overflowX: 'hidden' }}>
+        {tab === 'photos' && (
+          loadingImages
+            ? <EmptyState text="불러오는 중..." />
+            : !images?.length
+              ? <EmptyState text="사진이 없습니다" />
+              : (
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 2, padding: 2 }}>
+                  {images.map((item, i) => (
+                    <div
+                      key={i}
+                      style={{ aspectRatio: '1', overflow: 'hidden', cursor: 'zoom-in' }}
+                      onClick={() => onImageClick?.(item.url, images)}
+                    >
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img src={item.url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
+                    </div>
+                  ))}
+                </div>
+              )
+        )}
+
+        {tab === 'links' && (
+          loadingLinks
+            ? <EmptyState text="불러오는 중..." />
+            : !links?.length
+              ? <EmptyState text="링크가 없습니다" />
+              : (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 8, padding: 12 }}>
+                  {links.map((link, i) => <LinkRow key={i} link={link} />)}
+                </div>
+              )
+        )}
+      </div>
+    </div>
+  );
+}
+
+function EmptyState({ text }: { text: string }) {
+  return (
+    <p style={{ color: 'var(--text-muted)', textAlign: 'center', paddingTop: 48, fontSize: 13 }}>{text}</p>
+  );
+}
+
+type LinkPreviewCached = { title?: string } | null;
+const linkCache = new Map<string, LinkPreviewCached>();
+
+function LinkRow({ link }: { link: LinkItem }) {
+  const token = useAuthStore((s) => s.accessToken);
+  const hostname = (() => { try { return new URL(link.url).hostname.replace(/^www\./, ''); } catch { return link.url; } })();
+  const [preview, setPreview] = useState<{ title: string } | null | undefined>(
+    linkCache.has(link.url) ? (linkCache.get(link.url) ? { title: linkCache.get(link.url)!.title ?? link.url } : null) : undefined
+  );
+
+  useEffect(() => {
+    if (linkCache.has(link.url)) {
+      const c = linkCache.get(link.url);
+      setPreview(c ? { title: c.title ?? link.url } : null);
+      return;
+    }
+    fetch(`${API_BASE}/messages/link-preview?url=${encodeURIComponent(link.url)}`, {
+      headers: token ? { Authorization: `Bearer ${token}` } : {},
+    })
+      .then(r => r.json() as Promise<{ success: boolean; data?: { title: string } }>)
+      .then(res => {
+        const data = res.success && res.data ? { title: res.data.title } : null;
+        linkCache.set(link.url, data);
+        setPreview(data);
+      })
+      .catch(() => { linkCache.set(link.url, null); setPreview(null); });
+  }, [link.url, token]);
+
+  const dateStr = new Date(link.createdAt).toLocaleDateString('ko-KR', { month: 'short', day: 'numeric' });
+
+  return (
+    <a
+      href={link.url}
+      target="_blank"
+      rel="noopener noreferrer"
+      style={{
+        display: 'block', padding: '10px 12px', borderRadius: 10,
+        background: 'var(--bubble-other)', textDecoration: 'none',
+        color: 'var(--text-primary)', borderLeft: '3px solid var(--accent)',
+      }}
+    >
+      <p style={{ fontSize: 10, color: 'var(--text-muted)', marginBottom: 3 }}>
+        {hostname} · {dateStr}{link.sender ? ` · ${link.sender.username}` : ''}
+      </p>
+      <p style={{ fontSize: 13, fontWeight: 600, overflowWrap: 'anywhere', color: '#00aff4' }}>
+        {preview?.title ?? link.url}
+      </p>
+    </a>
+  );
+}

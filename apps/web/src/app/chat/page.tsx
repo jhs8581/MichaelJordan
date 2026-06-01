@@ -506,7 +506,7 @@ export default function ChatPage() {
                     <div style={{ fontSize: 12, color: showUnreadAlarm ? '#1a76c8' : '#999', fontWeight: showUnreadAlarm ? 700 : 400 }}>
                       {r.isMuted
                         ? `알림 꺼짐${unreadCount > 0 ? ` · 읽지 않은 메시지 ${unreadCount}개` : ''}`
-                        : unreadCount > 0 ? `읽지 않은 메시지 ${unreadCount}개` : (r.isArchive ? '나의 보관함' : (r.isGroup ? `${r.members.length}명` : '1:1 대화'))}
+                        : unreadCount > 0 ? `읽지 않은 메시지 ${unreadCount}개` : (r.isArchive ? '나의 보관함' : (r.isGroup ? `${r.members.length}명` : (r.messages?.[0]?.content ?? '')))}
                     </div>
                   </div>
                 </div>

@@ -8,6 +8,43 @@ import { emitMessageUpdated } from '../lib/chat-io';
 import { editMessageContent } from '../lib/message-edit';
 
 const PAGE_SIZE = 50;
+
+// ── Link preview helpers ──────────────────────────────────────
+interface LinkPreviewData { title: string; description?: string; url: string; }
+const previewCache = new Map<string, { data: LinkPreviewData | null; expires: number }>();
+const PREVIEW_TTL = 3_600_000;
+
+function isPrivateHost(hostname: string): boolean {
+  return (
+    hostname === 'localhost' ||
+    /^127\./.test(hostname) ||
+    /^10\./.test(hostname) ||
+    /^172\.(1[6-9]|2\d|3[01])\./.test(hostname) ||
+    /^192\.168\./.test(hostname) ||
+    /^169\.254\./.test(hostname) ||
+    hostname === '::1' ||
+    hostname === '0.0.0.0'
+  );
+}
+
+function decodeHtmlEntities(s: string): string {
+  return s
+    .replace(/&amp;/gi, '&').replace(/&lt;/gi, '<').replace(/&gt;/gi, '>')
+    .replace(/&quot;/gi, '"').replace(/&#39;|&apos;/gi, "'")
+    .replace(/&#(\d+);/g, (_, n) => String.fromCharCode(Number(n)));
+}
+
+function extractMeta(html: string, propKey: string, attrName = 'property'): string | undefined {
+  const pats = [
+    new RegExp(`<meta[^>]+${attrName}=["']${propKey}["'][^>]+content=["']([^"'<>]{1,300})["']`, 'i'),
+    new RegExp(`<meta[^>]+content=["']([^"'<>]{1,300})["'][^>]+${attrName}=["']${propKey}["']`, 'i'),
+  ];
+  for (const re of pats) {
+    const m = re.exec(html);
+    if (m?.[1]) return decodeHtmlEntities(m[1].trim());
+  }
+  return undefined;
+}
 const ALLOWED_EXTS = new Set(['.jpg', '.jpeg', '.png', '.gif', '.webp', '.mp4', '.webm', '.mov', '.m4v']);
 const EXT_MIME: Record<string, string> = {
   '.jpg': 'image/jpeg', '.jpeg': 'image/jpeg',
@@ -211,6 +248,106 @@ export async function messageRoutes(app: FastifyInstance) {
     const images = imageItems.map((item) => item.url);
 
     return reply.send({ success: true, data: { images, imageItems } });
+  });
+
+  // ── 채팅방 링크 목록 전체 조회 ───────────────────────────────
+  auth.get('/:roomId/links', async (req, reply) => {
+    const userId = (req.user as { sub: number }).sub;
+    const { roomId } = req.params as { roomId: string };
+
+    const member = await prisma.roomMember.findUnique({
+      where: { userId_roomId: { userId, roomId: Number(roomId) } },
+    });
+    if (!member) return reply.status(403).send({ success: false, error: '접근 권한이 없습니다.' });
+
+    const msgs = await prisma.message.findMany({
+      where: { roomId: Number(roomId), content: { contains: 'http' } },
+      select: {
+        id: true, content: true, createdAt: true, senderId: true,
+        sender: { select: { id: true, username: true } },
+      },
+      orderBy: { id: 'desc' },
+      take: 300,
+    });
+
+    const urlRegex = /https?:\/\/[^\s<]+/g;
+    const links: Array<{ url: string; messageId: number; sender: { id: number; username: string } | null; createdAt: string }> = [];
+
+    for (const msg of msgs) {
+      if (!msg.content) continue;
+      const matches = msg.content.match(urlRegex);
+      if (!matches) continue;
+      for (const url of matches) {
+        links.push({ url, messageId: msg.id, sender: msg.sender, createdAt: msg.createdAt });
+      }
+    }
+
+    return reply.send({ success: true, data: { links } });
+  });
+
+  // ── 링크 미리보기 ─────────────────────────────────────────────
+  auth.get('/link-preview', async (req, reply) => {
+    const { url } = req.query as { url?: string };
+    if (!url) return reply.send({ success: false });
+
+    let parsed: URL;
+    try { parsed = new URL(url); } catch { return reply.send({ success: false }); }
+    if (!['http:', 'https:'].includes(parsed.protocol) || isPrivateHost(parsed.hostname)) {
+      return reply.send({ success: false });
+    }
+
+    const cached = previewCache.get(url);
+    if (cached && cached.expires > Date.now()) {
+      return reply.send({ success: !!cached.data, ...(cached.data ? { data: cached.data } : {}) });
+    }
+
+    try {
+      const controller = new AbortController();
+      const timer = setTimeout(() => controller.abort(), 5000);
+      const res = await fetch(url, {
+        signal: controller.signal,
+        headers: { 'User-Agent': 'facebookexternalhit/1.1', Accept: 'text/html' },
+        redirect: 'follow',
+      });
+      clearTimeout(timer);
+
+      const ct = res.headers.get('content-type') ?? '';
+      if (!res.ok || !ct.includes('text/html')) {
+        previewCache.set(url, { data: null, expires: Date.now() + PREVIEW_TTL });
+        return reply.send({ success: false });
+      }
+
+      let html = '';
+      const reader = res.body?.getReader();
+      if (reader) {
+        let bytes = 0;
+        const dec = new TextDecoder();
+        while (bytes < 100_000) {
+          const { done, value } = await reader.read();
+          if (done || !value) break;
+          html += dec.decode(value, { stream: true });
+          bytes += value.length;
+        }
+        reader.cancel().catch(() => {});
+      }
+
+      const title =
+        extractMeta(html, 'og:title') ??
+        (() => { const m = /<title[^>]*>([^<]{1,300})<\/title>/i.exec(html); return m ? decodeHtmlEntities(m[1].trim()) : undefined; })();
+
+      if (!title) {
+        previewCache.set(url, { data: null, expires: Date.now() + PREVIEW_TTL });
+        return reply.send({ success: false });
+      }
+
+      const description = extractMeta(html, 'og:description') ?? extractMeta(html, 'description', 'name');
+      const data: LinkPreviewData = { title, description, url };
+      previewCache.set(url, { data, expires: Date.now() + PREVIEW_TTL });
+      return reply.send({ success: true, data });
+    } catch {
+      previewCache.set(url, { data: null, expires: Date.now() + PREVIEW_TTL });
+      return reply.send({ success: false });
+    }
   });
 
   }); // ── end auth scope

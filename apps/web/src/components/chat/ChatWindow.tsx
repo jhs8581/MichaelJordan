@@ -7,6 +7,7 @@ import { getSocket } from '@/lib/socket';
 import { api } from '@/lib/api';
 import type { Message, Room } from '@chat/types';
 import { MessageBubble, renderMessageContent } from './MessageBubble';
+import { RoomInfoPanel } from './RoomInfoPanel';
 
 interface Props {
   roomId: number;
@@ -170,6 +171,7 @@ export function ChatWindow({ roomId, onLeave, onImageView, naverTheme, naverDark
   const [copyNotice, setCopyNotice] = useState('');
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [imageCollectionLoading, setImageCollectionLoading] = useState(false);
+  const [roomInfoOpen, setRoomInfoOpen] = useState(false);
   const [muteSaving, setMuteSaving] = useState(false);
   const [muteOverride, setMuteOverride] = useState<boolean | null>(null);
   const [socketDisconnected, setSocketDisconnected] = useState(false);
@@ -212,6 +214,7 @@ export function ChatWindow({ roomId, onLeave, onImageView, naverTheme, naverDark
     setReplyTarget(null);
     setEditingMessage(null);
     setEditContent('');
+    setRoomInfoOpen(false);
     allRoomImagesRef.current = null;
     api
       .get<{ data: { messages: Message[]; nextCursor: number | null } }>(`/messages/${roomId}`)
@@ -678,6 +681,11 @@ export function ChatWindow({ roomId, onLeave, onImageView, naverTheme, naverDark
     socket.emit('message:send', { roomId, content, replyToId: sendingReplyTarget?.id, ...getMessageSendMeta(user?.timeZone) });
     setInput('');
     setReplyTarget(null);
+    // 메시지 전송 시 항상 맨 아래로 스크롤
+    requestAnimationFrame(() => {
+      const el = scrollContainerRef.current;
+      if (el) el.scrollTop = el.scrollHeight;
+    });
     if (textareaRef.current) {
       textareaRef.current.style.height = 'auto';
       // 전송 후 포커스 유지 (모바일 키패드 닫힘 방지)
@@ -732,6 +740,10 @@ export function ChatWindow({ roomId, onLeave, onImageView, naverTheme, naverDark
       if (json.success && json.data?.url) {
         const socket = getSocket();
         socket.emit('message:send', { roomId, content: '', fileUrl: json.data.url, ...getMessageSendMeta(user?.timeZone) });
+        requestAnimationFrame(() => {
+          const el = scrollContainerRef.current;
+          if (el) el.scrollTop = el.scrollHeight;
+        });
       } else {
         setUploadError('업로드에 실패했습니다.');
         setTimeout(() => setUploadError(''), 4000);
@@ -1186,33 +1198,21 @@ export function ChatWindow({ roomId, onLeave, onImageView, naverTheme, naverDark
           )}
           <span className="hidden sm:inline text-[11px] font-bold whitespace-nowrap">{isRoomMuted ? 'OFF' : 'ON'}</span>
         </button>
-        {/* 사진 모아보기 버튼 */}
-        {onImageView && (
-          <button
-            type="button"
-            onClick={(e) => {
-              e.stopPropagation();
-              handleOpenImageCollection();
-            }}
-            disabled={imageCollectionLoading}
-            className="rounded-md px-2 py-1.5 transition-colors inline-flex items-center gap-1.5 flex-shrink-0 disabled:opacity-60"
-            style={{
-              background: '#5865f222',
-              color: '#cdd6ff',
-              cursor: imageCollectionLoading ? 'wait' : 'pointer',
-            }}
-            title="사진 모아보기"
-            aria-label="사진 모아보기"
-          >
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <rect x="3" y="3" width="7" height="7" rx="1"/>
-              <rect x="14" y="3" width="7" height="7" rx="1"/>
-              <rect x="3" y="14" width="7" height="7" rx="1"/>
-              <rect x="14" y="14" width="7" height="7" rx="1"/>
-            </svg>
-            <span className="hidden sm:inline text-[11px] font-bold whitespace-nowrap">사진모아보기</span>
-          </button>
-        )}
+        {/* 채팅방 정보 버튼 (사진·링크 모아보기) */}
+        <button
+          type="button"
+          onClick={(e) => { e.stopPropagation(); setRoomInfoOpen(true); }}
+          className="rounded-md p-1.5 transition-colors"
+          style={{ background: roomInfoOpen ? '#3a3f4a' : 'transparent', color: 'var(--text-muted)' }}
+          title="사진·링크 모아보기"
+          aria-label="채팅방 정보"
+        >
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+            <line x1="3" y1="6" x2="21" y2="6"/>
+            <line x1="3" y1="12" x2="21" y2="12"/>
+            <line x1="3" y1="18" x2="21" y2="18"/>
+          </svg>
+        </button>
         {/* 새로고침 버튼 */}
         <button
           type="button"
@@ -1830,8 +1830,20 @@ export function ChatWindow({ roomId, onLeave, onImageView, naverTheme, naverDark
         </div>
       )}
 
+      {/* 채팅방 정보 패널 */}
+      {roomInfoOpen && (
+        <RoomInfoPanel
+          roomId={roomId}
+          onClose={() => setRoomInfoOpen(false)}
+          onImageClick={onImageView ? (url, all) => {
+            setRoomInfoOpen(false);
+            onImageView(url, all);
+          } : undefined}
+        />
+      )}
+
       {/* 메시지 목록 */}
-      <div ref={scrollContainerRef} className="flex-1 overflow-y-auto px-4 pt-4 pb-6" style={{ position: 'relative' }}
+      <div ref={scrollContainerRef} className="flex-1 overflow-y-auto px-4 pt-4 pb-6" style={{ position: 'relative', overflowX: 'hidden' }}
         onScroll={handleScrollContainerScroll}
       >
         {loadingOlder && (

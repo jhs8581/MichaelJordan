@@ -1,8 +1,77 @@
-import { useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import type { Message } from '@chat/types';
+import { useAuthStore } from '@/store/auth';
 
 const URL_REGEX = /(https?:\/\/[^\s<]+)/g;
 const URL_TEST = /^https?:\/\//;
+
+const API_BASE = (process.env.NEXT_PUBLIC_API_URL ?? '') + '/api';
+
+type LinkPreviewData = { title: string; description?: string; url: string };
+const linkPreviewCache = new Map<string, LinkPreviewData | null>();
+
+function extractFirstUrl(content: string): string | null {
+  URL_REGEX.lastIndex = 0;
+  const match = URL_REGEX.exec(content);
+  URL_REGEX.lastIndex = 0;
+  return match ? match[1] : null;
+}
+
+function LinkPreviewCard({ url, isMine }: { url: string; isMine: boolean }) {
+  const token = useAuthStore((s) => s.accessToken);
+  const [preview, setPreview] = useState<LinkPreviewData | null | undefined>(
+    linkPreviewCache.has(url) ? linkPreviewCache.get(url) : undefined
+  );
+
+  useEffect(() => {
+    if (linkPreviewCache.has(url)) {
+      setPreview(linkPreviewCache.get(url) ?? null);
+      return;
+    }
+    fetch(`${API_BASE}/messages/link-preview?url=${encodeURIComponent(url)}`, {
+      headers: token ? { Authorization: `Bearer ${token}` } : {},
+    })
+      .then((r) => r.json() as Promise<{ success: boolean; data?: LinkPreviewData }>)
+      .then((res) => {
+        const data = res.success && res.data ? res.data : null;
+        linkPreviewCache.set(url, data);
+        setPreview(data);
+      })
+      .catch(() => { linkPreviewCache.set(url, null); setPreview(null); });
+  }, [url, token]);
+
+  if (!preview) return null;
+
+  const hostname = (() => { try { return new URL(url).hostname.replace(/^www\./, ''); } catch { return url; } })();
+
+  return (
+    <a
+      href={url}
+      target="_blank"
+      rel="noopener noreferrer"
+      onClick={(e) => e.stopPropagation()}
+      onTouchStart={(e) => e.stopPropagation()}
+      style={{
+        display: 'block',
+        marginTop: 6,
+        borderRadius: 8,
+        padding: '7px 10px',
+        background: isMine ? 'rgba(255,255,255,0.18)' : 'rgba(0,0,0,0.10)',
+        borderLeft: '3px solid rgba(255,255,255,0.45)',
+        textDecoration: 'none',
+        color: 'inherit',
+      }}
+    >
+      <p style={{ fontSize: 10, opacity: 0.65, marginBottom: 2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{hostname}</p>
+      <p style={{ fontSize: 12, fontWeight: 600, lineHeight: 1.35, overflowWrap: 'anywhere' }}>{preview.title}</p>
+      {preview.description && (
+        <p style={{ fontSize: 11, opacity: 0.75, marginTop: 2, lineHeight: 1.3, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
+          {preview.description}
+        </p>
+      )}
+    </a>
+  );
+}
 
 export function renderMessageContent(content: string): React.ReactNode {
   const parts = content.split(URL_REGEX);
@@ -58,6 +127,7 @@ export function MessageBubble({ message, isMine, isConsecutive, timeFormat, show
   const time = formatMessageTime(new Date(message.createdAt), timeFormat, message.senderTimeZone, message.senderLocalTime);
   // 보낸 사람 본인을 제외한 읽음 수 (본인 읽음은 항상 있어서 무조건 읽음으로 표시되는 버그 방지)
   const readCount = (message.reads ?? []).filter((r) => r.userId !== message.senderId).length;
+  const firstUrl = !message.fileUrl ? extractFirstUrl(message.content ?? '') : null;
   const pressTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const touchStartRef = useRef<{ x: number; y: number } | null>(null);
   const longPressedRef = useRef(false);
@@ -143,6 +213,7 @@ export function MessageBubble({ message, isMine, isConsecutive, timeFormat, show
           <div
             className="px-3.5 py-2 rounded-2xl text-sm leading-relaxed whitespace-pre-wrap break-words min-w-0"
             style={{
+              overflowWrap: 'anywhere',
               background: isMine ? 'var(--bubble-mine)' : 'var(--bubble-other)',
               color: isMine ? '#fff' : 'var(--text-primary)',
               borderRadius: isMine
@@ -232,7 +303,10 @@ export function MessageBubble({ message, isMine, isConsecutive, timeFormat, show
                   </a>
                 </div>
               )
-            ) : renderMessageContent(message.content ?? '')}
+            ) : <>
+                {renderMessageContent(message.content ?? '')}
+                {firstUrl && <LinkPreviewCard url={firstUrl} isMine={isMine} />}
+              </>}
           </div>
 
           {/* 읽음/시간 (상대 메시지 오른쪽) */}

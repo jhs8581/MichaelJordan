@@ -266,6 +266,10 @@ export function RoomList() {
 
 function RoomItem({ room, isActive, onClick, icon }: { room: Room; isActive: boolean; onClick: () => void; icon: React.ReactNode }) {
   const showUnreadAlarm = (room.unreadCount ?? 0) > 0 && !room.isMuted;
+  const lastMessage = !room.isGroup ? (room.messages?.[0] ?? null) : null;
+  const lastMessageText = lastMessage?.content
+    ? (lastMessage.content.length > 30 ? lastMessage.content.slice(0, 30) + '…' : lastMessage.content)
+    : null;
   return (
     <button onClick={onClick}
       className="w-full flex items-center gap-2 px-2 py-1.5 rounded-md text-left transition-colors"
@@ -278,13 +282,20 @@ function RoomItem({ room, isActive, onClick, icon }: { room: Room; isActive: boo
       title={room.isMuted ? `${room.name} · 알림 꺼짐` : room.name}
     >
       <span style={{ color: isActive ? '#fff' : 'var(--text-muted)' }}>{icon}</span>
-      <span className="text-sm font-medium truncate flex-1">{room.name}</span>
+      <span className="flex-1 min-w-0">
+        <span className="block text-sm font-medium truncate">{room.name}</span>
+        {lastMessageText && (
+          <span className="block text-xs truncate" style={{ color: 'var(--text-muted)', marginTop: 1 }}>
+            {lastMessageText}
+          </span>
+        )}
+      </span>
       {room.isMuted ? (
-        <span className="inline-flex items-center justify-center" style={{ color: 'var(--text-muted)' }} aria-label="알림 꺼짐">
+        <span className="inline-flex items-center justify-center flex-shrink-0" style={{ color: 'var(--text-muted)' }} aria-label="알림 꺼짐">
           <MutedIcon />
         </span>
       ) : showUnreadAlarm ? (
-        <span className="inline-flex items-center justify-center text-[10px] font-bold" style={{ minWidth: 18, height: 18, borderRadius: 9, background: '#ed4245', color: '#fff', padding: '0 5px' }}>
+        <span className="inline-flex items-center justify-center text-[10px] font-bold flex-shrink-0" style={{ minWidth: 18, height: 18, borderRadius: 9, background: '#ed4245', color: '#fff', padding: '0 5px' }}>
           {(room.unreadCount ?? 0) > 99 ? '99+' : room.unreadCount}
         </span>
       ) : null}

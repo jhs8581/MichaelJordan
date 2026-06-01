@@ -43,6 +43,11 @@ export const useChatStore = create<ChatState>()((set) => ({
         ...state.messages,
         [roomId]: [...(state.messages[roomId] ?? []), message],
       },
+      rooms: state.rooms.map((r) =>
+        r.id === roomId
+          ? { ...r, messages: [{ id: message.id, content: message.content, createdAt: message.createdAt, senderId: message.senderId }] }
+          : r
+      ),
     })),
 
   prependMessages: (roomId, messages) =>
