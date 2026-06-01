@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { api } from '@/lib/api';
 import { useAuthStore } from '@/store/auth';
 import { useChatStore } from '@/store/chat';
@@ -19,6 +19,31 @@ const API_BASE = (process.env.NEXT_PUBLIC_API_URL ?? '') + '/api';
 
 export function RoomInfoPanel({ roomId, onClose, onImageClick }: Props) {
   const [tab, setTab] = useState<Tab>('photos');
+
+  // 최신 onClose 항상 참조 (deps 없이 effect 실행하기 위해)
+  const onCloseRef = useRef(onClose);
+  useEffect(() => { onCloseRef.current = onClose; });
+
+  // 패널이 열릴 때 히스토리에 가상 항목 추가 → 기기/브라우저 뒤로가기로 패널 닫기 가능
+  useEffect(() => {
+    history.pushState({ roomInfoPanel: true }, '');
+
+    const handlePopState = (e: PopStateEvent) => {
+      if (!e.state?.roomInfoPanel) {
+        onCloseRef.current();
+      }
+    };
+    window.addEventListener('popstate', handlePopState);
+
+    return () => {
+      window.removeEventListener('popstate', handlePopState);
+      // 버튼/외부 닫힘 시 pushed 항목 제거 (popstate 리스너가 이미 제거된 후 비동기 실행)
+      if (history.state?.roomInfoPanel) {
+        history.back();
+      }
+    };
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
   const [images, setImages] = useState<RoomImageItem[] | null>(null);
   const [links, setLinks] = useState<LinkItem[] | null>(null);
   const [loadingImages, setLoadingImages] = useState(false);
