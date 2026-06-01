@@ -264,6 +264,10 @@ export default function ChatPage() {
   const scrollRef = useRef<HTMLDivElement>(null);
   const galleryClickCount = useRef(0);
   const galleryClickTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const scheduleClickCount = useRef(0);
+  const scheduleClickTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const postsClickCount = useRef(0);
+  const postsClickTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   // popstate 핸들러를 ref로 관리 → capture phase로 等록해 Next.js router보다 먼저 실행
   const popStateHandlerRef = useRef<(() => void) | null>(null);
 
@@ -276,6 +280,26 @@ export default function ChatPage() {
       if (galleryClickTimer.current) clearTimeout(galleryClickTimer.current);
       setSelectedRoom(null);
       setShowChatList(true);
+    }
+  }
+  function handleScheduleClick() {
+    scheduleClickCount.current += 1;
+    if (scheduleClickTimer.current) clearTimeout(scheduleClickTimer.current);
+    scheduleClickTimer.current = setTimeout(() => { scheduleClickCount.current = 0; }, 350);
+    if (scheduleClickCount.current >= 2) {
+      scheduleClickCount.current = 0;
+      if (scheduleClickTimer.current) clearTimeout(scheduleClickTimer.current);
+      setSelectedRoom(null); setShowChatList(false); setActiveView('schedule');
+    }
+  }
+  function handlePostsClick() {
+    postsClickCount.current += 1;
+    if (postsClickTimer.current) clearTimeout(postsClickTimer.current);
+    postsClickTimer.current = setTimeout(() => { postsClickCount.current = 0; }, 350);
+    if (postsClickCount.current >= 2) {
+      postsClickCount.current = 0;
+      if (postsClickTimer.current) clearTimeout(postsClickTimer.current);
+      setSelectedRoom(null); setShowChatList(false); setActiveView('posts');
     }
   }
 
@@ -589,7 +613,8 @@ export default function ChatPage() {
               onClick={
                 gallery ? handleGalleryClick
                 : home ? () => { setSelectedRoom(null); setShowChatList(false); setActiveView(''); }
-                : view ? () => { setSelectedRoom(null); setShowChatList(false); setActiveView(view); }
+                : view === 'schedule' ? handleScheduleClick
+                : view === 'posts' ? handlePostsClick
                 : undefined
               }
               style={{
