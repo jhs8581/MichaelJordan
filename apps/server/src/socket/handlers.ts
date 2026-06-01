@@ -278,18 +278,16 @@ export function registerSocketHandlers(io: ChatServer) {
 
     // ── 메시지 삭제 ───────────────────────────────────────────────
     // ── 메시지 수정 ───────────────────────────────────────────────
-    socket.on('message:edit', async ({ messageId, content }, callback) => {
+    socket.on('message:edit', async ({ messageId, content }) => {
       try {
         const result = await editMessageContent({ messageId, userId, content });
         if (!result.ok) {
-          if (typeof callback === 'function') callback({ ok: false, error: result.error });
+          console.warn('[message:edit] edit rejected:', result.error, { messageId, userId });
           return;
         }
         emitMessageUpdated(result.data);
-        if (typeof callback === 'function') callback({ ok: true, data: result.data });
       } catch (err) {
         console.error('[message:edit] unexpected error', err);
-        if (typeof callback === 'function') callback({ ok: false, error: 'INTERNAL_ERROR' });
       }
     });
 

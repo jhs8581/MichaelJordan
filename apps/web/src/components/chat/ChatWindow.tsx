@@ -817,28 +817,11 @@ export function ChatWindow({ roomId, onLeave, onImageView, naverTheme, naverDark
       handleCancelEditMessage();
       return;
     }
-    setEditSaving(true);
-    try {
-      const socket = getSocket();
-      const result = await new Promise<{ ok: boolean; error?: string; data?: { roomId: number; messageId: number; content: string } }>((resolve, reject) => {
-        const timeout = setTimeout(() => reject(new Error('Message edit timed out')), 10000);
-        socket.emit('message:edit', { messageId: targetMessage.id, content: nextContent }, (res: { ok: boolean; error?: string; data?: { roomId: number; messageId: number; content: string } }) => {
-          clearTimeout(timeout);
-          resolve(res);
-        });
-      });
-      if (!result.ok) {
-        throw new Error(result.error ?? 'edit failed');
-      }
-      if (result.data) {
-        updateMessage(result.data.roomId, result.data.messageId, result.data.content);
-      }
-      handleCancelEditMessage();
-    } catch (error) {
-      console.error('Failed to save edited message', error);
-      showCopyNotice('메시지 수정에 실패했습니다.');
-      setEditSaving(false);
-    }
+    // 낙관적 업데이트: 즉시 UI 반영 (서버 broadcast인 message:updated도 수신하므로 이중 안전)
+    updateMessage(targetMessage.roomId, targetMessage.id, nextContent);
+    const socket = getSocket();
+    socket.emit('message:edit', { messageId: targetMessage.id, content: nextContent });
+    handleCancelEditMessage();
   }
 
   function showCopyNotice(message: string) {
