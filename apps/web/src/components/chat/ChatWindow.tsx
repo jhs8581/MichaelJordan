@@ -1008,6 +1008,7 @@ export function ChatWindow({ roomId, onLeave, onImageView, naverTheme, naverDark
   }, [messages]);
 
   const trimmedEditContent = editContent.trim();
+  const isNaverLight = Boolean(naverTheme && !naverDark);
 
   // 날짜 구분선 렌더링
   function renderMessages() {
@@ -1613,7 +1614,7 @@ export function ChatWindow({ roomId, onLeave, onImageView, naverTheme, naverDark
         >
           <div
             className="w-full max-w-sm rounded-t-2xl border p-4"
-            style={{ background: '#17191d', borderColor: '#3a3f4a' }}
+            style={{ background: isNaverLight ? '#ffffff' : '#17191d', borderColor: isNaverLight ? '#e8e8e8' : '#3a3f4a' }}
             onClick={(e) => e.stopPropagation()}
           >
             <p className="text-xs text-center mb-4 truncate px-2" style={{ color: 'var(--text-muted)' }}>
@@ -1718,8 +1719,8 @@ export function ChatWindow({ roomId, onLeave, onImageView, naverTheme, naverDark
               rows={4}
               className="w-full rounded-lg border px-3 py-2 text-sm resize-none"
               style={{
-                borderColor: '#3a3f4a',
-                background: '#101216',
+                borderColor: isNaverLight ? '#e8e8e8' : '#3a3f4a',
+                background: isNaverLight ? '#ffffff' : '#101216',
                 color: 'var(--text-primary)',
                 minHeight: 110,
               }}
@@ -1730,7 +1731,7 @@ export function ChatWindow({ roomId, onLeave, onImageView, naverTheme, naverDark
                 type="button"
                 onClick={handleCancelEditMessage}
                 className="flex-1 rounded-lg py-2.5 text-sm"
-                style={{ background: '#2b2d31', color: 'var(--text-muted)' }}
+                style={{ background: isNaverLight ? '#f5f6f8' : '#2b2d31', color: 'var(--text-muted)' }}
               >
                 취소
               </button>
