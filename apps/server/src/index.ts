@@ -114,6 +114,25 @@ async function main() {
       console.error('일정 알람 오류:', err);
     }
   }, 60 * 1000);
+}
+
+main().catch((err) => {
+  console.error(err);
+  prisma.$disconnect();
+  process.exit(1);
+});
+        await sendPushToUsers(userIds, {
+          type: 'schedule',
+          title: '📅 일정 알람',
+          body: schedule.title,
+          scheduleId: schedule.id,
+        });
+        await prisma.schedule.update({ where: { id: schedule.id }, data: { notified: true } });
+      }
+    } catch (err) {
+      console.error('일정 알람 오류:', err);
+    }
+  }, 60 * 1000);
 
 main().catch((err) => {
   console.error(err);
