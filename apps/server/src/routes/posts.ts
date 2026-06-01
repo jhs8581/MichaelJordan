@@ -40,7 +40,7 @@ export async function postRoutes(app: FastifyInstance) {
     const rid = Number(roomId);
     const payload = req.user as { sub?: number | string };
     const userId = Number(payload?.sub);
-    const member = await prisma.roomMember.findUnique({ where: { roomId_userId: { roomId: rid, userId } } });
+    const member = await prisma.roomMember.findUnique({ where: { userId_roomId: { userId, roomId: rid } } });
     if (!member) return reply.status(403).send({ error: '채팅방 멤버가 아닙니다' });
 
     const take = Math.min(Number(limit), 50);
@@ -79,7 +79,7 @@ export async function postRoutes(app: FastifyInstance) {
     const { roomId, title, content, sourceMessageId } = body.data;
 
     // 채팅방 멤버 검증
-    const member = await prisma.roomMember.findUnique({ where: { roomId_userId: { roomId, userId } } });
+    const member = await prisma.roomMember.findUnique({ where: { userId_roomId: { userId, roomId } } });
     if (!member) return reply.status(403).send({ error: '채팅방 멤버가 아닙니다' });
 
     // sourceMessageId 검증

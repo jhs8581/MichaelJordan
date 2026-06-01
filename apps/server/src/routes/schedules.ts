@@ -36,7 +36,7 @@ export async function scheduleRoutes(app: FastifyInstance) {
     const rid = Number(roomId);
     const payload = req.user as { sub?: number | string };
     const userId = Number(payload?.sub);
-    const member = await prisma.roomMember.findUnique({ where: { roomId_userId: { roomId: rid, userId } } });
+    const member = await prisma.roomMember.findUnique({ where: { userId_roomId: { userId, roomId: rid } } });
     if (!member) return reply.status(403).send({ error: '채팅방 멤버가 아닙니다' });
 
     const schedules = await prisma.schedule.findMany({
@@ -58,7 +58,7 @@ export async function scheduleRoutes(app: FastifyInstance) {
     const { roomId, title, description, scheduledAt, isAllDay } = body.data;
 
     // 채팅방 멤버 검증
-    const member = await prisma.roomMember.findUnique({ where: { roomId_userId: { roomId, userId } } });
+    const member = await prisma.roomMember.findUnique({ where: { userId_roomId: { userId, roomId } } });
     if (!member) return reply.status(403).send({ error: '채팅방 멤버가 아닙니다' });
 
     const schedule = await prisma.schedule.create({
