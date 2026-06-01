@@ -645,14 +645,14 @@ export default function NaverChatPage() {
             <div style={{ width: 46, height: 46, borderRadius: 14, background: naverDark ? '#1a2e2a' : '#e6f7f0', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
               <span style={{ fontSize: 22 }}>📅</span>
             </div>
-            <span style={{ fontSize: 11, color: view === 'schedule' ? '#03C75A' : nv.iconLabel, fontWeight: view === 'schedule' ? 700 : 400 }}>일정</span>
+            <span style={{ fontSize: 11, color: (view as string) === 'schedule' ? '#03C75A' : nv.iconLabel, fontWeight: (view as string) === 'schedule' ? 700 : 400 }}>일정</span>
           </div>
           {/* 게시판 */}
           <div onClick={handlePostsIconClick} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 5, minWidth: 68, flexShrink: 0, cursor: 'pointer' }}>
             <div style={{ width: 46, height: 46, borderRadius: 14, background: naverDark ? '#2a1a2e' : '#f3e8fd', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
               <span style={{ fontSize: 22 }}>📝</span>
             </div>
-            <span style={{ fontSize: 11, color: view === 'posts' ? '#03C75A' : nv.iconLabel, fontWeight: view === 'posts' ? 700 : 400 }}>게시판</span>
+            <span style={{ fontSize: 11, color: (view as string) === 'posts' ? '#03C75A' : nv.iconLabel, fontWeight: (view as string) === 'posts' ? 700 : 400 }}>게시판</span>
           </div>
           {/* 구분선 */}
           <div style={{ width: 1, height: 46, background: nv.border, alignSelf: 'center', margin: '0 6px', flexShrink: 0 }} />
