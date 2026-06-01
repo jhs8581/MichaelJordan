@@ -83,11 +83,19 @@ export interface ServerToClientEvents {
   'typing:update': (payload: { roomId: number; userId: number; username: string; isTyping: boolean }) => void;
 }
 
+export interface MessageEditAckResult {
+  success: boolean;
+  roomId?: number;
+  messageId?: number;
+  content?: string;
+  error?: string;
+}
+
 export interface ClientToServerEvents {
   'message:send': (payload: { roomId: number; content: string; fileUrl?: string; replyToId?: number; senderTimeZone?: string; senderLocalTime?: string }) => void;
   'message:edit': (
     payload: { messageId: number; content: string },
-    ack?: (result: { success: boolean; roomId?: number; messageId?: number; content?: string; error?: string }) => void,
+    ack?: (result: MessageEditAckResult) => void,
   ) => void;
   'message:read': (payload: { roomId: number; messageId: number }) => void;
   'message:delete': (payload: { messageId: number }) => void;

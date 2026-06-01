@@ -5,7 +5,7 @@ import { useChatStore } from '@/store/chat';
 import { useAuthStore } from '@/store/auth';
 import { getSocket } from '@/lib/socket';
 import { api } from '@/lib/api';
-import type { Message, Room } from '@chat/types';
+import type { Message, MessageEditAckResult, Room } from '@chat/types';
 import { MessageBubble, renderMessageContent } from './MessageBubble';
 
 interface Props {
@@ -30,6 +30,7 @@ type TimeFormatMode = 'ampm' | '24h';
 type LockDigit = '0' | '1' | '2' | '3' | '4' | '5' | '6' | '7' | '8' | '9';
 
 const LOCK_DIGITS: LockDigit[] = ['1', '2', '3', '4', '5', '6', '7', '8', '9', '0'];
+const MESSAGE_EDIT_TIMEOUT_MS = 4000;
 const TIME_ZONE_OPTIONS = [
   { value: '', label: '기기 자동' },
   { value: 'Asia/Seoul', label: '한국 - 서울' },
@@ -816,13 +817,14 @@ export function ChatWindow({ roomId, onLeave, onImageView, naverTheme, naverDark
     const targetRoomId = editingMessage.roomId;
     const targetMessageId = editingMessage.id;
     const socket = getSocket();
-    const result = await new Promise<{ success: boolean; roomId?: number; messageId?: number; content?: string }>((resolve) => {
+    const result = await new Promise<MessageEditAckResult>((resolve) => {
       let finished = false;
       const timeout = setTimeout(() => {
         if (finished) return;
         finished = true;
+        clearTimeout(timeout);
         resolve({ success: false });
-      }, 4000);
+      }, MESSAGE_EDIT_TIMEOUT_MS);
       socket.emit('message:edit', { messageId: targetMessageId, content: nextContent }, (ack) => {
         if (finished) return;
         finished = true;
