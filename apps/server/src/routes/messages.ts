@@ -108,9 +108,10 @@ export async function messageRoutes(app: FastifyInstance) {
   });
 
   auth.patch('/:messageId', async (req, reply) => {
-    const userId = (req.user as { sub: number }).sub;
+    const userId = Number((req.user as { sub: number | string }).sub);
     const { messageId } = req.params as { messageId: string };
-    const { content } = req.body as { content?: string };
+    const body = req.body as { content?: string } | null | undefined;
+    const content = body?.content;
 
     const result = await editMessageContent({
       messageId: Number(messageId),
