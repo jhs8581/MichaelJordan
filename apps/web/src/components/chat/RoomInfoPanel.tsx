@@ -1,8 +1,9 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { api } from '@/lib/api';
 import { useAuthStore } from '@/store/auth';
+import { useChatStore } from '@/store/chat';
 
 type RoomImageItem = { url: string; createdAt?: string };
 type LinkItem = { url: string; messageId: number; sender: { id: number; username: string } | null; createdAt: string };
@@ -23,6 +24,33 @@ export function RoomInfoPanel({ roomId, onClose, onImageClick }: Props) {
   const [loadingImages, setLoadingImages] = useState(false);
   const [loadingLinks, setLoadingLinks] = useState(false);
 
+  const storeMessages = useChatStore(s => s.messages[roomId] ?? []);
+
+  // 이미 로드된 메시지에서 즉시 URL 추출 (서버 재배포 여부 무관)
+  const localLinks: LinkItem[] = useMemo(() => {
+    const URL_REGEX = /https?:\/\/[^\s<>"']+/g;
+    const seen = new Set<string>();
+    const result: LinkItem[] = [];
+    for (let i = storeMessages.length - 1; i >= 0; i--) {
+      const m = storeMessages[i];
+      if (!m.content) continue;
+      const urls = m.content.match(URL_REGEX) ?? [];
+      for (const raw of urls) {
+        const url = raw.replace(/[.,;:!?)+]+$/, '');
+        if (!seen.has(url)) {
+          seen.add(url);
+          result.push({
+            url,
+            messageId: m.id,
+            sender: m.sender ? { id: m.sender.id, username: m.sender.username } : null,
+            createdAt: m.createdAt,
+          });
+        }
+      }
+    }
+    return result;
+  }, [storeMessages]);
+
   useEffect(() => {
     if (tab === 'photos' && images === null && !loadingImages) {
       setLoadingImages(true);
@@ -41,10 +69,10 @@ export function RoomInfoPanel({ roomId, onClose, onImageClick }: Props) {
       setLoadingLinks(true);
       api.get<{ data: { links: LinkItem[] } }>(`/messages/${roomId}/links`)
         .then(res => setLinks(res.data.data.links))
-        .catch(() => setLinks([]))
+        .catch(() => setLinks(localLinks))  // 서버 실패 시 로컬 추출 결과 사용
         .finally(() => setLoadingLinks(false));
     }
-  }, [tab, roomId, links, loadingLinks]);
+  }, [tab, roomId, links, loadingLinks, localLinks]);
 
   return (
     <div style={{ position: 'absolute', inset: 0, zIndex: 25, display: 'flex', flexDirection: 'column', background: 'var(--chat-bg)' }}>
@@ -103,17 +131,21 @@ export function RoomInfoPanel({ roomId, onClose, onImageClick }: Props) {
               )
         )}
 
-        {tab === 'links' && (
-          loadingLinks
-            ? <EmptyState text="불러오는 중..." />
-            : !links?.length
-              ? <EmptyState text="링크가 없습니다" />
-              : (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 8, padding: 12 }}>
-                  {links.map((link, i) => <LinkRow key={i} link={link} />)}
-                </div>
-              )
-        )}
+        {tab === 'links' && (() => {
+          // 서버 응답 전이면 로컬 추출 결과를 미리 보여줌
+          const displayLinks = links !== null ? links : localLinks;
+          if (loadingLinks && localLinks.length === 0) {
+            return <EmptyState text="불러오는 중..." />;
+          }
+          if (displayLinks.length === 0) {
+            return <EmptyState text="링크가 없습니다" />;
+          }
+          return (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 8, padding: 12 }}>
+              {displayLinks.map((link, i) => <LinkRow key={link.url + i} link={link} />)}
+            </div>
+          );
+        })()}
       </div>
     </div>
   );
