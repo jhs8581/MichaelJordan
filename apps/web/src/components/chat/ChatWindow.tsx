@@ -179,6 +179,7 @@ export function ChatWindow({ roomId, onLeave, onImageView, naverTheme, naverDark
   const [partialCopyMessage, setPartialCopyMessage] = useState<Message | null>(null);
   const [replyTarget, setReplyTarget] = useState<Message | null>(null);
   const [archiveRoomId, setArchiveRoomId] = useState<number | null>(null);
+  const [editSaving, setEditSaving] = useState(false);
   // 이전 메시지 페이지네이션
   const [nextCursor, setNextCursor] = useState<number | null>(null);
   const [loadingOlder, setLoadingOlder] = useState(false);
@@ -797,26 +798,38 @@ export function ChatWindow({ roomId, onLeave, onImageView, naverTheme, naverDark
 
   function handleStartEditMessage(msg: Message) {
     setContextMenu(null);
+    setEditSaving(false);
     setEditingMessage(msg);
     setEditContent(msg.content ?? '');
   }
 
   function handleCancelEditMessage() {
+    setEditSaving(false);
     setEditingMessage(null);
     setEditContent('');
   }
 
-  function handleSubmitEditMessage() {
-    if (!editingMessage) return;
+  async function handleSubmitEditMessage() {
+    if (!editingMessage || editSaving) return;
+    const targetMessage = editingMessage;
     const nextContent = editContent.trim();
-    if (!nextContent || nextContent === (editingMessage.content ?? '')) {
+    if (!nextContent || nextContent === (targetMessage.content ?? '')) {
       handleCancelEditMessage();
       return;
     }
-    updateMessage(editingMessage.roomId, editingMessage.id, nextContent); // 낙관적 업데이트
-    const socket = getSocket();
-    socket.emit('message:edit', { messageId: editingMessage.id, content: nextContent });
-    handleCancelEditMessage();
+    setEditSaving(true);
+    try {
+      const res = await api.patch<{ data: { roomId: number; messageId: number; content: string } }>(
+        `/messages/${targetMessage.id}`,
+        { content: nextContent }
+      );
+      updateMessage(res.data.data.roomId, res.data.data.messageId, res.data.data.content);
+      handleCancelEditMessage();
+    } catch (error) {
+      console.error('Failed to save edited message', error);
+      showCopyNotice('메시지 수정에 실패했습니다.');
+      setEditSaving(false);
+    }
   }
 
   function showCopyNotice(message: string) {
@@ -1739,11 +1752,11 @@ export function ChatWindow({ roomId, onLeave, onImageView, naverTheme, naverDark
               <button
                 type="button"
                 onClick={handleSubmitEditMessage}
-                disabled={!trimmedEditContent || trimmedEditContent === (editingMessage.content ?? '')}
+                disabled={editSaving || !trimmedEditContent || trimmedEditContent === (editingMessage.content ?? '')}
                 className="flex-1 rounded-lg py-2.5 text-sm font-bold disabled:opacity-50"
                 style={{ background: 'var(--accent)', color: '#fff' }}
               >
-                저장
+                {editSaving ? '저장 중...' : '저장'}
               </button>
             </div>
           </div>

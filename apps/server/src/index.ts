@@ -13,6 +13,7 @@ import { messageRoutes } from './routes/messages';
 import { userRoutes } from './routes/users';
 import { pushRoutes } from './routes/push';
 import { registerSocketHandlers } from './socket/handlers';
+import { setChatIo } from './lib/chat-io';
 
 const PORT = Number(process.env.PORT ?? 4000);
 const CORS_ORIGIN = (process.env.CORS_ORIGIN ?? 'http://localhost:3000').split(',').map(s => s.trim());
@@ -76,6 +77,7 @@ async function main() {
     cors: { origin: CORS_ORIGIN, credentials: true },
   });
 
+  setChatIo(io);
   registerSocketHandlers(io);
 
   // ── Start ──────────────────────────────────────────────────────
