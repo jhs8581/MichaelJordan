@@ -4,6 +4,8 @@ import jwt from '@fastify/jwt';
 import rateLimit from '@fastify/rate-limit';
 import multipart from '@fastify/multipart';
 import { Server } from 'socket.io';
+import fs from 'node:fs';
+import path from 'node:path';
 import type { ServerToClientEvents, ClientToServerEvents } from '@chat/types';
 
 import { prisma } from './lib/prisma';
@@ -61,6 +63,47 @@ async function main() {
 
   await app.register(multipart, {
     limits: { fileSize: 50 * 1024 * 1024 }, // 50MB (동영상 지원)
+  });
+
+  // ── 파일 서빙 (인증 불필요, 루트 레벨에서 직접 등록) ─────────────
+  const EXT_MIME: Record<string, string> = {
+    '.jpg': 'image/jpeg', '.jpeg': 'image/jpeg',
+    '.png': 'image/png', '.gif': 'image/gif', '.webp': 'image/webp',
+    '.mp4': 'video/mp4', '.webm': 'video/webm', '.mov': 'video/quicktime', '.m4v': 'video/mp4',
+  };
+  app.get('/api/messages/file/:filename', async (req, reply) => {
+    const { filename } = req.params as { filename: string };
+    if (!/^[a-zA-Z0-9_\-]+\.[a-zA-Z0-9]{2,5}$/.test(filename)) {
+      return reply.status(400).send({ error: 'Invalid filename' });
+    }
+    const filePath = path.join(process.cwd(), 'uploads', filename);
+    try {
+      const stat = await fs.promises.stat(filePath);
+      const ext = path.extname(filename).toLowerCase();
+      const mimeType = EXT_MIME[ext] ?? 'application/octet-stream';
+      const fileSize = stat.size;
+      const rangeHeader = (req.headers as Record<string, string | undefined>)['range'];
+      if (rangeHeader) {
+        const parts = rangeHeader.replace(/bytes=/, '').split('-');
+        const start = parseInt(parts[0], 10) || 0;
+        const end = parts[1] ? parseInt(parts[1], 10) : fileSize - 1;
+        const chunkSize = end - start + 1;
+        reply
+          .status(206)
+          .header('Content-Range', `bytes ${start}-${end}/${fileSize}`)
+          .header('Accept-Ranges', 'bytes')
+          .header('Content-Length', chunkSize)
+          .type(mimeType);
+        return reply.send(fs.createReadStream(filePath, { start, end }));
+      }
+      reply
+        .header('Accept-Ranges', 'bytes')
+        .header('Content-Length', fileSize)
+        .type(mimeType);
+      return reply.send(fs.createReadStream(filePath));
+    } catch {
+      return reply.status(404).send({ error: 'File not found' });
+    }
   });
 
   // ── Routes ─────────────────────────────────────────────────────

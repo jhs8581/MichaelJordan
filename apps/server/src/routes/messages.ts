@@ -53,49 +53,8 @@ const EXT_MIME: Record<string, string> = {
 };
 
 export async function messageRoutes(app: FastifyInstance) {
-  // ── 정적 이미지 서빙 (인증 불필요) ─────────────────────────────
-  // app 스코프 직접 등록: addHook은 아래 자식 스코프에만 있으므로 여기엔 인증 없음
-  app.get('/file/:filename', async (req, reply) => {
-    const { filename } = req.params as { filename: string };
-    // 경로 순회 방지
-    if (!/^[a-zA-Z0-9_\-]+\.[a-zA-Z0-9]{2,5}$/.test(filename)) {
-      return reply.status(400).send({ error: 'Invalid filename' });
-    }
-    const filePath = path.join(process.cwd(), 'uploads', filename);
-    try {
-      const stat = await fs.promises.stat(filePath);
-      const ext = path.extname(filename).toLowerCase();
-      const mimeType = EXT_MIME[ext] ?? 'application/octet-stream';
-      const fileSize = stat.size;
-
-      // Range 요청 처리 (동영상 스트리밍에 필수)
-      const rangeHeader = (req.headers as Record<string, string | undefined>)['range'];
-      if (rangeHeader) {
-        const parts = rangeHeader.replace(/bytes=/, '').split('-');
-        const start = parseInt(parts[0], 10);
-        const end = parts[1] ? parseInt(parts[1], 10) : fileSize - 1;
-        const chunkSize = end - start + 1;
-
-        reply
-          .status(206)
-          .header('Content-Range', `bytes ${start}-${end}/${fileSize}`)
-          .header('Accept-Ranges', 'bytes')
-          .header('Content-Length', chunkSize)
-          .type(mimeType);
-        return reply.send(fs.createReadStream(filePath, { start, end }));
-      }
-
-      reply
-        .header('Accept-Ranges', 'bytes')
-        .header('Content-Length', fileSize)
-        .type(mimeType);
-      return reply.send(fs.createReadStream(filePath));
-    } catch {
-      return reply.status(404).send({ error: 'File not found' });
-    }
-  });
-
   // ── 이하 모든 인증 필요 라우트를 별도 자식 스코프에 격리 ─────
+  // 파일 서빙(/file/:filename)은 index.ts 루트 레벨에서 직접 등록됨 (인증 우회 보장)
   // 핵심: app (부모) 에 addHook 하면 /file 라우트에도 적용됨.
   // 자식 스코프에서만 addHook 하면 해당 스코프 라우트에만 인증 적용.
   await app.register(async (auth) => {
