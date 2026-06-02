@@ -23,7 +23,7 @@
 body {
   background: var(--chat-bg);
   color: var(--text-primary);
-  overflow-x: hidden;
+  overflow: hidden;
 }
 
 /* 스크롤바 */
