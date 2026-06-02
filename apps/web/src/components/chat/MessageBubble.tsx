@@ -277,8 +277,10 @@ export function MessageBubble({ message, isMine, isConsecutive, timeFormat, show
                 <video
                   src={message.fileUrl}
                   controls
+                  playsInline
+                  preload="metadata"
                   onClick={(e) => e.stopPropagation()}
-                  style={{ maxWidth: 220, borderRadius: 14, display: 'block' }}
+                  style={{ maxWidth: 220, maxHeight: 300, borderRadius: 14, display: 'block' }}
                 />
               ) : (
                 <div style={{ position: 'relative' }}>

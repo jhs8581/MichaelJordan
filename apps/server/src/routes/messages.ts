@@ -63,8 +63,32 @@ export async function messageRoutes(app: FastifyInstance) {
     }
     const filePath = path.join(process.cwd(), 'uploads', filename);
     try {
+      const stat = await fs.promises.stat(filePath);
       const ext = path.extname(filename).toLowerCase();
-      reply.type(EXT_MIME[ext] ?? 'application/octet-stream');
+      const mimeType = EXT_MIME[ext] ?? 'application/octet-stream';
+      const fileSize = stat.size;
+
+      // Range 요청 처리 (동영상 스트리밍에 필수)
+      const rangeHeader = (req.headers as Record<string, string | undefined>)['range'];
+      if (rangeHeader) {
+        const parts = rangeHeader.replace(/bytes=/, '').split('-');
+        const start = parseInt(parts[0], 10);
+        const end = parts[1] ? parseInt(parts[1], 10) : fileSize - 1;
+        const chunkSize = end - start + 1;
+
+        reply
+          .status(206)
+          .header('Content-Range', `bytes ${start}-${end}/${fileSize}`)
+          .header('Accept-Ranges', 'bytes')
+          .header('Content-Length', chunkSize)
+          .type(mimeType);
+        return reply.send(fs.createReadStream(filePath, { start, end }));
+      }
+
+      reply
+        .header('Accept-Ranges', 'bytes')
+        .header('Content-Length', fileSize)
+        .type(mimeType);
       return reply.send(fs.createReadStream(filePath));
     } catch {
       return reply.status(404).send({ error: 'File not found' });
