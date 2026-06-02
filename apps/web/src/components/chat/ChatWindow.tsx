@@ -1147,6 +1147,7 @@ export function ChatWindow({ roomId, onLeave, onImageView, naverTheme, naverDark
               showNickname={settings.showNickname}
               naverTheme={naverTheme}
               naverDark={naverDark}
+              viewerTimeZone={user?.timeZone || getLocalTimeZone()}
               onImageClick={onImageView ? (url) => {
                 loadAllRoomImageItems(url)
                   .then((imageItems) => onImageView(url, imageItems))

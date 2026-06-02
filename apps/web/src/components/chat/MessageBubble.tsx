@@ -103,6 +103,7 @@ interface Props {
   showNickname?: boolean;
   naverTheme?: boolean;
   naverDark?: boolean;
+  viewerTimeZone?: string;
   onImageClick?: (url: string) => void;
   onLongPress?: (message: Message) => void;
   onReply?: (message: Message) => void;
@@ -123,8 +124,8 @@ function getValidTimeZone(timeZone?: string): string | undefined {
   }
 }
 
-export function MessageBubble({ message, isMine, isConsecutive, timeFormat, showNickname = true, naverTheme, naverDark, onImageClick, onLongPress, onReply, onJumpToMessage }: Props) {
-  const time = formatMessageTime(new Date(message.createdAt), timeFormat, message.senderTimeZone, message.senderLocalTime);
+export function MessageBubble({ message, isMine, isConsecutive, timeFormat, showNickname = true, naverTheme, naverDark, viewerTimeZone, onImageClick, onLongPress, onReply, onJumpToMessage }: Props) {
+  const time = formatMessageTime(new Date(message.createdAt), timeFormat, message.senderTimeZone, message.senderLocalTime, viewerTimeZone);
   // 보낸 사람 본인을 제외한 읽음 수 (본인 읽음은 항상 있어서 무조건 읽음으로 표시되는 버그 방지)
   const readCount = (message.reads ?? []).filter((r) => r.userId !== message.senderId).length;
   const firstUrl = !message.fileUrl ? extractFirstUrl(message.content ?? '') : null;
@@ -201,7 +202,7 @@ export function MessageBubble({ message, isMine, isConsecutive, timeFormat, show
           {isMine && (
             <div
               className="flex flex-col items-end justify-end gap-0.5 mb-0.5"
-              style={{ width: 58, minWidth: 58, flexShrink: 0, whiteSpace: 'nowrap', lineHeight: 1.15 }}
+              style={{ flexShrink: 0, whiteSpace: 'nowrap', lineHeight: 1.15 }}
             >
               <span className="text-[10px]" style={{ color: 'var(--text-muted)', whiteSpace: 'nowrap' }}>{time}</span>
               {readCount > 0 && (
@@ -313,7 +314,7 @@ export function MessageBubble({ message, isMine, isConsecutive, timeFormat, show
           {!isMine && isConsecutive && (
             <span
               className="text-[10px] mb-0.5"
-              style={{ color: 'var(--text-muted)', width: 58, minWidth: 58, flexShrink: 0, whiteSpace: 'nowrap' }}
+              style={{ color: 'var(--text-muted)', flexShrink: 0, whiteSpace: 'nowrap' }}
             >
               {time}
             </span>
@@ -332,7 +333,7 @@ function stringToColor(str: string): string {
   return colors[Math.abs(hash) % colors.length];
 }
 
-function formatMessageTime(date: Date, mode: 'ampm' | '24h', timeZone?: string, senderLocalTime?: string): string {
+function computeFormattedTime(date: Date, mode: 'ampm' | '24h', timeZone?: string, senderLocalTime?: string): string {
   if (senderLocalTime && /^\d{2}:\d{2}$/.test(senderLocalTime)) {
     if (mode === '24h') return senderLocalTime;
     const [hourText, minuteText] = senderLocalTime.split(':');
@@ -347,11 +348,27 @@ function formatMessageTime(date: Date, mode: 'ampm' | '24h', timeZone?: string, 
     if (mode === '24h') {
       return date.toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit', hour12: false, timeZone: validTimeZone });
     }
-
     return date.toLocaleTimeString('ko-KR', { hour: 'numeric', minute: '2-digit', hour12: true, timeZone: validTimeZone });
   } catch {
     return mode === '24h'
       ? date.toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit', hour12: false })
       : date.toLocaleTimeString('ko-KR', { hour: 'numeric', minute: '2-digit', hour12: true });
   }
+}
+
+function formatMessageTime(date: Date, mode: 'ampm' | '24h', timeZone?: string, senderLocalTime?: string, viewerTimeZone?: string): string {
+  const senderTime = computeFormattedTime(date, mode, timeZone, senderLocalTime);
+
+  if (viewerTimeZone) {
+    const validViewerTZ = getValidTimeZone(viewerTimeZone);
+    const validSenderTZ = getValidTimeZone(timeZone);
+    if (validViewerTZ && validViewerTZ !== validSenderTZ) {
+      const viewerTime = computeFormattedTime(date, mode, viewerTimeZone, undefined);
+      if (viewerTime !== senderTime) {
+        return `${senderTime} (${viewerTime})`;
+      }
+    }
+  }
+
+  return senderTime;
 }
