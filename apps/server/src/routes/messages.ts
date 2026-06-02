@@ -233,6 +233,29 @@ export async function messageRoutes(app: FastifyInstance) {
     return reply.send({ success: true, data: { images, imageItems } });
   });
 
+  // ── 채팅방 동영상 목록 전체 조회 ─────────────────────────────
+  auth.get('/:roomId/videos', async (req, reply) => {
+    const userId = (req.user as { sub: number }).sub;
+    const { roomId } = req.params as { roomId: string };
+
+    const member = await prisma.roomMember.findUnique({
+      where: { userId_roomId: { userId, roomId: Number(roomId) } },
+    });
+    if (!member) return reply.status(403).send({ success: false, error: '접근 권한이 없습니다.' });
+
+    const msgs = await prisma.message.findMany({
+      where: { roomId: Number(roomId), fileUrl: { not: null } },
+      select: { fileUrl: true, createdAt: true },
+      orderBy: { id: 'desc' },
+    });
+
+    const videoItems = msgs
+      .filter((m) => m.fileUrl && /\.(mp4|webm|mov|m4v|avi)(\?.*)?$/i.test(m.fileUrl))
+      .map((m) => ({ url: m.fileUrl!, createdAt: m.createdAt }));
+
+    return reply.send({ success: true, data: { videoItems } });
+  });
+
   // ── 채팅방 링크 목록 전체 조회 ───────────────────────────────
   auth.get('/:roomId/links', async (req, reply) => {
     const userId = (req.user as { sub: number }).sub;

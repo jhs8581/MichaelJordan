@@ -217,7 +217,10 @@ export default function NaverChatPage({ backRef }: { backRef?: MutableRefObject<
     rooms.reduce((acc, r) => acc + (!r.isMuted ? (r.unreadCount ?? 0) : 0), 0), [rooms]);
 
   // backRef 업데이트 — 렌더마다 갱신해서 최신 클로저 유지 (stale closure 방지)
+  // ChatWindow 내부(모아보기 패널 등)에서 등록하는 뒤로가기 인터셉터
+  const chatBackInterceptorRef = useRef<(() => boolean) | null>(null);
   if (backRef) backRef.current = () => {
+    if (chatBackInterceptorRef.current?.()) return;
     if (showImageGrid || viewingImages.length > 0) { setViewingImageItems([]); setShowImageGrid(false); return; }
     if (roomView !== '') { setRoomView(''); return; }
     if (view === 'chat') { setView('rooms'); return; }
@@ -606,6 +609,7 @@ export default function NaverChatPage({ backRef }: { backRef?: MutableRefObject<
             </div>
           ) : (
             <ChatWindow roomId={selectedRoom.id} onLeave={() => setView('rooms')} naverTheme naverDark={naverDark}
+              backInterceptorRef={chatBackInterceptorRef}
               onImageView={(url, imageList, options) => {
                 const idx = imageList.findIndex((item) => item.url === url);
                 setViewingImageItems(imageList); setViewingImageIdx(idx >= 0 ? idx : 0);

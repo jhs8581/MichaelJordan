@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useMemo, useRef, useState } from 'react';
+import React from 'react';
 import { useChatStore } from '@/store/chat';
 import { useAuthStore } from '@/store/auth';
 import { getSocket } from '@/lib/socket';
@@ -15,6 +16,7 @@ interface Props {
   onImageView?: (url: string, imageList: RoomImageItem[], options?: ImageViewOptions) => void;
   naverTheme?: boolean;
   naverDark?: boolean;
+  backInterceptorRef?: React.MutableRefObject<(() => boolean) | null>;
 }
 
 type RoomImageItem = {
@@ -128,7 +130,7 @@ function loadChatViewSettings(): ChatViewSettings {
   }
 }
 
-export function ChatWindow({ roomId, onLeave, onImageView, naverTheme, naverDark }: Props) {
+export function ChatWindow({ roomId, onLeave, onImageView, naverTheme, naverDark, backInterceptorRef }: Props) {
   const user = useAuthStore((s) => s.user);
   const accessToken = useAuthStore((s) => s.accessToken);
   const setUser = useAuthStore((s) => s.setUser);
@@ -172,6 +174,16 @@ export function ChatWindow({ roomId, onLeave, onImageView, naverTheme, naverDark
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [imageCollectionLoading, setImageCollectionLoading] = useState(false);
   const [roomInfoOpen, setRoomInfoOpen] = useState(false);
+
+  // roomInfoOpen 변경 시 backInterceptorRef 갱신 + 히스토리 항목 push
+  useEffect(() => {
+    if (backInterceptorRef) {
+      backInterceptorRef.current = roomInfoOpen ? () => { setRoomInfoOpen(false); return true; } : null;
+    }
+    if (roomInfoOpen) {
+      history.pushState({ _chat: true }, '', window.location.href);
+    }
+  }, [roomInfoOpen, backInterceptorRef]);
   const [muteSaving, setMuteSaving] = useState(false);
   const [muteOverride, setMuteOverride] = useState<boolean | null>(null);
   const [socketDisconnected, setSocketDisconnected] = useState(false);

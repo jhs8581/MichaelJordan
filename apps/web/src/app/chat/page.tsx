@@ -270,6 +270,8 @@ export default function ChatPage() {
   const popStateHandlerRef = useRef<(() => void) | null>(null);
   // 네이버 테마용 뒤로가기 핸들러 ref
   const naverBackRef = useRef<(() => void) | null>(null);
+  // ChatWindow 내부(모아보기 패널 등)에서 등록하는 뒤로가기 인터셉터
+  const chatBackInterceptorRef = useRef<(() => boolean) | null>(null);
 
   function handleGalleryClick() {
     setActiveTab('갤러리');
@@ -312,6 +314,10 @@ export default function ChatPage() {
     // 네이버 테마일 때는 NaverChatPage의 핸들러에 위임
     if (chatTheme === 'naver') {
       naverBackRef.current?.();
+      history.pushState({ _chat: true }, '', window.location.href);
+      return;
+    }
+    if (chatBackInterceptorRef.current?.()) {
       history.pushState({ _chat: true }, '', window.location.href);
       return;
     }
@@ -834,6 +840,7 @@ export default function ChatPage() {
                 <ChatWindow
                   roomId={selectedRoom.id}
                   onLeave={() => setSelectedRoom(null)}
+                  backInterceptorRef={chatBackInterceptorRef}
                   onImageView={(url, imageList, options) => {
                     const idx = imageList.findIndex((item) => item.url === url);
                     setViewingImageItems(imageList);

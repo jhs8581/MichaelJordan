@@ -6,8 +6,9 @@ import { useAuthStore } from '@/store/auth';
 import { useChatStore } from '@/store/chat';
 
 type RoomImageItem = { url: string; createdAt?: string };
+type VideoItem = { url: string; createdAt?: string };
 type LinkItem = { url: string; messageId: number; sender: { id: number; username: string } | null; createdAt: string };
-type Tab = 'photos' | 'links';
+type Tab = 'photos' | 'videos' | 'links';
 
 interface Props {
   roomId: number;
@@ -24,29 +25,13 @@ export function RoomInfoPanel({ roomId, onClose, onImageClick }: Props) {
   const onCloseRef = useRef(onClose);
   useEffect(() => { onCloseRef.current = onClose; });
 
-  // 패널이 열릴 때 히스토리에 가상 항목 추가 → 기기/브라우저 뒤로가기로 패널 닫기 가능
-  useEffect(() => {
-    history.pushState({ roomInfoPanel: true }, '');
-
-    const handlePopState = (e: PopStateEvent) => {
-      if (!e.state?.roomInfoPanel) {
-        onCloseRef.current();
-      }
-    };
-    window.addEventListener('popstate', handlePopState);
-
-    return () => {
-      window.removeEventListener('popstate', handlePopState);
-      // 버튼/외부 닫힘 시 pushed 항목 제거 (popstate 리스너가 이미 제거된 후 비동기 실행)
-      if (history.state?.roomInfoPanel) {
-        history.back();
-      }
-    };
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  // 히스토리 관리는 ChatWindow(backInterceptorRef)에서 일괄 처리하므로 여기서 pushState 불필요
 
   const [images, setImages] = useState<RoomImageItem[] | null>(null);
+  const [videos, setVideos] = useState<VideoItem[] | null>(null);
   const [links, setLinks] = useState<LinkItem[] | null>(null);
   const [loadingImages, setLoadingImages] = useState(false);
+  const [loadingVideos, setLoadingVideos] = useState(false);
   const [loadingLinks, setLoadingLinks] = useState(false);
 
   const storeMessages = useChatStore(s => s.messages[roomId] ?? []);
@@ -90,6 +75,16 @@ export function RoomInfoPanel({ roomId, onClose, onImageClick }: Props) {
   }, [tab, roomId, images, loadingImages]);
 
   useEffect(() => {
+    if (tab === 'videos' && videos === null && !loadingVideos) {
+      setLoadingVideos(true);
+      api.get<{ data: { videoItems: VideoItem[] } }>(`/messages/${roomId}/videos`)
+        .then(res => setVideos(res.data.data.videoItems))
+        .catch(() => setVideos([]))
+        .finally(() => setLoadingVideos(false));
+    }
+  }, [tab, roomId, videos, loadingVideos]);
+
+  useEffect(() => {
     if (tab === 'links' && links === null && !loadingLinks) {
       setLoadingLinks(true);
       api.get<{ data: { links: LinkItem[] } }>(`/messages/${roomId}/links`)
@@ -117,7 +112,7 @@ export function RoomInfoPanel({ roomId, onClose, onImageClick }: Props) {
 
       {/* 탭 */}
       <div style={{ display: 'flex', flexShrink: 0, borderBottom: '1px solid #1e1f22' }}>
-        {(['photos', 'links'] as const).map(t => (
+        {(['photos', 'videos', 'links'] as const).map(t => (
           <button
             key={t}
             onClick={() => setTab(t)}
@@ -128,7 +123,7 @@ export function RoomInfoPanel({ roomId, onClose, onImageClick }: Props) {
               color: tab === t ? 'var(--accent)' : 'var(--text-muted)',
             }}
           >
-            {t === 'photos' ? '📷 사진' : '🔗 링크'}
+            {t === 'photos' ? '📷 사진' : t === 'videos' ? '🎬 동영상' : '🔗 링크'}
           </button>
         ))}
       </div>
@@ -150,6 +145,33 @@ export function RoomInfoPanel({ roomId, onClose, onImageClick }: Props) {
                     >
                       {/* eslint-disable-next-line @next/next/no-img-element */}
                       <img src={item.url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
+                    </div>
+                  ))}
+                </div>
+              )
+        )}
+
+        {tab === 'videos' && (
+          loadingVideos
+            ? <EmptyState text="불러오는 중..." />
+            : !videos?.length
+              ? <EmptyState text="동영상이 없습니다" />
+              : (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 8, padding: 8 }}>
+                  {videos.map((item, i) => (
+                    <div key={i} style={{ borderRadius: 12, overflow: 'hidden', background: '#0f1115' }}>
+                      <video
+                        src={item.url}
+                        controls
+                        playsInline
+                        preload="metadata"
+                        style={{ width: '100%', maxHeight: 280, display: 'block', borderRadius: 12 }}
+                      />
+                      {item.createdAt && (
+                        <p style={{ fontSize: 11, color: 'var(--text-muted)', padding: '4px 8px 6px', margin: 0 }}>
+                          {new Date(item.createdAt).toLocaleDateString('ko-KR', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                        </p>
+                      )}
                     </div>
                   ))}
                 </div>
