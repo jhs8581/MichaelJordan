@@ -58,7 +58,7 @@ export async function messageRoutes(app: FastifyInstance) {
   app.get('/file/:filename', async (req, reply) => {
     const { filename } = req.params as { filename: string };
     // 경로 순회 방지
-    if (!/^[a-zA-Z0-9_\-]+\.[a-zA-Z]{2,5}$/.test(filename)) {
+    if (!/^[a-zA-Z0-9_\-]+\.[a-zA-Z0-9]{2,5}$/.test(filename)) {
       return reply.status(400).send({ error: 'Invalid filename' });
     }
     const filePath = path.join(process.cwd(), 'uploads', filename);
