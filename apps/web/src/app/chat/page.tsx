@@ -656,7 +656,7 @@ export default function ChatPage() {
 
       <div ref={scrollRef} style={{ overflowY: 'auto' }}>
         {selectedRoom ? (
-          <div style={{ display: 'flex', flexDirection: 'column', height: `calc(100vh - ${HEADER_H + NAV_H}px)` }}>
+          <div style={{ display: 'flex', flexDirection: 'column', height: `calc(100dvh - ${HEADER_H + NAV_H}px)` }}>
             <div style={{
               background: '#fff', borderBottom: '1px solid #e0e0e0',
               padding: '9px 14px', display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0,

@@ -1328,7 +1328,7 @@ export function ChatWindow({ roomId, onLeave, onImageView, naverTheme, naverDark
       </div>
 
       {isMobile && (
-        <div className="toolbar-mobile flex items-center gap-2 px-3 pb-2" style={{ background: 'var(--chat-bg)', borderBottom: '1px solid #1e1f22' }}>
+        <div className="toolbar-mobile flex-shrink-0 flex items-center gap-2 px-3 pb-2" style={{ background: 'var(--chat-bg)', borderBottom: '1px solid #1e1f22' }}>
           <button
             type="button"
             data-chat-settings-button
