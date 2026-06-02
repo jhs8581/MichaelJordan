@@ -162,6 +162,34 @@ async function main() {
       console.error('일정 알람 오류:', err);
     }
   }, 60 * 1000);
+
+  // ── 데이터 클렌징 (24시간마다) ────────────────────────────────
+  async function runCleanup() {
+    try {
+      const now = new Date();
+
+      // 1) 만료된 RefreshToken 삭제
+      const { count: tokenCount } = await prisma.refreshToken.deleteMany({
+        where: { expiresAt: { lt: now } },
+      });
+
+      // 2) 30일 이상 된 MessageRead 삭제 (해당 메시지 createdAt 기준)
+      const cutoff = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+      const { count: readCount } = await prisma.messageRead.deleteMany({
+        where: { message: { createdAt: { lt: cutoff } } },
+      });
+
+      console.log(`🧹 클렌징 완료 — RefreshToken: ${tokenCount}건, MessageRead: ${readCount}건 삭제`);
+    } catch (err) {
+      console.error('데이터 클렌징 오류:', err);
+    }
+  }
+
+  // 서버 시작 후 1분 뒤 첫 실행, 이후 24시간마다
+  setTimeout(() => {
+    runCleanup();
+    setInterval(runCleanup, 24 * 60 * 60 * 1000);
+  }, 60 * 1000);
 }
 
 main().catch((err) => {
