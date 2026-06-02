@@ -244,7 +244,11 @@ export function MessageBubble({ message, isMine, isConsecutive, timeFormat, show
                 }}
                 className="mb-2 rounded-xl px-2.5 py-2 text-left"
                 style={{
-                  width: 'min(260px, 100%)',
+                  maxWidth: 260,
+                  overflow: 'hidden',
+                  // 부모 버블의 whitespace-pre-wrap / overflowWrap 상속 차단
+                  whiteSpace: 'normal',
+                  overflowWrap: 'normal',
                   background: (!isMine && naverTheme && !naverDark)
                     ? 'rgba(0,0,0,0.07)'
                     : (isMine ? 'rgba(255,255,255,0.26)' : 'rgba(255,255,255,0.10)'),
@@ -263,10 +267,10 @@ export function MessageBubble({ message, isMine, isConsecutive, timeFormat, show
                 title="원본 메시지로 이동"
                 aria-label={`답장 대상: ${message.replyTo.sender?.username ?? `사용자${message.replyTo.senderId}`} — 원본 메시지로 이동`}
               >
-                <p className="text-[11px] font-bold leading-tight truncate" style={{ color: (!isMine && naverTheme && !naverDark) ? '#333' : '#fff', marginBottom: 4 }}>
+                <p style={{ fontSize: 11, fontWeight: 700, lineHeight: 1.3, marginBottom: 4, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', color: (!isMine && naverTheme && !naverDark) ? '#333' : '#fff' }}>
                   {message.replyTo.sender?.username ?? `사용자${message.replyTo.senderId}`}에게 답장
                 </p>
-                <p className="text-[11px] leading-tight truncate" style={{ color: (!isMine && naverTheme && !naverDark) ? '#666' : 'rgba(255,255,255,0.78)', maxWidth: '100%' }}>
+                <p style={{ fontSize: 11, lineHeight: 1.3, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', color: (!isMine && naverTheme && !naverDark) ? '#666' : 'rgba(255,255,255,0.78)' }}>
                   {message.replyTo.fileUrl ? '[사진]' : (message.replyTo.content || '[메시지]')}
                 </p>
               </div>
