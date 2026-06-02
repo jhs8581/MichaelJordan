@@ -588,8 +588,15 @@ export default function ChatPage() {
 
   return (
     <div style={{
-      maxWidth: 430, margin: '0 auto', minHeight: '100vh', background: '#f0f0f0',
-      fontFamily: '"Apple SD Gothic Neo","Malgun Gothic",Arial,sans-serif', position: 'relative',
+      maxWidth: 430, margin: '0 auto', background: '#f0f0f0',
+      fontFamily: '"Apple SD Gothic Neo","Malgun Gothic",Arial,sans-serif',
+      // 선택된 방이 있을 때 position:fixed → 키보드 자동스크롤 차단
+      ...(selectedRoom ? {
+        position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
+        display: 'flex', flexDirection: 'column', overflow: 'hidden',
+      } : {
+        position: 'relative', minHeight: '100vh',
+      }),
     }}>
 
       <header style={{
@@ -660,9 +667,9 @@ export default function ChatPage() {
         </div>
       </nav>
 
-      <div ref={scrollRef} style={{ overflowY: 'auto' }}>
+      <div ref={scrollRef} style={{ overflowY: 'auto', ...(selectedRoom ? { flex: 1, overflow: 'hidden' } : {}) }}>
         {selectedRoom ? (
-          <div style={{ display: 'flex', flexDirection: 'column', height: `calc(100dvh - ${HEADER_H + NAV_H}px)` }}>
+          <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
             <div style={{
               background: '#fff', borderBottom: '1px solid #e0e0e0',
               padding: '9px 14px', display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0,

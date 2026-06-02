@@ -470,7 +470,7 @@ export default function NaverChatPage({ backRef }: { backRef?: MutableRefObject<
   // ── 채팅창 뷰 ─────────────────────────────────────────────────────────────────
   if (view === 'chat' && selectedRoom) {
     return (
-      <div style={{ maxWidth: 430, margin: '0 auto', height: '100dvh', fontFamily: '"Apple SD Gothic Neo","Malgun Gothic",Arial,sans-serif', display: 'flex', flexDirection: 'column' }}>
+      <div style={{ maxWidth: 430, margin: '0 auto', position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, fontFamily: '"Apple SD Gothic Neo","Malgun Gothic",Arial,sans-serif', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
         <div style={{ height: HEADER_H, background: naverDark ? '#161616' : '#fff', borderBottom: `1px solid ${naverDark ? '#2e2e2e' : '#e8e8e8'}`, display: 'flex', alignItems: 'center', padding: '0 14px', gap: 10, flexShrink: 0 }}>
           {roomView !== '' ? (
             <button onClick={() => setRoomView('')} style={{ background: 'none', border: 'none', cursor: 'pointer', color: naverDark ? '#aaa' : '#111', fontSize: 20, padding: '4px 8px 4px 0', lineHeight: 1 }}>←</button>
