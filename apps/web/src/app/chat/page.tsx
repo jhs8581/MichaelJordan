@@ -273,6 +273,39 @@ export default function ChatPage() {
   // ChatWindow 내부(모아보기 패널 등)에서 등록하는 뒤로가기 인터셉터
   const chatBackInterceptorRef = useRef<(() => boolean) | null>(null);
 
+  // ── Pull-to-Refresh ─────────────────────────────────────────
+  const ptrStartY = useRef<number | null>(null);
+  const [ptrDist, setPtrDist] = useState(0);   // 0~60px 당김 거리
+  const [ptrLoading, setPtrLoading] = useState(false);
+  const PTR_THRESHOLD = 60;
+
+  function handlePtrTouchStart(e: React.TouchEvent<HTMLDivElement>) {
+    // 채팅방 진입 중이거나 맨 위가 아닐 때는 무시
+    if (selectedRoom) return;
+    const el = scrollRef.current;
+    if (!el || el.scrollTop > 0) return;
+    ptrStartY.current = e.touches[0].clientY;
+  }
+  function handlePtrTouchMove(e: React.TouchEvent<HTMLDivElement>) {
+    if (ptrStartY.current === null || selectedRoom) return;
+    const el = scrollRef.current;
+    if (!el || el.scrollTop > 0) { ptrStartY.current = null; return; }
+    const dy = e.touches[0].clientY - ptrStartY.current;
+    if (dy > 0) setPtrDist(Math.min(dy * 0.4, PTR_THRESHOLD));
+  }
+  function handlePtrTouchEnd() {
+    if (ptrStartY.current === null) return;
+    ptrStartY.current = null;
+    if (ptrDist >= PTR_THRESHOLD) {
+      setPtrLoading(true);
+      setPtrDist(0);
+      // 실제 새로고침
+      window.location.reload();
+    } else {
+      setPtrDist(0);
+    }
+  }
+
   function handleGalleryClick() {
     setActiveTab('갤러리');
     setSelectedRoom(null);
@@ -667,7 +700,25 @@ export default function ChatPage() {
         </div>
       </nav>
 
-      <div ref={scrollRef} style={{ overflowY: 'auto', ...(selectedRoom ? { flex: 1, overflow: 'hidden' } : {}) }}>
+      <div
+        ref={scrollRef}
+        style={{ overflowY: 'auto', ...(selectedRoom ? { flex: 1, overflow: 'hidden' } : {}) }}
+        onTouchStart={handlePtrTouchStart}
+        onTouchMove={handlePtrTouchMove}
+        onTouchEnd={handlePtrTouchEnd}
+      >
+        {/* Pull-to-Refresh 인디케이터 */}
+        {!selectedRoom && (ptrDist > 0 || ptrLoading) && (
+          <div style={{
+            height: ptrLoading ? 44 : ptrDist * 44 / PTR_THRESHOLD,
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            overflow: 'hidden', transition: ptrDist === 0 ? 'height 200ms ease' : 'none',
+          }}>
+            <span style={{ fontSize: 20, opacity: ptrLoading ? 1 : ptrDist / PTR_THRESHOLD, animation: ptrLoading ? 'spin 0.7s linear infinite' : 'none' }}>
+              {ptrLoading ? '⟳' : '↓'}
+            </span>
+          </div>
+        )}
         {selectedRoom ? (
           <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
             <div style={{
