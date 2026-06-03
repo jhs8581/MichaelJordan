@@ -191,6 +191,10 @@ export default function NaverChatPage({ backRef }: { backRef?: MutableRefObject<
   const cafeClickTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const cafeTouchRef = useRef<number>(0);
   const cafeTransitionRef = useRef<number>(0);
+  const ptrStartY = useRef<number | null>(null);
+  const [ptrDist, setPtrDist] = useState(0);
+  const [ptrLoading, setPtrLoading] = useState(false);
+  const PTR_THRESHOLD = 60;
 
   // 일정/게시판 상태
   const [schedules, setSchedules] = useState<Schedule[]>([]);
@@ -271,6 +275,29 @@ export default function NaverChatPage({ backRef }: { backRef?: MutableRefObject<
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [roomView, selectedRoom?.id, accessToken]);
+
+  function handlePtrTouchStart(e: React.TouchEvent<HTMLDivElement>) {
+    if (view !== 'home') return;
+    if (window.scrollY > 0) return;
+    ptrStartY.current = e.touches[0].clientY;
+  }
+  function handlePtrTouchMove(e: React.TouchEvent<HTMLDivElement>) {
+    if (ptrStartY.current === null) return;
+    if (window.scrollY > 0) { ptrStartY.current = null; return; }
+    const dy = e.touches[0].clientY - ptrStartY.current;
+    if (dy > 0) setPtrDist(Math.min(dy * 0.4, PTR_THRESHOLD));
+  }
+  function handlePtrTouchEnd() {
+    if (ptrStartY.current === null) return;
+    ptrStartY.current = null;
+    if (ptrDist >= PTR_THRESHOLD) {
+      setPtrLoading(true);
+      setPtrDist(0);
+      window.location.reload();
+    } else {
+      setPtrDist(0);
+    }
+  }
 
   function openRoom(room: Room) {
     setRooms(rooms.map((r) => r.id === room.id ? { ...r, unreadCount: 0 } : r));
@@ -658,7 +685,24 @@ export default function NaverChatPage({ backRef }: { backRef?: MutableRefObject<
 
   // ── 네이버 메인 홈 뷰 ─────────────────────────────────────────────────────────
   return (
-    <div style={{ maxWidth: 430, margin: '0 auto', minHeight: '100vh', background: nv.pageBg, fontFamily: '"Apple SD Gothic Neo","Malgun Gothic",Arial,sans-serif' }}>
+    <div
+      style={{ maxWidth: 430, margin: '0 auto', minHeight: '100vh', background: nv.pageBg, fontFamily: '"Apple SD Gothic Neo","Malgun Gothic",Arial,sans-serif' }}
+      onTouchStart={handlePtrTouchStart}
+      onTouchMove={handlePtrTouchMove}
+      onTouchEnd={handlePtrTouchEnd}
+    >
+      {/* Pull-to-Refresh 인디케이터 */}
+      {(ptrDist > 0 || ptrLoading) && (
+        <div style={{
+          height: ptrLoading ? 44 : ptrDist * 44 / PTR_THRESHOLD,
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          overflow: 'hidden', transition: ptrDist === 0 ? 'height 200ms ease' : 'none',
+        }}>
+          <span style={{ fontSize: 20, opacity: ptrLoading ? 1 : ptrDist / PTR_THRESHOLD, animation: ptrLoading ? 'spin 0.7s linear infinite' : 'none' }}>
+            {ptrLoading ? '⟳' : '↓'}
+          </span>
+        </div>
+      )}
 
       {/* ① 헤더 */}
       <header style={{ position: 'sticky', top: 0, zIndex: 100, background: nv.headerBg, height: HEADER_H, display: 'flex', alignItems: 'center', padding: '0 12px', gap: 6 }}>
