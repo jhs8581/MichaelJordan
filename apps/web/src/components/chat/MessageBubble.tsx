@@ -114,6 +114,40 @@ function isVideoUrl(url: string): boolean {
   return /\.(mp4|webm|mov|m4v|avi)(\?.*)?$/i.test(url);
 }
 
+async function handleDownload(url: string, e: React.MouseEvent<HTMLAnchorElement>) {
+  e.preventDefault();
+  e.stopPropagation();
+  
+  // Web Share API 지원 여부 확인
+  if (navigator.share && navigator.canShare) {
+    try {
+      const response = await fetch(url);
+      const blob = await response.blob();
+      const extension = url.split('.').pop()?.split('?')[0] || 'jpg';
+      const fileName = `image_${Date.now()}.${extension}`;
+      const file = new File([blob], fileName, { type: blob.type });
+
+      if (navigator.canShare({ files: [file] })) {
+        await navigator.share({
+          files: [file],
+          title: '이미지 저장',
+        });
+        return;
+      }
+    } catch (err) {
+      console.log('Share cancelled or failed:', err);
+    }
+  }
+  
+  // 폴백: 기본 다운로드
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = '';
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+}
+
 function getValidTimeZone(timeZone?: string): string | undefined {
   if (!timeZone?.trim()) return undefined;
   try {
@@ -278,14 +312,30 @@ export function MessageBubble({ message, isMine, isConsecutive, timeFormat, show
 
             {message.fileUrl ? (
               isVideoUrl(message.fileUrl) ? (
-                <video
-                  src={message.fileUrl}
-                  controls
-                  playsInline
-                  preload="metadata"
-                  onClick={(e) => e.stopPropagation()}
-                  style={{ maxWidth: 220, maxHeight: 300, borderRadius: 14, display: 'block' }}
-                />
+                <div style={{ position: 'relative' }}>
+                  <video
+                    src={message.fileUrl}
+                    controls
+                    playsInline
+                    preload="metadata"
+                    onClick={(e) => e.stopPropagation()}
+                    style={{ maxWidth: 220, maxHeight: 300, borderRadius: 14, display: 'block' }}
+                  />
+                  <a
+                    href={message.fileUrl}
+                    download
+                    onClick={(e) => handleDownload(message.fileUrl!, e)}
+                    style={{
+                      position: 'absolute', bottom: 6, right: 6,
+                      background: 'rgba(0,0,0,0.55)', borderRadius: 8, padding: '3px 6px',
+                      color: '#fff', fontSize: 11, textDecoration: 'none', lineHeight: 1,
+                      cursor: 'pointer',
+                    }}
+                    title="다운로드"
+                  >
+                    ↓
+                  </a>
+                </div>
               ) : (
                 <div style={{ position: 'relative' }}>
                   {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -298,11 +348,12 @@ export function MessageBubble({ message, isMine, isConsecutive, timeFormat, show
                   <a
                     href={message.fileUrl}
                     download
-                    onClick={(e) => e.stopPropagation()}
+                    onClick={(e) => handleDownload(message.fileUrl!, e)}
                     style={{
                       position: 'absolute', bottom: 6, right: 6,
                       background: 'rgba(0,0,0,0.55)', borderRadius: 8, padding: '3px 6px',
                       color: '#fff', fontSize: 11, textDecoration: 'none', lineHeight: 1,
+                      cursor: 'pointer',
                     }}
                     title="다운로드"
                   >

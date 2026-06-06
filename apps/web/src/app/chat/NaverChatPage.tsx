@@ -32,6 +32,40 @@ type Comment = {
 };
 type RoomImageItem = { url: string; createdAt?: string };
 
+async function handleImageDownload(url: string, e: React.MouseEvent<HTMLAnchorElement>) {
+  e.preventDefault();
+  e.stopPropagation();
+  
+  // Web Share API 지원 여부 확인
+  if (navigator.share && navigator.canShare) {
+    try {
+      const response = await fetch(url);
+      const blob = await response.blob();
+      const extension = url.split('.').pop()?.split('?')[0] || 'jpg';
+      const fileName = `image_${Date.now()}.${extension}`;
+      const file = new File([blob], fileName, { type: blob.type });
+
+      if (navigator.canShare({ files: [file] })) {
+        await navigator.share({
+          files: [file],
+          title: '이미지 저장',
+        });
+        return;
+      }
+    } catch (err) {
+      console.log('Share cancelled or failed:', err);
+    }
+  }
+  
+  // 폴백: 기본 다운로드
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = '';
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+}
+
 const NEWS_TABS = ['주요뉴스', 'CEO 긴급진단'];
 const NEWS_ITEMS: string[][] = [
   [
@@ -557,7 +591,21 @@ export default function NaverChatPage({ backRef }: { backRef?: MutableRefObject<
       {/* 이전/다음 버튼 */}
       {!showImageGrid && viewingImageIdx > 0 && <button onClick={(e) => { e.stopPropagation(); setViewingImageIdx((i) => i - 1); }} style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', background: 'rgba(255,255,255,0.15)', border: 'none', borderRadius: '50%', width: 44, height: 44, color: '#fff', fontSize: 22, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>‹</button>}
       {!showImageGrid && viewingImageIdx < viewingImages.length - 1 && <button onClick={(e) => { e.stopPropagation(); setViewingImageIdx((i) => i + 1); }} style={{ position: 'absolute', right: 12, top: '50%', transform: 'translateY(-50%)', background: 'rgba(255,255,255,0.15)', border: 'none', borderRadius: '50%', width: 44, height: 44, color: '#fff', fontSize: 22, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>›</button>}
-      {!showImageGrid && <div style={{ position: 'absolute', bottom: 16, left: '50%', transform: 'translateX(-50%)', color: 'rgba(255,255,255,0.7)', fontSize: 13 }}>{viewingImageIdx + 1} / {viewingImages.length}</div>}
+      {/* 하단 컨트롤 */}
+      {!showImageGrid && <div onClick={(e) => e.stopPropagation()} style={{ position: 'absolute', bottom: 16, left: '50%', transform: 'translateX(-50%)', display: 'flex', alignItems: 'center', gap: 16 }}>
+        <span style={{ color: 'rgba(255,255,255,0.7)', fontSize: 13 }}>{viewingImageIdx + 1} / {viewingImages.length}</span>
+        <a
+          href={viewingImage}
+          download
+          onClick={(e) => handleImageDownload(viewingImage, e)}
+          style={{
+            background: 'rgba(255,255,255,0.15)', border: '1px solid rgba(255,255,255,0.3)',
+            borderRadius: 20, padding: '6px 16px',
+            color: '#fff', fontSize: 13, textDecoration: 'none',
+            cursor: 'pointer',
+          }}
+        >⬇ 저장</a>
+      </div>}
     </div>
   ) : null;
 

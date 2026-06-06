@@ -58,6 +58,40 @@ type RoomImageItem = {
   createdAt?: string;
 };
 
+async function handleImageDownload(url: string, e: React.MouseEvent<HTMLAnchorElement>) {
+  e.preventDefault();
+  e.stopPropagation();
+  
+  // Web Share API 지원 여부 확인
+  if (navigator.share && navigator.canShare) {
+    try {
+      const response = await fetch(url);
+      const blob = await response.blob();
+      const extension = url.split('.').pop()?.split('?')[0] || 'jpg';
+      const fileName = `image_${Date.now()}.${extension}`;
+      const file = new File([blob], fileName, { type: blob.type });
+
+      if (navigator.canShare({ files: [file] })) {
+        await navigator.share({
+          files: [file],
+          title: '이미지 저장',
+        });
+        return;
+      }
+    } catch (err) {
+      console.log('Share cancelled or failed:', err);
+    }
+  }
+  
+  // 폴백: 기본 다운로드
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = '';
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+}
+
 function IconCommunity() {
   return (
     <svg width='26' height='26' viewBox='0 0 24 24' fill='none' stroke='currentColor' strokeWidth='1.6'>
@@ -1576,10 +1610,12 @@ export default function ChatPage() {
             <a
               href={viewingImage}
               download
+              onClick={(e) => handleImageDownload(viewingImage, e)}
               style={{
                 background: 'rgba(255,255,255,0.15)', border: '1px solid rgba(255,255,255,0.3)',
                 borderRadius: 20, padding: '8px 20px',
                 color: '#fff', fontSize: 13, textDecoration: 'none',
+                cursor: 'pointer',
               }}
             >⬇ 저장</a>
           </div>}
