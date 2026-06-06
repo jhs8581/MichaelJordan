@@ -19,6 +19,7 @@ const postInclude = {
   sourceMessage: {
     select: { id: true, content: true, createdAt: true, sender: { select: { id: true, username: true } } },
   },
+  _count: { select: { comments: true } },
 } as const;
 
 export async function postRoutes(app: FastifyInstance) {

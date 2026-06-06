@@ -24,6 +24,7 @@ type Post = {
   sourceMessageId?: number | null; createdAt: string; updatedAt: string;
   author: { id: number; username: string; avatarUrl?: string };
   sourceMessage?: { id: number; content: string; createdAt: string; sender?: { id: number; username: string } | null } | null;
+  _count?: { comments: number };
 };
 type Comment = {
   id: number; postId: number; content: string; authorId: number;
@@ -794,6 +795,9 @@ export default function NaverChatPage({ backRef }: { backRef?: MutableRefObject<
                       <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 4 }}>
                         {p.sourceMessageId && <span style={{ fontSize: 10, background: naverDark ? '#1a2e20' : '#e6f7f0', color: '#03C75A', borderRadius: 4, padding: '1px 5px', fontWeight: 700 }}>채팅</span>}
                         <span style={{ fontWeight: 700, fontSize: 14, color: nv.text, flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{p.title}</span>
+                        {p._count && p._count.comments > 0 && (
+                          <span style={{ fontSize: 12, color: '#03C75A', fontWeight: 700 }}>[{p._count.comments}]</span>
+                        )}
                       </div>
                       <div style={{ fontSize: 12, color: nv.textMuted }}>{p.author.username} · {new Date(p.createdAt).toLocaleDateString('ko-KR', { month: 'short', day: 'numeric' })}</div>
                     </div>

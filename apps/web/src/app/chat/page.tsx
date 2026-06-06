@@ -41,6 +41,7 @@ type Post = {
     createdAt: string;
     sender?: { id: number; username: string } | null;
   } | null;
+  _count?: { comments: number };
 };
 
 type Comment = {
@@ -1038,6 +1039,9 @@ export default function ChatPage() {
                           <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 4 }}>
                             {p.sourceMessageId && <span style={{ fontSize: 10, background: '#e8f4ff', color: '#1a76c8', borderRadius: 4, padding: '1px 5px', fontWeight: 700 }}>채팅</span>}
                             <span style={{ fontWeight: 700, fontSize: 14, color: '#111', flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{p.title}</span>
+                            {p._count && p._count.comments > 0 && (
+                              <span style={{ fontSize: 12, color: '#1a76c8', fontWeight: 700 }}>[{p._count.comments}]</span>
+                            )}
                           </div>
                           <div style={{ fontSize: 12, color: '#888' }}>
                             {p.author.username} · {new Date(p.createdAt).toLocaleDateString('ko-KR', { month: 'short', day: 'numeric' })}
