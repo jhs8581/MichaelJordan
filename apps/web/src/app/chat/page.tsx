@@ -43,6 +43,16 @@ type Post = {
   } | null;
 };
 
+type Comment = {
+  id: number;
+  postId: number;
+  content: string;
+  authorId: number;
+  createdAt: string;
+  updatedAt: string;
+  author: { id: number; username: string; avatarUrl?: string };
+};
+
 type RoomImageItem = {
   url: string;
   createdAt?: string;
@@ -445,6 +455,12 @@ export default function ChatPage() {
   const [showMenu, setShowMenu] = useState(false);
   const [activeTab, setActiveTab] = useState<'커뮤니티' | '포럼' | '갤러리' | '인포메이션' | '마켓'>('커뮤니티');
 
+  // ── 댓글 상태
+  const [comments, setComments] = useState<Comment[]>([]);
+  const [commentsLoading, setCommentsLoading] = useState(false);
+  const [commentInput, setCommentInput] = useState('');
+  const [commentEditId, setCommentEditId] = useState<number | null>(null);
+
   useEffect(() => {
     if (showMenu) history.pushState({ _chat: true }, '', window.location.href);
   }, [showMenu]);
@@ -546,6 +562,62 @@ export default function ChatPage() {
     setPosts(prev => prev.filter(p => p.id !== id));
     if (postDetail?.id === id) setPostDetail(null);
   }
+
+  // ── 댓글 함수
+  async function loadComments(postId: number) {
+    setCommentsLoading(true);
+    try {
+      const res = await api.get<{ data: { comments: Comment[] } }>(`/comments?postId=${postId}`);
+      setComments(res.data.data.comments);
+    } catch {
+      setComments([]);
+    } finally {
+      setCommentsLoading(false);
+    }
+  }
+
+  async function submitComment() {
+    if (!commentInput.trim() || !postDetail) return;
+    try {
+      if (commentEditId) {
+        const res = await api.patch<{ data: { comment: Comment } }>(`/comments/${commentEditId}`, { content: commentInput.trim() });
+        setComments(prev => prev.map(c => c.id === commentEditId ? res.data.data.comment : c));
+        setCommentEditId(null);
+      } else {
+        const res = await api.post<{ data: { comment: Comment } }>('/comments', { postId: postDetail.id, content: commentInput.trim() });
+        setComments(prev => [...prev, res.data.data.comment]);
+      }
+      setCommentInput('');
+    } catch { /* 무시 */ }
+  }
+
+  function startEditComment(comment: Comment) {
+    setCommentEditId(comment.id);
+    setCommentInput(comment.content);
+  }
+
+  function cancelEditComment() {
+    setCommentEditId(null);
+    setCommentInput('');
+  }
+
+  async function deleteComment(id: number) {
+    if (!confirm('댓글을 삭제하시겠습니까?')) return;
+    await api.delete(`/comments/${id}`);
+    setComments(prev => prev.filter(c => c.id !== id));
+  }
+
+  // ── 게시글 상세 보기로 전환될 때 댓글 로드
+  useEffect(() => {
+    if (postDetail) {
+      loadComments(postDetail.id);
+    } else {
+      setComments([]);
+      setCommentInput('');
+      setCommentEditId(null);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [postDetail?.id]);
 
   function handleLogout() {
     clear();
@@ -848,7 +920,73 @@ export default function ChatPage() {
                             <div style={{ fontSize: 13, color: '#333', whiteSpace: 'pre-wrap' }}>{postDetail.sourceMessage.content}</div>
                           </div>
                         )}
-                        <p style={{ fontSize: 14.5, color: '#222', lineHeight: 1.75, whiteSpace: 'pre-wrap' }}>{postDetail.content}</p>
+                        <p style={{ fontSize: 14.5, color: '#222', lineHeight: 1.75, whiteSpace: 'pre-wrap', marginBottom: 24 }}>{postDetail.content}</p>
+                        
+                        {/* ── 댓글 섹션 ── */}
+                        <div style={{ borderTop: '1px solid #e8e8e8', paddingTop: 16 }}>
+                          <div style={{ fontSize: 13, fontWeight: 700, color: '#111', marginBottom: 12 }}>
+                            댓글 {comments.length}개
+                          </div>
+                          
+                          {/* 댓글 입력 */}
+                          <div style={{ marginBottom: 16 }}>
+                            <textarea 
+                              value={commentInput} 
+                              onChange={e => setCommentInput(e.target.value)}
+                              onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey && commentInput.trim()) { e.preventDefault(); submitComment(); } }}
+                              placeholder="댓글을 입력하세요..."
+                              rows={2}
+                              style={{ width: '100%', border: '1px solid #e0e0e0', borderRadius: 8, padding: '10px 12px', fontSize: 13, resize: 'none', marginBottom: 8, boxSizing: 'border-box' }}
+                            />
+                            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 6 }}>
+                              {commentEditId && (
+                                <button onClick={cancelEditComment} 
+                                  style={{ padding: '6px 16px', borderRadius: 6, border: '1px solid #ddd', background: '#f8f8f8', fontSize: 12, cursor: 'pointer', color: '#555' }}>
+                                  취소
+                                </button>
+                              )}
+                              <button onClick={submitComment} disabled={!commentInput.trim()}
+                                style={{ padding: '6px 16px', borderRadius: 6, border: 'none', background: '#1a76c8', color: '#fff', fontSize: 12, fontWeight: 700, cursor: 'pointer', opacity: commentInput.trim() ? 1 : 0.5 }}>
+                                {commentEditId ? '수정' : '등록'}
+                              </button>
+                            </div>
+                          </div>
+
+                          {/* 댓글 목록 */}
+                          {commentsLoading ? (
+                            <p style={{ textAlign: 'center', color: '#aaa', padding: '20px 0', fontSize: 12 }}>불러오는 중...</p>
+                          ) : comments.length === 0 ? (
+                            <p style={{ textAlign: 'center', color: '#aaa', padding: '20px 0', fontSize: 12 }}>첫 댓글을 작성해보세요</p>
+                          ) : (
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                              {comments.map(comment => (
+                                <div key={comment.id} style={{ padding: '12px', background: '#f8f9fa', borderRadius: 8 }}>
+                                  <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 6 }}>
+                                    <div>
+                                      <span style={{ fontSize: 12, fontWeight: 700, color: '#333' }}>{comment.author.username}</span>
+                                      <span style={{ fontSize: 11, color: '#aaa', marginLeft: 6 }}>
+                                        {new Date(comment.createdAt).toLocaleDateString('ko-KR', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                                      </span>
+                                    </div>
+                                    {comment.authorId === user?.id && (
+                                      <div style={{ display: 'flex', gap: 4 }}>
+                                        <button onClick={() => startEditComment(comment)}
+                                          style={{ background: 'none', border: '1px solid #ddd', borderRadius: 4, padding: '2px 8px', fontSize: 11, cursor: 'pointer', color: '#555' }}>
+                                          수정
+                                        </button>
+                                        <button onClick={() => deleteComment(comment.id)}
+                                          style={{ background: 'none', border: '1px solid #f5c6c6', borderRadius: 4, padding: '2px 8px', fontSize: 11, cursor: 'pointer', color: '#e74c3c' }}>
+                                          삭제
+                                        </button>
+                                      </div>
+                                    )}
+                                  </div>
+                                  <p style={{ fontSize: 13, color: '#333', lineHeight: 1.5, whiteSpace: 'pre-wrap', margin: 0 }}>{comment.content}</p>
+                                </div>
+                              ))}
+                            </div>
+                          )}
+                        </div>
                       </div>
                     </div>
                   ) : (

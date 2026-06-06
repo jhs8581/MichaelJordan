@@ -30,6 +30,7 @@ model User {
   pushSubscriptions PushSubscription[]
   createdSchedules  Schedule[]
   posts             Post[]              @relation("AuthoredPosts")
+  comments          Comment[]           @relation("AuthoredComments")
 }
 
 // ─────────────────────────────────────────
@@ -159,9 +160,27 @@ model Post {
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
 
-  room          Room     @relation(fields: [roomId], references: [id], onDelete: Cascade)
-  author        User     @relation("AuthoredPosts", fields: [authorId], references: [id], onDelete: Cascade)
-  sourceMessage Message? @relation("PostSourceMessage", fields: [sourceMessageId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  room          Room      @relation(fields: [roomId], references: [id], onDelete: Cascade)
+  author        User      @relation("AuthoredPosts", fields: [authorId], references: [id], onDelete: Cascade)
+  sourceMessage Message?  @relation("PostSourceMessage", fields: [sourceMessageId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  comments      Comment[]
 
   @@map("posts")
+}
+
+// ─────────────────────────────────────────
+// 댓글
+// ─────────────────────────────────────────
+model Comment {
+  id        Int      @id @default(autoincrement())
+  postId    Int
+  authorId  Int
+  content   String   @db.NVarChar(2000)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  post   Post @relation(fields: [postId], references: [id], onDelete: Cascade)
+  author User @relation("AuthoredComments", fields: [authorId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+
+  @@map("comments")
 }

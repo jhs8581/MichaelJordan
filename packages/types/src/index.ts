@@ -106,6 +106,19 @@ export interface Post {
 }
 
 // ──────────────────────────────────────────────
+// 댓글
+// ──────────────────────────────────────────────
+export interface Comment {
+  id: number;
+  postId: number;
+  content: string;
+  authorId: number;
+  createdAt: string;
+  updatedAt: string;
+  author: Pick<User, 'id' | 'username' | 'avatarUrl'>;
+}
+
+// ──────────────────────────────────────────────
 // Socket.io 이벤트 페이로드
 // ──────────────────────────────────────────────
 export interface ServerToClientEvents {

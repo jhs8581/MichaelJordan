@@ -25,6 +25,11 @@ type Post = {
   author: { id: number; username: string; avatarUrl?: string };
   sourceMessage?: { id: number; content: string; createdAt: string; sender?: { id: number; username: string } | null } | null;
 };
+type Comment = {
+  id: number; postId: number; content: string; authorId: number;
+  createdAt: string; updatedAt: string;
+  author: { id: number; username: string; avatarUrl?: string };
+};
 type RoomImageItem = { url: string; createdAt?: string };
 
 const NEWS_TABS = ['주요뉴스', 'CEO 긴급진단'];
@@ -214,6 +219,12 @@ export default function NaverChatPage({ backRef }: { backRef?: MutableRefObject<
   const [postContent, setPostContent] = useState('');
   const [postDetail, setPostDetail] = useState<Post | null>(null);
 
+  // 댓글 상태
+  const [comments, setComments] = useState<Comment[]>([]);
+  const [commentsLoading, setCommentsLoading] = useState(false);
+  const [commentInput, setCommentInput] = useState('');
+  const [commentEditId, setCommentEditId] = useState<number | null>(null);
+
   const viewingImages = useMemo(() => viewingImageItems.map((i) => i.url), [viewingImageItems]);
   const viewingImage = viewingImages[viewingImageIdx] ?? null;
   const imageDateGroups = useMemo(() => groupImagesByDate(viewingImageItems), [viewingImageItems]);
@@ -275,6 +286,18 @@ export default function NaverChatPage({ backRef }: { backRef?: MutableRefObject<
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [roomView, selectedRoom?.id, accessToken]);
+
+  // 게시글 상세 보기로 전환될 때 댓글 로드
+  useEffect(() => {
+    if (postDetail) {
+      loadComments(postDetail.id);
+    } else {
+      setComments([]);
+      setCommentInput('');
+      setCommentEditId(null);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [postDetail?.id]);
 
   function handlePtrTouchStart(e: React.TouchEvent<HTMLDivElement>) {
     if (view !== 'home') return;
@@ -377,6 +400,52 @@ export default function NaverChatPage({ backRef }: { backRef?: MutableRefObject<
     if (!confirm('게시글을 삭제하시겠습니까?')) return;
     await api.delete(`/posts/${id}`);
     setPosts(prev => prev.filter(p => p.id !== id));
+    if (postDetail?.id === id) setPostDetail(null);
+  }
+
+  // ── 댓글 함수
+  async function loadComments(postId: number) {
+    setCommentsLoading(true);
+    try {
+      const res = await api.get<{ data: { comments: Comment[] } }>(`/comments?postId=${postId}`);
+      setComments(res.data.data.comments);
+    } catch {
+      setComments([]);
+    } finally {
+      setCommentsLoading(false);
+    }
+  }
+
+  async function submitComment() {
+    if (!commentInput.trim() || !postDetail) return;
+    try {
+      if (commentEditId) {
+        const res = await api.patch<{ data: { comment: Comment } }>(`/comments/${commentEditId}`, { content: commentInput.trim() });
+        setComments(prev => prev.map(c => c.id === commentEditId ? res.data.data.comment : c));
+        setCommentEditId(null);
+      } else {
+        const res = await api.post<{ data: { comment: Comment } }>('/comments', { postId: postDetail.id, content: commentInput.trim() });
+        setComments(prev => [...prev, res.data.data.comment]);
+      }
+      setCommentInput('');
+    } catch { /* 무시 */ }
+  }
+
+  function startEditComment(comment: Comment) {
+    setCommentEditId(comment.id);
+    setCommentInput(comment.content);
+  }
+
+  function cancelEditComment() {
+    setCommentEditId(null);
+    setCommentInput('');
+  }
+
+  async function deleteComment(id: number) {
+    if (!confirm('댓글을 삭제하시겠습니까?')) return;
+    await api.delete(`/comments/${id}`);
+    setComments(prev => prev.filter(c => c.id !== id));
+  }
     if (postDetail?.id === id) setPostDetail(null);
   }
 
@@ -597,7 +666,73 @@ export default function NaverChatPage({ backRef }: { backRef?: MutableRefObject<
                       <div style={{ fontSize: 13, color: nv.text, whiteSpace: 'pre-wrap' }}>{postDetail.sourceMessage.content}</div>
                     </div>
                   )}
-                  <p style={{ fontSize: 14.5, color: nv.text, lineHeight: 1.75, whiteSpace: 'pre-wrap' }}>{postDetail.content}</p>
+                  <p style={{ fontSize: 14.5, color: nv.text, lineHeight: 1.75, whiteSpace: 'pre-wrap', marginBottom: 24 }}>{postDetail.content}</p>
+                  
+                  {/* ── 댓글 섹션 ── */}
+                  <div style={{ borderTop: `1px solid ${nv.border}`, paddingTop: 16 }}>
+                    <div style={{ fontSize: 13, fontWeight: 700, color: nv.text, marginBottom: 12 }}>
+                      댓글 {comments.length}개
+                    </div>
+                    
+                    {/* 댓글 입력 */}
+                    <div style={{ marginBottom: 16 }}>
+                      <textarea 
+                        value={commentInput} 
+                        onChange={e => setCommentInput(e.target.value)}
+                        onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey && commentInput.trim()) { e.preventDefault(); submitComment(); } }}
+                        placeholder="댓글을 입력하세요..."
+                        rows={2}
+                        style={{ width: '100%', border: `1px solid ${nv.border}`, borderRadius: 8, padding: '10px 12px', fontSize: 13, resize: 'none', marginBottom: 8, boxSizing: 'border-box', background: nv.searchBg, color: nv.text }}
+                      />
+                      <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 6 }}>
+                        {commentEditId && (
+                          <button onClick={cancelEditComment} 
+                            style={{ padding: '6px 16px', borderRadius: 6, border: `1px solid ${nv.border}`, background: nv.searchBg, fontSize: 12, cursor: 'pointer', color: nv.text }}>
+                            취소
+                          </button>
+                        )}
+                        <button onClick={submitComment} disabled={!commentInput.trim()}
+                          style={{ padding: '6px 16px', borderRadius: 6, border: 'none', background: '#03C75A', color: '#fff', fontSize: 12, fontWeight: 700, cursor: 'pointer', opacity: commentInput.trim() ? 1 : 0.5 }}>
+                          {commentEditId ? '수정' : '등록'}
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* 댓글 목록 */}
+                    {commentsLoading ? (
+                      <p style={{ textAlign: 'center', color: '#aaa', padding: '20px 0', fontSize: 12 }}>불러오는 중...</p>
+                    ) : comments.length === 0 ? (
+                      <p style={{ textAlign: 'center', color: '#aaa', padding: '20px 0', fontSize: 12 }}>첫 댓글을 작성해보세요</p>
+                    ) : (
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                        {comments.map(comment => (
+                          <div key={comment.id} style={{ padding: '12px', background: naverDark ? '#1e1e1e' : '#f8f9fa', borderRadius: 8 }}>
+                            <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 6 }}>
+                              <div>
+                                <span style={{ fontSize: 12, fontWeight: 700, color: nv.text }}>{comment.author.username}</span>
+                                <span style={{ fontSize: 11, color: nv.textFaint, marginLeft: 6 }}>
+                                  {new Date(comment.createdAt).toLocaleDateString('ko-KR', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                                </span>
+                              </div>
+                              {comment.authorId === user?.id && (
+                                <div style={{ display: 'flex', gap: 4 }}>
+                                  <button onClick={() => startEditComment(comment)}
+                                    style={{ background: 'none', border: `1px solid ${nv.border}`, borderRadius: 4, padding: '2px 8px', fontSize: 11, cursor: 'pointer', color: nv.text }}>
+                                    수정
+                                  </button>
+                                  <button onClick={() => deleteComment(comment.id)}
+                                    style={{ background: 'none', border: '1px solid #f5c6c6', borderRadius: 4, padding: '2px 8px', fontSize: 11, cursor: 'pointer', color: '#f7685b' }}>
+                                    삭제
+                                  </button>
+                                </div>
+                              )}
+                            </div>
+                            <p style={{ fontSize: 13, color: nv.text, lineHeight: 1.5, whiteSpace: 'pre-wrap', margin: 0 }}>{comment.content}</p>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
                 </div>
               ) : (
                 <>

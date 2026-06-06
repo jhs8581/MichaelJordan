@@ -16,6 +16,7 @@ import { userRoutes } from './routes/users';
 import { pushRoutes, sendPushToUsers } from './routes/push';
 import { scheduleRoutes } from './routes/schedules';
 import { postRoutes } from './routes/posts';
+import { commentRoutes } from './routes/comments';
 import { registerSocketHandlers } from './socket/handlers';
 import { setChatIo } from './lib/chat-io';
 
@@ -114,6 +115,7 @@ async function main() {
   await app.register(pushRoutes, { prefix: '/api/push' });
   await app.register(scheduleRoutes, { prefix: '/api/schedules' });
   await app.register(postRoutes, { prefix: '/api/posts' });
+  await app.register(commentRoutes, { prefix: '/api/comments' });
 
   app.get('/health', async () => ({
     ok: true,
