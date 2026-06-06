@@ -446,8 +446,6 @@ export default function NaverChatPage({ backRef }: { backRef?: MutableRefObject<
     await api.delete(`/comments/${id}`);
     setComments(prev => prev.filter(c => c.id !== id));
   }
-    if (postDetail?.id === id) setPostDetail(null);
-  }
 
   if (!hydrated || !accessToken) return null;
 
