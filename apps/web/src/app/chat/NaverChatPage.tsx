@@ -682,7 +682,7 @@ export default function NaverChatPage({ backRef }: { backRef?: MutableRefObject<
                         onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey && commentInput.trim()) { e.preventDefault(); submitComment(); } }}
                         placeholder="댓글을 입력하세요..."
                         rows={2}
-                        style={{ width: '100%', border: `1px solid ${nv.border}`, borderRadius: 8, padding: '10px 12px', fontSize: 13, resize: 'none', marginBottom: 8, boxSizing: 'border-box', background: nv.searchBg, color: nv.text }}
+                        style={{ width: '100%', border: `1px solid ${nv.border}`, borderRadius: 8, padding: '10px 12px', fontSize: 13, resize: 'none' as const, marginBottom: 8, boxSizing: 'border-box' as const, background: nv.searchBg, color: nv.text }}
                       />
                       <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 6 }}>
                         {commentEditId && (
@@ -704,7 +704,7 @@ export default function NaverChatPage({ backRef }: { backRef?: MutableRefObject<
                     ) : comments.length === 0 ? (
                       <p style={{ textAlign: 'center', color: '#aaa', padding: '20px 0', fontSize: 12 }}>첫 댓글을 작성해보세요</p>
                     ) : (
-                      <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                      <div style={{ display: 'flex', flexDirection: 'column' as const, gap: 12 }}>
                         {comments.map(comment => (
                           <div key={comment.id} style={{ padding: '12px', background: naverDark ? '#1e1e1e' : '#f8f9fa', borderRadius: 8 }}>
                             <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 6 }}>

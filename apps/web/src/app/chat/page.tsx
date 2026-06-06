@@ -871,9 +871,9 @@ export default function ChatPage() {
                         onClick={e => e.stopPropagation()}>
                         <h3 style={{ fontSize: 16, fontWeight: 700, marginBottom: 16, color: '#111' }}>{schedEditTarget ? '일정 수정' : '일정 등록'}</h3>
                         <input value={schedTitle} onChange={e => setSchedTitle(e.target.value)} placeholder="일정 제목 *" maxLength={200}
-                          style={{ width: '100%', border: '1px solid #e0e0e0', borderRadius: 8, padding: '10px 12px', fontSize: 14, marginBottom: 10, boxSizing: 'border-box' }} />
+                          style={{ width: '100%', border: '1px solid #e0e0e0', borderRadius: 8, padding: '10px 12px', fontSize: 14, marginBottom: 10, boxSizing: 'border-box' as const }} />
                         <textarea value={schedDesc} onChange={e => setSchedDesc(e.target.value)} placeholder="설명 (선택)" rows={2}
-                          style={{ width: '100%', border: '1px solid #e0e0e0', borderRadius: 8, padding: '10px 12px', fontSize: 14, resize: 'none', marginBottom: 10, boxSizing: 'border-box' }} />
+                          style={{ width: '100%', border: '1px solid #e0e0e0', borderRadius: 8, padding: '10px 12px', fontSize: 14, resize: 'none' as const, marginBottom: 10, boxSizing: 'border-box' as const }} />
                         <div style={{ display: 'flex', gap: 8, marginBottom: 10 }}>
                           <input type="date" value={schedDate} onChange={e => setSchedDate(e.target.value)}
                             style={{ flex: 1, border: '1px solid #e0e0e0', borderRadius: 8, padding: '10px 12px', fontSize: 14 }} />
@@ -936,7 +936,7 @@ export default function ChatPage() {
                               onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey && commentInput.trim()) { e.preventDefault(); submitComment(); } }}
                               placeholder="댓글을 입력하세요..."
                               rows={2}
-                              style={{ width: '100%', border: '1px solid #e0e0e0', borderRadius: 8, padding: '10px 12px', fontSize: 13, resize: 'none', marginBottom: 8, boxSizing: 'border-box' }}
+                              style={{ width: '100%', border: '1px solid #e0e0e0', borderRadius: 8, padding: '10px 12px', fontSize: 13, resize: 'none' as const, marginBottom: 8, boxSizing: 'border-box' as const }}
                             />
                             <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 6 }}>
                               {commentEditId && (
@@ -958,7 +958,7 @@ export default function ChatPage() {
                           ) : comments.length === 0 ? (
                             <p style={{ textAlign: 'center', color: '#aaa', padding: '20px 0', fontSize: 12 }}>첫 댓글을 작성해보세요</p>
                           ) : (
-                            <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                            <div style={{ display: 'flex', flexDirection: 'column' as const, gap: 12 }}>
                               {comments.map(comment => (
                                 <div key={comment.id} style={{ padding: '12px', background: '#f8f9fa', borderRadius: 8 }}>
                                   <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 6 }}>
@@ -1020,9 +1020,9 @@ export default function ChatPage() {
                         onClick={e => e.stopPropagation()}>
                         <h3 style={{ fontSize: 16, fontWeight: 700, marginBottom: 16, color: '#111' }}>{postEditTarget ? '게시글 수정' : '게시글 작성'}</h3>
                         <input value={postTitle} onChange={e => setPostTitle(e.target.value)} placeholder="제목 *" maxLength={200}
-                          style={{ width: '100%', border: '1px solid #e0e0e0', borderRadius: 8, padding: '10px 12px', fontSize: 14, marginBottom: 10, boxSizing: 'border-box' }} />
+                          style={{ width: '100%', border: '1px solid #e0e0e0', borderRadius: 8, padding: '10px 12px', fontSize: 14, marginBottom: 10, boxSizing: 'border-box' as const }} />
                         <textarea value={postContent} onChange={e => setPostContent(e.target.value)} placeholder="내용 *" rows={6}
-                          style={{ width: '100%', border: '1px solid #e0e0e0', borderRadius: 8, padding: '10px 12px', fontSize: 14, resize: 'none', marginBottom: 16, boxSizing: 'border-box' }} />
+                          style={{ width: '100%', border: '1px solid #e0e0e0', borderRadius: 8, padding: '10px 12px', fontSize: 14, resize: 'none' as const, marginBottom: 16, boxSizing: 'border-box' as const }} />
                         <div style={{ display: 'flex', gap: 8 }}>
                           <button onClick={() => setPostFormOpen(false)} style={{ flex: 1, padding: '12px', borderRadius: 10, border: '1px solid #ddd', background: '#f8f8f8', fontSize: 14, cursor: 'pointer' }}>취소</button>
                           <button onClick={submitPost} disabled={!postTitle.trim() || !postContent.trim()}
