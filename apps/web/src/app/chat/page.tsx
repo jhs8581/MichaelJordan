@@ -62,34 +62,33 @@ async function handleImageDownload(url: string, e: React.MouseEvent<HTMLAnchorEl
   e.preventDefault();
   e.stopPropagation();
   
-  // Web Share API 지원 여부 확인
-  if (navigator.share && navigator.canShare) {
-    try {
-      const response = await fetch(url);
-      const blob = await response.blob();
-      const extension = url.split('.').pop()?.split('?')[0] || 'jpg';
-      const fileName = `image_${Date.now()}.${extension}`;
-      const file = new File([blob], fileName, { type: blob.type });
-
-      if (navigator.canShare({ files: [file] })) {
-        await navigator.share({
-          files: [file],
-          title: '이미지 저장',
-        });
-        return;
-      }
-    } catch (err) {
-      console.log('Share cancelled or failed:', err);
-    }
+  try {
+    const response = await fetch(url);
+    const blob = await response.blob();
+    const blobUrl = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = blobUrl;
+    
+    // 파일명 생성 (확장자 추출)
+    const extension = url.split('.').pop()?.split('?')[0] || 'jpg';
+    link.download = `image_${Date.now()}.${extension}`;
+    
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    
+    // 메모리 정리
+    setTimeout(() => URL.revokeObjectURL(blobUrl), 100);
+  } catch (err) {
+    console.error('Download failed:', err);
+    // 실패 시 직접 링크로 시도
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = '';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
   }
-  
-  // 폴백: 기본 다운로드
-  const link = document.createElement('a');
-  link.href = url;
-  link.download = '';
-  document.body.appendChild(link);
-  link.click();
-  document.body.removeChild(link);
 }
 
 function IconCommunity() {
