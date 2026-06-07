@@ -9,8 +9,10 @@ function initVapid() {
   const subj = process.env.VAPID_SUBJECT ?? 'mailto:admin@example.com';
   if (pub && priv) {
     webpush.setVapidDetails(subj, pub, priv);
+    console.log('[VAPID] 키가 로드되었습니다');
     return true;
   }
+  console.warn('[VAPID] 키가 설정되지 않았습니다. 푸시 알림이 비활성화됩니다.');
   return false;
 }
 
@@ -66,10 +68,14 @@ export async function pushRoutes(app: FastifyInstance) {
 
 // 특정 userId들에게 푸시 알림 발송 (handlers.ts에서 사용)
 export async function sendPushToUsers(userIds: number[], payload: object) {
-  if (!initVapid()) return; // VAPID 키 없으면 푸시 스킵
+  if (!initVapid()) {
+    console.warn('[PUSH] VAPID 키 없음 - 푸시 발송 중단');
+    return; // VAPID 키 없으면 푸시 스킵
+  }
   const subs = await prisma.pushSubscription.findMany({
     where: { userId: { in: userIds } },
   });
+  console.log(`[PUSH] ${userIds.length}명에게 푸시 발송 시도 (구독: ${subs.length}개)`);
 
   const message = JSON.stringify(payload);
   const results = await Promise.allSettled(

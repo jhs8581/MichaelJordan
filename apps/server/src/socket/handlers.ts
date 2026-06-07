@@ -267,6 +267,16 @@ export function registerSocketHandlers(io: ChatServer) {
         .filter((m) => m.userId !== userId && !viewingUserIds.has(m.userId) && !m.isMuted)
         .map((m) => m.userId);
 
+      // 푸시 알림 디버깅 로그
+      console.log('[PUSH DEBUG]', {
+        roomId,
+        senderId: userId,
+        allMemberCount: allMembers.length,
+        viewingUserIds: Array.from(viewingUserIds),
+        mutedUsers: allMembers.filter(m => m.isMuted).map(m => m.userId),
+        pushTargetIds,
+      });
+
       if (pushTargetIds.length > 0) {
         sendPushToUsers(pushTargetIds, {
           title: '마이클조던',
