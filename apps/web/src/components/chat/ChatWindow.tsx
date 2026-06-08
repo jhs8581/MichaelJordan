@@ -215,6 +215,7 @@ export function ChatWindow({ roomId, onLeave, onImageView, naverTheme, naverDark
   const messageRefs = useRef<Record<number, HTMLDivElement | null>>({});
   const allRoomImagesRef = useRef<RoomImageItem[] | null>(null);
   const pendingRepliesRef = useRef<Array<{ roomId: number; content: string; replyToId: number; replyTo: Message['replyTo'] }>>([]);
+  const pendingScrollToRef = useRef<number | null>(null);
 
   const activeRoom = rooms.find((r) => r.id === roomId);
   const isRoomMuted = muteOverride ?? Boolean(activeRoom?.isMuted);
@@ -394,6 +395,29 @@ export function ChatWindow({ roomId, onLeave, onImageView, naverTheme, naverDark
   useEffect(() => {
     const el = scrollContainerRef.current;
     if (!el) return;
+
+    // 검색 결과로 특정 메시지 이동 대기 중
+    if (pendingScrollToRef.current !== null) {
+      const targetId = pendingScrollToRef.current;
+      const targetEl = messageRefs.current[targetId];
+      if (targetEl) {
+        pendingScrollToRef.current = null;
+        hasScrolledToBottom.current = true;
+        requestAnimationFrame(() => {
+          targetEl.scrollIntoView({ behavior: 'auto', block: 'center' });
+          targetEl.animate(
+            [
+              { backgroundColor: 'rgba(88,101,242,0.0)' },
+              { backgroundColor: 'rgba(88,101,242,0.28)' },
+              { backgroundColor: 'rgba(88,101,242,0.0)' },
+            ],
+            { duration: 900, easing: 'ease-out' },
+          );
+        });
+      }
+      return;
+    }
+
     if (!hasScrolledToBottom.current) {
       // 처음 진입 or 방 전환 시 → 메시지가 있으면 무조건 맨 아래로
       if (messages.length > 0) {
@@ -625,6 +649,31 @@ export function ChatWindow({ roomId, onLeave, onImageView, naverTheme, naverDark
       setSearchResults(res.data.data.messages);
     } finally {
       setSearchLoading(false);
+    }
+  }
+
+  async function loadMessagesAround(messageId: number) {
+    try {
+      const res = await api.get<{ data: { messages: Message[]; nextCursor: number | null } }>(
+        `/messages/${roomId}?around=${messageId}`
+      );
+      pendingScrollToRef.current = messageId;
+      hasScrolledToBottom.current = false;
+      setMessages(roomId, res.data.data.messages);
+      setNextCursor(res.data.data.nextCursor);
+    } catch {
+      showCopyNotice('메시지를 불러오지 못했습니다.');
+    }
+  }
+
+  function jumpToSearchResult(msg: Message) {
+    setSearchOpen(false);
+    setSearchResults(null);
+    const el = messageRefs.current[msg.id];
+    if (el) {
+      jumpToMessage(msg.id);
+    } else {
+      loadMessagesAround(msg.id);
     }
   }
 
@@ -1559,10 +1608,19 @@ export function ChatWindow({ roomId, onLeave, onImageView, naverTheme, naverDark
                 const name = msg.sender?.username ?? (isMine ? '나' : `사용자${msg.senderId}`);
                 const time = formatSearchTime(new Date(msg.createdAt), msg.senderTimeZone, msg.senderLocalTime);
                 return (
-                  <div key={msg.id} className="rounded-lg px-3 py-2" style={{ background: '#2b2d31' }}>
+                  <button
+                    key={msg.id}
+                    type="button"
+                    onClick={() => jumpToSearchResult(msg)}
+                    className="w-full text-left rounded-lg px-3 py-2 transition-opacity hover:opacity-80 active:opacity-60"
+                    style={{ background: '#2b2d31', border: 'none', cursor: 'pointer', display: 'block' }}
+                    title="해당 메시지로 이동"
+                    aria-label={`${name}의 메시지로 이동: ${msg.content ?? '[이미지]'}`}
+                  >
                     <div className="flex items-center gap-2 mb-0.5">
                       <span className="text-xs font-semibold" style={{ color: isMine ? '#5865f2' : 'var(--text-primary)' }}>{name}</span>
                       <span className="text-xs" style={{ color: 'var(--text-muted)' }}>{time}</span>
+                      <span className="ml-auto text-xs" style={{ color: 'var(--text-muted)', flexShrink: 0 }}>→ 이동</span>
                     </div>
                     {msg.fileUrl
                       ? <span className="text-xs" style={{ color: 'var(--text-muted)' }}>[이미지]</span>
@@ -1577,7 +1635,7 @@ export function ChatWindow({ roomId, onLeave, onImageView, naverTheme, naverDark
                           }
                         </p>
                     }
-                  </div>
+                  </button>
                 );
               })}
             </div>

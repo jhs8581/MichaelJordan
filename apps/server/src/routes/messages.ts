@@ -84,7 +84,7 @@ export async function messageRoutes(app: FastifyInstance) {
   auth.get('/:roomId', async (req, reply) => {
     const userId = (req.user as { sub: number }).sub;
     const { roomId } = req.params as { roomId: string };
-    const { cursor } = req.query as { cursor?: string };
+    const { cursor, around } = req.query as { cursor?: string; around?: string };
 
     // 해당 방 멤버인지 검증
     const member = await prisma.roomMember.findUnique({
@@ -94,27 +94,56 @@ export async function messageRoutes(app: FastifyInstance) {
       return reply.status(403).send({ success: false, error: '접근 권한이 없습니다.' });
     }
 
+    const messageInclude = {
+      sender: { select: { id: true, username: true, avatarUrl: true } },
+      reads: { select: { userId: true, readAt: true } },
+      replyTo: {
+        select: {
+          id: true,
+          senderId: true,
+          content: true,
+          fileUrl: true,
+          senderTimeZone: true,
+          senderLocalTime: true,
+          createdAt: true,
+          sender: { select: { id: true, username: true, avatarUrl: true } },
+        },
+      },
+    };
+
+    // 특정 메시지 주변 로드 (검색 결과 이동)
+    if (around) {
+      const aroundId = Number(around);
+      const BEFORE = 30;
+      const AFTER = 20;
+
+      const [before, after] = await Promise.all([
+        prisma.message.findMany({
+          where: { roomId: Number(roomId), id: { lte: aroundId } },
+          include: messageInclude,
+          orderBy: { id: 'desc' },
+          take: BEFORE,
+        }),
+        prisma.message.findMany({
+          where: { roomId: Number(roomId), id: { gt: aroundId } },
+          include: messageInclude,
+          orderBy: { id: 'asc' },
+          take: AFTER,
+        }),
+      ]);
+
+      const combined = [...before.reverse(), ...after];
+      const nextCursor = before.length === BEFORE ? before[before.length - 1].id : null;
+
+      return reply.send({ success: true, data: { messages: combined, nextCursor } });
+    }
+
     const messages = await prisma.message.findMany({
       where: {
         roomId: Number(roomId),
         ...(cursor ? { id: { lt: Number(cursor) } } : {}),
       },
-      include: {
-        sender: { select: { id: true, username: true, avatarUrl: true } },
-        reads: { select: { userId: true, readAt: true } },
-        replyTo: {
-          select: {
-            id: true,
-            senderId: true,
-            content: true,
-            fileUrl: true,
-            senderTimeZone: true,
-            senderLocalTime: true,
-            createdAt: true,
-            sender: { select: { id: true, username: true, avatarUrl: true } },
-          },
-        },
-      },
+      include: messageInclude,
       orderBy: { id: 'desc' },
       take: PAGE_SIZE,
     });
