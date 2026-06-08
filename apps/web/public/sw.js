@@ -27,7 +27,7 @@ self.addEventListener('push', (e) => {
     self.registration.showNotification(data.title, {
       body: data.body,
       icon: '/icon.svg',
-      badge: '/icon.svg',
+      badge: '/badge-icon.svg', // 안드로이드 상태바용 단순 흰색 아이콘
       data: data.data,
       tag: data.tag || 'chat-message', // 동일한 tag로 알림이 덮어씌워져 최근 1건만 표시됨
       renotify: true, // tag가 같은 알림이 와도 진동/소리 알림
