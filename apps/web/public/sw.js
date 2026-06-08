@@ -24,14 +24,18 @@ self.addEventListener('push', (e) => {
   let data = { title: '라이프 스토어', body: '새 메시지가 도착했습니다.', data: {}, tag: 'chat-message' };
   try { data = e.data.json(); } catch {}
   e.waitUntil(
-    self.registration.showNotification(data.title, {
-      body: data.body,
-      icon: '/icon.svg',
-      badge: '/badge-icon.svg', // 안드로이드 상태바용 단순 흰색 아이콘
-      data: data.data,
-      tag: data.tag || 'chat-message', // 동일한 tag로 알림이 덮어씌워져 최근 1건만 표시됨
-      renotify: true, // tag가 같은 알림이 와도 진동/소리 알림
-      vibrate: [200, 100, 200],
+    // iOS에서 tag가 제대로 작동하지 않으므로 기존 알림들을 먼저 닫음
+    self.registration.getNotifications().then((notifications) => {
+      notifications.forEach((notification) => notification.close());
+      return self.registration.showNotification(data.title, {
+        body: data.body,
+        icon: '/icon.svg',
+        badge: '/badge-icon.svg', // 안드로이드 상태바용 단순 흰색 아이콘
+        data: data.data,
+        tag: data.tag || 'chat-message', // 동일한 tag로 알림이 덮어씌워져 최근 1건만 표시됨
+        renotify: true, // tag가 같은 알림이 와도 진동/소리 알림
+        vibrate: [200, 100, 200],
+      });
     })
   );
 });
