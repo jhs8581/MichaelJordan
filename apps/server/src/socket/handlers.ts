@@ -48,6 +48,10 @@ function getRandomAdMessage(): string {
   return AD_MESSAGES[Math.floor(Math.random() * AD_MESSAGES.length)];
 }
 
+// 사용자별 알림 전송 플래그 (userId-roomId => 알림 전송됨 여부)
+// 읽지 않은 알림이 있으면 추가 알림을 보내지 않음
+const userNotificationSent = new Map<string, boolean>();
+
 function normalizeTimeZone(value: string | null | undefined): string | undefined {
   const timeZone = (value ?? '').trim();
   if (!timeZone) return undefined;
@@ -135,6 +139,9 @@ export function registerSocketHandlers(io: ChatServer) {
     // ── 채팅방 화면 보기 시작/종료 (푸시 제외 기준) ──────────────
     socket.on('room:viewing', (roomId) => {
       socket.join(`viewing:${roomId}`);
+      // 사용자가 채팅방을 보기 시작하면 알림 플래그 해제 (다음 메시지부터 알림 전송 가능)
+      const key = `${userId}-${roomId}`;
+      userNotificationSent.delete(key);
     });
     socket.on('room:stop-viewing', (roomId) => {
       socket.leave(`viewing:${roomId}`);
@@ -306,6 +313,12 @@ export function registerSocketHandlers(io: ChatServer) {
         .filter((m) => m.userId !== userId && !viewingUserIds.has(m.userId) && !m.isMuted)
         .map((m) => m.userId);
 
+      // 이미 알림을 받았고 아직 읽지 않은 사용자는 제외
+      const finalTargetIds = pushTargetIds.filter((targetUserId) => {
+        const key = `${targetUserId}-${roomId}`;
+        return !userNotificationSent.get(key); // 알림이 전송되지 않았으면 true
+      });
+
       // 푸시 알림 디버깅 로그
       console.log('[PUSH DEBUG]', {
         roomId,
@@ -314,14 +327,22 @@ export function registerSocketHandlers(io: ChatServer) {
         viewingUserIds: Array.from(viewingUserIds),
         mutedUsers: allMembers.filter(m => m.isMuted).map(m => m.userId),
         pushTargetIds,
+        finalTargetIds,
+        skippedDueToUnread: pushTargetIds.filter(id => !finalTargetIds.includes(id)),
       });
 
-      if (pushTargetIds.length > 0) {
-        sendPushToUsers(pushTargetIds, {
+      if (finalTargetIds.length > 0) {
+        sendPushToUsers(finalTargetIds, {
           title: '라이프 스토어',
           body: getRandomAdMessage(),
           data: { roomId },
           tag: 'chat-message', // 동일한 tag로 알림이 덮어씌워져 최근 1건만 표시됨
+        });
+        
+        // 알림을 보낸 사용자들에게 플래그 설정
+        finalTargetIds.forEach((targetUserId) => {
+          const key = `${targetUserId}-${roomId}`;
+          userNotificationSent.set(key, true);
         });
       }
     });
