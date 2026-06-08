@@ -658,9 +658,9 @@ export function ChatWindow({ roomId, onLeave, onImageView, naverTheme, naverDark
         `/messages/${roomId}?around=${messageId}`
       );
       hasScrolledToBottom.current = false;
+      setPendingScrollTo(messageId);
       setMessages(roomId, res.data.data.messages);
       setNextCursor(res.data.data.nextCursor);
-      setPendingScrollTo(messageId);
     } catch {
       showCopyNotice('메시지를 불러오지 못했습니다.');
     }
