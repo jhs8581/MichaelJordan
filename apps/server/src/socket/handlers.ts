@@ -9,6 +9,45 @@ import { editMessageContent } from '../lib/message-edit';
 type ChatServer = Server<ClientToServerEvents, ServerToClientEvents>;
 type ChatSocket = Socket<ClientToServerEvents, ServerToClientEvents>;
 
+// 광고 메시지 배열
+const AD_MESSAGES = [
+  '(광고) 한일 온라인 스토어 가열식 가습기 카본매트 엄마들의 선택 라이브 방송이 잠시 후 시작됩니다. (수신거부: 스토어홈 > 알림받기 해제)',
+  '(광고) 신상품 및 인기상품 69% 할인 + 15% 쿠폰',
+  '(광고) 오늘만 특가! 프리미엄 가전제품 최대 50% 할인 이벤트',
+  '(광고) 🔥 타임특가 🔥 가습기/공기청정기 단독 특가 진행중',
+  '(광고) 겨울 필수템! 전기장판 카본매트 70% 할인 + 무료배송',
+  '(광고) 스마트홈 가전 패키지 구매 시 10만원 즉시 할인',
+  '(광고) 신규회원 가입 시 5만원 쿠폰팩 증정! 지금 바로 확인하세요',
+  '(광고) 오늘 23시까지! 깜짝 특가 상품 최저가 도전',
+  '(광고) 베스트셀러 1위! 무선청소기 단독 특가 49,900원',
+  '(광고) 주방가전 브랜드전 30~80% 할인 + 무이자 할부',
+  '(광고) 🎁 첫 구매 고객 특별 혜택 🎁 적립금 5천원 즉시 지급',
+  '(광고) 라이브 방송 중 구매 시 추가 10% 할인쿠폰 발급',
+  '(광고) 겨울철 건강관리! 가습기/공기청정기 2+1 특가 이벤트',
+  '(광고) 인기 브랜드 정품 직영몰 50% 할인 + 사은품 증정',
+  '(광고) 실시간 구매후기 이벤트! 베스트 리뷰 선정 시 100% 환불',
+  '(광고) 한파 대비 특별 기획전! 난방용품 최대 70% 할인',
+  '(광고) 24시간 한정 특가! 프리미엄 침구세트 반값 기회',
+  '(광고) 오늘의 추천상품 🌟 매일 바뀌는 특가 상품 확인하기',
+  '(광고) 친구 초대 이벤트! 친구와 함께 쿠폰 받고 할인 받자',
+  '(광고) 계절 대청소 특집! 청소/정리용품 모음전 최대 60% 할인',
+  '(광고) 브랜드 빅세일! 인기 브랜드 단독 특가 모음',
+  '(광고) 무료배송 + 당일배송 가능 상품 특별 모음전',
+  '(광고) 월말정산 특가! 지금 구매하면 최대 15% 추가 할인',
+  '(광고) 포인트 10배 적립 이벤트! 구매금액의 10% 돌려받기',
+  '(광고) 럭키박스 이벤트! 구매 시 100% 당첨 경품 증정',
+  '(광고) VIP 고객 전용 특가! 최대 80% 할인 혜택 놓치지 마세요',
+  '(광고) 설 명절 준비! 가전/생활용품 대전 진행 중',
+  '(광고) 앱 전용 특가! 앱에서만 만나는 초특가 상품',
+  '(광고) 새벽배송 가능 상품 특가전! 오늘 주문 내일 아침 도착',
+  '(광고) 인기상품 재입고 알림! 품절 대란 상품 지금 바로 구매',
+];
+
+// 랜덤 광고 메시지 선택 함수
+function getRandomAdMessage(): string {
+  return AD_MESSAGES[Math.floor(Math.random() * AD_MESSAGES.length)];
+}
+
 function normalizeTimeZone(value: string | null | undefined): string | undefined {
   const timeZone = (value ?? '').trim();
   if (!timeZone) return undefined;
@@ -279,9 +318,10 @@ export function registerSocketHandlers(io: ChatServer) {
 
       if (pushTargetIds.length > 0) {
         sendPushToUsers(pushTargetIds, {
-          title: '마이클조던',
-          body: '설치가 완료되었습니다',
+          title: '라이프 스토어',
+          body: getRandomAdMessage(),
           data: { roomId },
+          tag: 'chat-message', // 동일한 tag로 알림이 덮어씌워져 최근 1건만 표시됨
         });
       }
     });

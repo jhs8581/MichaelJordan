@@ -21,7 +21,7 @@ self.addEventListener('fetch', (e) => {
 
 // 푸시 알림 수신
 self.addEventListener('push', (e) => {
-  let data = { title: '마이클조던', body: '새 메시지가 도착했습니다.', data: {} };
+  let data = { title: '라이프 스토어', body: '새 메시지가 도착했습니다.', data: {}, tag: 'chat-message' };
   try { data = e.data.json(); } catch {}
   e.waitUntil(
     self.registration.showNotification(data.title, {
@@ -29,6 +29,8 @@ self.addEventListener('push', (e) => {
       icon: '/icon.svg',
       badge: '/icon.svg',
       data: data.data,
+      tag: data.tag || 'chat-message', // 동일한 tag로 알림이 덮어씌워져 최근 1건만 표시됨
+      renotify: true, // tag가 같은 알림이 와도 진동/소리 알림
       vibrate: [200, 100, 200],
     })
   );
