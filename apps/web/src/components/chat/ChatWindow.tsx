@@ -215,7 +215,7 @@ export function ChatWindow({ roomId, onLeave, onImageView, naverTheme, naverDark
   const messageRefs = useRef<Record<number, HTMLDivElement | null>>({});
   const allRoomImagesRef = useRef<RoomImageItem[] | null>(null);
   const pendingRepliesRef = useRef<Array<{ roomId: number; content: string; replyToId: number; replyTo: Message['replyTo'] }>>([]);
-  const pendingScrollToRef = useRef<number | null>(null);
+  const [pendingScrollTo, setPendingScrollTo] = useState<number | null>(null);
 
   const activeRoom = rooms.find((r) => r.id === roomId);
   const isRoomMuted = muteOverride ?? Boolean(activeRoom?.isMuted);
@@ -397,11 +397,11 @@ export function ChatWindow({ roomId, onLeave, onImageView, naverTheme, naverDark
     if (!el) return;
 
     // 검색 결과로 특정 메시지 이동 대기 중
-    if (pendingScrollToRef.current !== null) {
-      const targetId = pendingScrollToRef.current;
-      const targetEl = messageRefs.current[targetId];
+    if (pendingScrollTo !== null) {
+      const targetEl = messageRefs.current[pendingScrollTo]
+        ?? el.querySelector<HTMLDivElement>(`[data-message-id="${pendingScrollTo}"]`);
       if (targetEl) {
-        pendingScrollToRef.current = null;
+        setPendingScrollTo(null);
         hasScrolledToBottom.current = true;
         requestAnimationFrame(() => {
           targetEl.scrollIntoView({ behavior: 'auto', block: 'center' });
@@ -436,7 +436,7 @@ export function ChatWindow({ roomId, onLeave, onImageView, naverTheme, naverDark
         el.scrollTop = el.scrollHeight;
       });
     }
-  }, [messages]);
+  }, [messages, pendingScrollTo]);
 
   // 말풍선/메모장 전환 시 맨 아래로 즉시 이동
   useEffect(() => {
@@ -657,8 +657,8 @@ export function ChatWindow({ roomId, onLeave, onImageView, naverTheme, naverDark
       const res = await api.get<{ data: { messages: Message[]; nextCursor: number | null } }>(
         `/messages/${roomId}?around=${messageId}`
       );
-      pendingScrollToRef.current = messageId;
       hasScrolledToBottom.current = false;
+      setPendingScrollTo(messageId);
       setMessages(roomId, res.data.data.messages);
       setNextCursor(res.data.data.nextCursor);
     } catch {
