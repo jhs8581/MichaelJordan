@@ -370,47 +370,44 @@ export function RoomList() {
       </div>
 
       {/* 하단 내 프로필 */}
-      <div className="border-t" style={{ borderColor: '#1e1f22', background: '#232428' }}>
-        {/* 프로필 편집 버튼 — 전체 영역 클릭 가능 */}
+      <div className="border-t px-3 py-2.5 flex items-center gap-2.5" style={{ borderColor: '#1e1f22', background: '#232428' }}>
+        {/* 아바타 */}
+        <div className="relative flex-shrink-0" style={{ width: 36, height: 36 }}>
+          <div className="w-full h-full rounded-full overflow-hidden flex items-center justify-center text-sm font-bold" style={{ background: 'var(--accent)', color: '#fff' }}>
+            {user?.avatarUrl ? (
+              <img src={user.avatarUrl} alt={user.username} className="w-full h-full object-cover" />
+            ) : (
+              <span>{user?.username?.[0]?.toUpperCase()}</span>
+            )}
+          </div>
+        </div>
+        {/* 닉네임 */}
+        <div className="flex-1 min-w-0">
+          <p className="text-sm font-semibold truncate" style={{ color: 'var(--sidebar-text-active)' }}>{user?.username}</p>
+        </div>
+        {/* 프로필 편집 버튼 */}
         <button
           type="button"
           onClick={() => setProfileOpen(true)}
-          className="w-full flex items-center gap-2.5 px-3 py-3 group transition-colors hover:opacity-90"
-          style={{ background: 'transparent' }}
           title="프로필 편집"
+          className="flex items-center gap-1 rounded-md px-2 py-1.5 text-xs font-medium flex-shrink-0 transition-opacity hover:opacity-80 active:opacity-60"
+          style={{ background: '#3c3f45', color: 'var(--sidebar-text-active)' }}
         >
-          {/* 아바타 */}
-          <div className="relative flex-shrink-0" style={{ width: 34, height: 34 }}>
-            <div className="w-full h-full rounded-full overflow-hidden flex items-center justify-center text-sm font-bold" style={{ background: 'var(--accent)', color: '#fff' }}>
-              {user?.avatarUrl ? (
-                <img src={user.avatarUrl} alt={user.username} className="w-full h-full object-cover" />
-              ) : (
-                <span>{user?.username?.[0]?.toUpperCase()}</span>
-              )}
-            </div>
-            {/* 편집 배지 */}
-            <div className="absolute -bottom-0.5 -right-0.5 w-4 h-4 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity" style={{ background: '#5865f2' }}>
-              <svg width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="3"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
-            </div>
-          </div>
-          {/* 닉네임 + 안내 */}
-          <div className="flex-1 min-w-0 text-left">
-            <p className="text-sm font-semibold truncate" style={{ color: 'var(--sidebar-text-active)' }}>{user?.username}</p>
-            <p className="text-xs truncate opacity-0 group-hover:opacity-100 transition-opacity" style={{ color: 'var(--accent)' }}>프로필 편집</p>
-          </div>
-          {/* 연필 아이콘 */}
-          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" className="flex-shrink-0 opacity-0 group-hover:opacity-70 transition-opacity" style={{ color: 'var(--text-muted)' }}>
-            <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
+            <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/>
+            <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
           </svg>
+          편집
         </button>
-        {/* 로그아웃 — 별도 행 */}
+        {/* 로그아웃 버튼 */}
         <button
+          type="button"
           onClick={() => { clear(); window.location.href = '/login'; }}
           title="로그아웃"
-          className="w-full flex items-center gap-2 px-3 pb-2.5 text-xs transition-opacity hover:opacity-80"
-          style={{ color: 'var(--text-muted)', background: 'transparent' }}
+          className="flex items-center gap-1 rounded-md px-2 py-1.5 text-xs font-medium flex-shrink-0 transition-opacity hover:opacity-80 active:opacity-60"
+          style={{ background: '#3c3f45', color: '#f38ba8' }}
         >
-          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
             <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/>
           </svg>
           로그아웃
