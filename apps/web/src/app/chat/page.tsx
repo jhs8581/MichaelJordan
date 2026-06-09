@@ -1166,8 +1166,7 @@ export default function ChatPage() {
               style={{
                 position: 'fixed',
                 bottom: 100,
-                right: '50%',
-                transform: 'translateX(50%) translateX(195px)',
+                right: 20,
                 width: 52, height: 52,
                 borderRadius: 26,
                 background: '#1a76c8',
