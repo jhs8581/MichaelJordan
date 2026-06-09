@@ -791,17 +791,12 @@ export function ChatWindow({ roomId, onLeave, onImageView, naverTheme, naverDark
   async function doUpload(file: File): Promise<string> {
     const formData = new FormData();
     formData.append('file', file);
-    const res = await fetch(`${(process.env.NEXT_PUBLIC_API_URL ?? '')}/api/messages/upload`, {
-      method: 'POST',
-      headers: { Authorization: `Bearer ${accessToken}` },
-      body: formData,
-    });
-    if (!res.ok) {
-      const err = await res.json().catch(() => ({})) as { error?: string };
-      throw new Error(err.error ?? `업로드 실패 (${res.status})`);
-    }
-    const json = await res.json() as { success: boolean; data?: { url: string } };
-    if (json.success && json.data?.url) return json.data.url;
+    // api(axios) 인스턴스 사용 → 인터셉터가 최신 토큰 자동 주입 + 401 시 refresh 후 재시도
+    const res = await api.post<{ success: boolean; data?: { url: string } }>(
+      '/messages/upload',
+      formData,
+    );
+    if (res.data.success && res.data.data?.url) return res.data.data.url;
     throw new Error('업로드에 실패했습니다.');
   }
 
