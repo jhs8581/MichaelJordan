@@ -1239,6 +1239,7 @@ export function ChatWindow({ roomId, onLeave, onImageView, naverTheme, naverDark
                   .then((imageItems) => onImageView(url, imageItems))
                   .catch(() => onImageView(url, [{ url }]));
               } : undefined}
+              onAvatarClick={onImageView ? (url) => onImageView(url, [{ url }]) : undefined}
               onLongPress={setContextMenu}
               onReply={handleReplyMessage}
               onJumpToMessage={jumpToMessage}

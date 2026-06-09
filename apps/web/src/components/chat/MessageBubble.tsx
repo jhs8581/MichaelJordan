@@ -105,6 +105,7 @@ interface Props {
   naverDark?: boolean;
   viewerTimeZone?: string;
   onImageClick?: (url: string) => void;
+  onAvatarClick?: (url: string) => void;
   onLongPress?: (message: Message) => void;
   onReply?: (message: Message) => void;
   onJumpToMessage?: (messageId: number) => void;
@@ -157,7 +158,7 @@ function getValidTimeZone(timeZone?: string): string | undefined {
   }
 }
 
-export function MessageBubble({ message, isMine, isConsecutive, timeFormat, showNickname = true, naverTheme, naverDark, viewerTimeZone, onImageClick, onLongPress, onReply, onJumpToMessage }: Props) {
+export function MessageBubble({ message, isMine, isConsecutive, timeFormat, showNickname = true, naverTheme, naverDark, viewerTimeZone, onImageClick, onAvatarClick, onLongPress, onReply, onJumpToMessage }: Props) {
   const time = formatMessageTime(new Date(message.createdAt), timeFormat, message.senderTimeZone, message.senderLocalTime, viewerTimeZone);
   // 보낸 사람 본인을 제외한 읽음 수 (본인 읽음은 항상 있어서 무조건 읽음으로 표시되는 버그 방지)
   const readCount = (message.reads ?? []).filter((r) => r.userId !== message.senderId).length;
@@ -207,11 +208,19 @@ export function MessageBubble({ message, isMine, isConsecutive, timeFormat, show
         <div className="flex-shrink-0 w-9 h-9">
           {!isConsecutive ? (
             message.sender?.avatarUrl ? (
-              <img
-                src={message.sender.avatarUrl}
-                alt={message.sender.username}
-                className="w-9 h-9 rounded-full object-cover"
-              />
+              <button
+                type="button"
+                onClick={() => onAvatarClick?.(message.sender!.avatarUrl!)}
+                className="w-9 h-9 rounded-full overflow-hidden flex-shrink-0 p-0"
+                style={{ background: 'transparent', cursor: onAvatarClick ? 'zoom-in' : 'default' }}
+                aria-label={`${message.sender.username} 프로필 사진`}
+              >
+                <img
+                  src={message.sender.avatarUrl}
+                  alt={message.sender.username}
+                  className="w-full h-full object-cover"
+                />
+              </button>
             ) : (
               <div
                 className="w-9 h-9 rounded-full flex items-center justify-center text-sm font-bold"
