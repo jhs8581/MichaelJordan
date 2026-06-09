@@ -236,13 +236,12 @@ export function MessageBubble({ message, isMine, isConsecutive, timeFormat, show
       )}
 
       <div className={`flex flex-col ${isMine ? 'items-end' : 'items-start'} max-w-[82%] sm:max-w-[70%] min-w-0`}>
-        {/* 이름 + 시간 (상대 첫 메시지만) */}
+        {/* 이름 (상대 첫 메시지만) */}
         {!isMine && !isConsecutive && showNickname && (
           <div className="flex items-baseline gap-2 mb-1 flex-row">
             <span className="text-sm font-semibold" style={{ color: stringToColor(message.sender?.username ?? '?') }}>
               {message.sender?.username}
             </span>
-            <span className="text-xs" style={{ color: 'var(--text-muted)' }}>{time}</span>
           </div>
         )}
 
@@ -383,8 +382,8 @@ export function MessageBubble({ message, isMine, isConsecutive, timeFormat, show
               </>}
           </div>
 
-          {/* 읽음/시간 (상대 메시지 오른쪽) */}
-          {!isMine && isConsecutive && (
+          {/* 읽음/시간 (상대 메시지 오른쪽) — 연속/첫 메시지 모두 표시 */}
+          {!isMine && (
             <span
               className="text-[10px] mb-0.5"
               style={{ color: 'var(--text-muted)', flexShrink: 0, whiteSpace: 'nowrap' }}
