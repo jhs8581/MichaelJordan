@@ -2181,9 +2181,10 @@ export function ChatWindow({ roomId, onLeave, onImageView, naverTheme, naverDark
             </button>
           </div>
         )}
-        {/* 갤러리 선택: multiple로 여러 장 동시 선택 가능 / capture 없으면 iOS·Android 모두 사진첩 열림 */}
-        <input ref={fileInputRef} type="file" accept="image/*,video/*" multiple className="hidden" onChange={handleFileChange} />
-        {/* 카메라 촬영: capture="environment" → 바로 카메라 실행 */}
+        {/* 갤러리 선택: accept="image/*"만 써야 Android에서 갤러리 앱이 열려 다중선택 가능
+            (image/*,video/* 혼용 시 Files 앱이 열려 다중선택 안 됨) / iOS도 사진 보관함 다중선택 지원 */}
+        <input ref={fileInputRef} type="file" accept="image/*" multiple className="hidden" onChange={handleFileChange} />
+        {/* 카메라 촬영: capture="environment" → 바로 카메라 실행, 동영상 촬영도 가능 */}
         <input ref={cameraInputRef} type="file" accept="image/*,video/*" capture="environment" className="hidden" onChange={handleFileChange} />
         <form onSubmit={sendMessage} className="flex items-end gap-2 rounded-xl px-4 py-3" style={{ background: 'var(--input-bg)', padding: isMobile ? '10px 12px' : undefined }}>
           {/* 사진첩 버튼 */}
