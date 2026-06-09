@@ -1338,20 +1338,15 @@ export default function ChatPage() {
                 <span style={{ fontSize: 13, color: '#888' }}>님</span>
               </div>
             )}
-            {([  
-              { icon: '💬', label: '채팅 목록', action: () => { setSelectedRoom(null); setShowChatList(true); setRoomView(''); setShowMenu(false); } },
-              { icon: '👤', label: '프로필 편집', action: () => { setShowMenu(false); setProfileOpen(true); } },
-            ] as { icon: string; label: string; action: () => void }[]).map(({ icon, label, action }) => (
-              <button key={label} onClick={action} style={{
+            <button onClick={() => { setShowMenu(false); setProfileOpen(true); }} style={{
                 width: '100%', padding: '15px 20px', background: 'none', border: 'none',
                 borderBottom: '1px solid #f5f5f5', cursor: 'pointer',
                 display: 'flex', alignItems: 'center', gap: 14,
                 fontSize: 15, fontWeight: 600, color: '#222', textAlign: 'left',
               }}>
-                <span style={{ fontSize: 22, width: 28, textAlign: 'center' }}>{icon}</span>
-                {label}
+                <span style={{ fontSize: 22, width: 28, textAlign: 'center' }}>👤</span>
+                프로필 편집
               </button>
-            ))}
             <button onClick={() => setShowMenu(false)} style={{
               width: '100%', padding: '14px 20px', background: 'none', border: 'none',
               cursor: 'pointer', fontSize: 14, color: '#aaa', textAlign: 'center',
