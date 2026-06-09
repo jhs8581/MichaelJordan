@@ -169,6 +169,7 @@ export function ChatWindow({ roomId, onLeave, onImageView, naverTheme, naverDark
   const [isMobile, setIsMobile] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [uploadError, setUploadError] = useState('');
+  const [uploadProgress, setUploadProgress] = useState('');
   const [pendingPasteImage, setPendingPasteImage] = useState<{ file: File; url: string } | null>(null);
   const [copyNotice, setCopyNotice] = useState('');
   const [isRefreshing, setIsRefreshing] = useState(false);
@@ -207,6 +208,7 @@ export function ChatWindow({ roomId, onLeave, onImageView, naverTheme, naverDark
   const [onlineUserIds, setOnlineUserIds] = useState<Set<number>>(new Set());
   const typingTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const cameraInputRef = useRef<HTMLInputElement>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const partialCopyTextareaRef = useRef<HTMLTextAreaElement>(null);
@@ -783,38 +785,38 @@ export function ChatWindow({ roomId, onLeave, onImageView, naverTheme, naverDark
     }, 2500);
   }
 
+  async function doUpload(file: File): Promise<string> {
+    const formData = new FormData();
+    formData.append('file', file);
+    const res = await fetch(`${(process.env.NEXT_PUBLIC_API_URL ?? '')}/api/messages/upload`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${accessToken}` },
+      body: formData,
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({})) as { error?: string };
+      throw new Error(err.error ?? `업로드 실패 (${res.status})`);
+    }
+    const json = await res.json() as { success: boolean; data?: { url: string } };
+    if (json.success && json.data?.url) return json.data.url;
+    throw new Error('업로드에 실패했습니다.');
+  }
+
   async function uploadFile(file: File) {
     if (!accessToken) return;
     setUploading(true);
     setUploadError('');
     try {
-      const formData = new FormData();
-      formData.append('file', file);
-      const res = await fetch(`${(process.env.NEXT_PUBLIC_API_URL ?? '')}/api/messages/upload`, {
-        method: 'POST',
-        headers: { Authorization: `Bearer ${accessToken}` },
-        body: formData,
+      const url = await doUpload(file);
+      const socket = getSocket();
+      socket.emit('message:send', { roomId, content: '', fileUrl: url, ...getMessageSendMeta(user?.timeZone) });
+      requestAnimationFrame(() => {
+        const el = scrollContainerRef.current;
+        if (el) el.scrollTop = el.scrollHeight;
       });
-      if (!res.ok) {
-        const err = await res.json().catch(() => ({})) as { error?: string };
-        setUploadError(err.error ?? `업로드 실패 (${res.status})`);
-        setTimeout(() => setUploadError(''), 4000);
-        return;
-      }
-      const json = await res.json() as { success: boolean; data?: { url: string } };
-      if (json.success && json.data?.url) {
-        const socket = getSocket();
-        socket.emit('message:send', { roomId, content: '', fileUrl: json.data.url, ...getMessageSendMeta(user?.timeZone) });
-        requestAnimationFrame(() => {
-          const el = scrollContainerRef.current;
-          if (el) el.scrollTop = el.scrollHeight;
-        });
-      } else {
-        setUploadError('업로드에 실패했습니다.');
-        setTimeout(() => setUploadError(''), 4000);
-      }
-    } catch {
-      setUploadError('네트워크 오류로 업로드 실패');
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : '네트워크 오류로 업로드 실패';
+      setUploadError(msg);
       setTimeout(() => setUploadError(''), 4000);
     } finally {
       setUploading(false);
@@ -822,10 +824,35 @@ export function ChatWindow({ roomId, onLeave, onImageView, naverTheme, naverDark
   }
 
   async function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0];
-    if (!file) return;
+    const files = Array.from(e.target.files ?? []);
+    if (files.length === 0) return;
     e.target.value = '';
-    await uploadFile(file);
+    if (files.length === 1) {
+      await uploadFile(files[0]);
+      return;
+    }
+    // 다중 파일 업로드
+    if (!accessToken) return;
+    setUploading(true);
+    setUploadError('');
+    const socket = getSocket();
+    for (let i = 0; i < files.length; i++) {
+      setUploadProgress(`${i + 1}/${files.length}`);
+      try {
+        const url = await doUpload(files[i]);
+        socket.emit('message:send', { roomId, content: '', fileUrl: url, ...getMessageSendMeta(user?.timeZone) });
+        requestAnimationFrame(() => {
+          const el = scrollContainerRef.current;
+          if (el) el.scrollTop = el.scrollHeight;
+        });
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : '네트워크 오류로 업로드 실패';
+        setUploadError(msg);
+        setTimeout(() => setUploadError(''), 4000);
+      }
+    }
+    setUploadProgress('');
+    setUploading(false);
   }
 
   function clearPendingPasteImage() {
@@ -2154,21 +2181,40 @@ export function ChatWindow({ roomId, onLeave, onImageView, naverTheme, naverDark
             </button>
           </div>
         )}
-        <input ref={fileInputRef} type="file" accept="image/*,video/*" className="hidden" onChange={handleFileChange} />
+        {/* 갤러리 선택: multiple로 여러 장 동시 선택 가능 / capture 없으면 iOS·Android 모두 사진첩 열림 */}
+        <input ref={fileInputRef} type="file" accept="image/*,video/*" multiple className="hidden" onChange={handleFileChange} />
+        {/* 카메라 촬영: capture="environment" → 바로 카메라 실행 */}
+        <input ref={cameraInputRef} type="file" accept="image/*,video/*" capture="environment" className="hidden" onChange={handleFileChange} />
         <form onSubmit={sendMessage} className="flex items-end gap-2 rounded-xl px-4 py-3" style={{ background: 'var(--input-bg)', padding: isMobile ? '10px 12px' : undefined }}>
-          {/* 이미지 체널 버튼 */}
+          {/* 사진첩 버튼 */}
           <button
             type="button"
             disabled={uploading}
             onClick={() => fileInputRef.current?.click()}
             className="flex-shrink-0 rounded-lg p-1.5 transition-all"
             style={{ color: uploading ? '#57f287' : 'var(--text-muted)', background: 'transparent' }}
-            title="사진 첨부"
+            title="사진첩"
           >
-            {uploading
-              ? <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"/></svg>
-              : <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
-            }
+            {uploading ? (
+              uploadProgress ? (
+                <span style={{ fontSize: 11, fontWeight: 600, color: '#57f287', minWidth: 28, display: 'inline-block', textAlign: 'center' }}>{uploadProgress}</span>
+              ) : (
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"/></svg>
+              )
+            ) : (
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
+            )}
+          </button>
+          {/* 카메라 버튼 */}
+          <button
+            type="button"
+            disabled={uploading}
+            onClick={() => cameraInputRef.current?.click()}
+            className="flex-shrink-0 rounded-lg p-1.5 transition-all"
+            style={{ color: uploading ? '#57f287' : 'var(--text-muted)', background: 'transparent' }}
+            title="카메라"
+          >
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
           </button>
           <textarea
             ref={textareaRef}
