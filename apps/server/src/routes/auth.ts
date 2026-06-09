@@ -2,6 +2,11 @@ import type { FastifyInstance } from 'fastify';
 import bcrypt from 'bcryptjs';
 import { z } from 'zod';
 import { prisma } from '../lib/prisma';
+import { pipeline } from 'node:stream/promises';
+import fs from 'node:fs';
+import path from 'node:path';
+
+const ALLOWED_AVATAR_EXTS = new Set(['.jpg', '.jpeg', '.png', '.gif', '.webp']);
 
 const registerSchema = z.object({
   password: z.string().min(1),
@@ -248,5 +253,68 @@ export async function authRoutes(app: FastifyInstance) {
       await prisma.refreshToken.deleteMany({ where: { token: body.refreshToken } });
     }
     return reply.send({ success: true });
+  });
+
+  // ── 프로필 사진 변경 ───────────────────────────────────────────
+  app.patch('/avatar', async (req, reply) => {
+    try {
+      await req.jwtVerify();
+    } catch {
+      return reply.status(401).send({ success: false, error: '인증이 필요합니다.' });
+    }
+    const payload = req.user as { sub?: number | string };
+    const userId = Number(payload?.sub);
+    if (!userId) return reply.status(401).send({ success: false, error: '유효하지 않은 토큰입니다.' });
+
+    const data = await req.file({ limits: { fileSize: 5 * 1024 * 1024 } });
+    if (!data) return reply.status(400).send({ success: false, error: '파일이 없습니다.' });
+
+    const ext = path.extname(data.filename).toLowerCase();
+    if (!ALLOWED_AVATAR_EXTS.has(ext)) {
+      return reply.status(400).send({ success: false, error: '이미지 파일만 업로드 가능합니다.' });
+    }
+
+    const uploadDir = path.join(process.cwd(), 'uploads');
+    await fs.promises.mkdir(uploadDir, { recursive: true });
+    const uniqueName = `avatar-${userId}-${Date.now()}${ext}`;
+    await pipeline(data.file, fs.createWriteStream(path.join(uploadDir, uniqueName)));
+
+    const baseUrl = process.env.BASE_URL ?? 'https://15.164.117.143.nip.io';
+    const avatarUrl = `${baseUrl}/api/messages/file/${uniqueName}`;
+
+    const user = await prisma.user.update({
+      where: { id: userId },
+      data: { avatarUrl },
+      select: { id: true, email: true, username: true, chatLockCode: true, avatarUrl: true, timeZone: true, isOnline: true, createdAt: true },
+    });
+    return reply.send({ success: true, data: user });
+  });
+
+  // ── 닉네임 변경 ───────────────────────────────────────────────
+  app.patch('/username', async (req, reply) => {
+    try {
+      await req.jwtVerify();
+    } catch {
+      return reply.status(401).send({ success: false, error: '인증이 필요합니다.' });
+    }
+    const payload = req.user as { sub?: number | string };
+    const userId = Number(payload?.sub);
+    if (!userId) return reply.status(401).send({ success: false, error: '유효하지 않은 토큰입니다.' });
+
+    const body = (req.body as { username?: string });
+    const username = (body?.username ?? '').trim();
+    if (username.length < 2 || username.length > 50) {
+      return reply.status(400).send({ success: false, error: '닉네임은 2~50자여야 합니다.' });
+    }
+    const exists = await prisma.user.findFirst({ where: { username, NOT: { id: userId } } });
+    if (exists) {
+      return reply.status(409).send({ success: false, error: '이미 사용 중인 닉네임입니다.' });
+    }
+    const user = await prisma.user.update({
+      where: { id: userId },
+      data: { username },
+      select: { id: true, email: true, username: true, chatLockCode: true, avatarUrl: true, timeZone: true, isOnline: true, createdAt: true },
+    });
+    return reply.send({ success: true, data: user });
   });
 }

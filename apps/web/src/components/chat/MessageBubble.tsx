@@ -206,12 +206,20 @@ export function MessageBubble({ message, isMine, isConsecutive, timeFormat, show
       {!isMine && (
         <div className="flex-shrink-0 w-9 h-9">
           {!isConsecutive ? (
-            <div
-              className="w-9 h-9 rounded-full flex items-center justify-center text-sm font-bold"
-              style={{ background: stringToColor(message.sender?.username ?? '?'), color: '#fff' }}
-            >
-              {(message.sender?.username ?? '?')[0].toUpperCase()}
-            </div>
+            message.sender?.avatarUrl ? (
+              <img
+                src={message.sender.avatarUrl}
+                alt={message.sender.username}
+                className="w-9 h-9 rounded-full object-cover"
+              />
+            ) : (
+              <div
+                className="w-9 h-9 rounded-full flex items-center justify-center text-sm font-bold"
+                style={{ background: stringToColor(message.sender?.username ?? '?'), color: '#fff' }}
+              >
+                {(message.sender?.username ?? '?')[0].toUpperCase()}
+              </div>
+            )
           ) : (
             <div className="w-9 h-9" /> // 연속 메시지는 아바타 자리만 유지
           )}

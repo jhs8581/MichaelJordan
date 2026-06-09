@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
+import React from 'react';
 import { useChatStore } from '@/store/chat';
 import { useAuthStore } from '@/store/auth';
 import { api } from '@/lib/api';
@@ -31,6 +32,131 @@ const MutedIcon = () => (
     <path d="M17 16.95A7 7 0 0 1 5 12v-2m14 0v2a7 7 0 0 1-.11 1.23"/>
   </svg>
 );
+
+/* ── 프로필 편집 모달 ─────────────────────────────── */
+function ProfileModal({ onClose }: { onClose: () => void }) {
+  const user = useAuthStore((s) => s.user);
+  const setUser = useAuthStore((s) => s.setUser);
+  const avatarInputRef = useRef<HTMLInputElement>(null);
+  const [username, setUsername] = useState(user?.username ?? '');
+  const [saving, setSaving] = useState(false);
+  const [uploading, setUploading] = useState(false);
+  const [error, setError] = useState('');
+  const [successMsg, setSuccessMsg] = useState('');
+
+  async function handleAvatarChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    e.target.value = '';
+    setUploading(true);
+    setError('');
+    try {
+      const formData = new FormData();
+      formData.append('file', file);
+      const res = await api.patch<{ success: boolean; data?: User }>('/auth/avatar', formData);
+      if (res.data.success && res.data.data) {
+        setUser(res.data.data);
+        setSuccessMsg('프로필 사진이 변경됐어요');
+        setTimeout(() => setSuccessMsg(''), 2500);
+      }
+    } catch (err: unknown) {
+      const msg = (err as { response?: { data?: { error?: string } } })?.response?.data?.error ?? '업로드 실패';
+      setError(msg);
+    } finally {
+      setUploading(false);
+    }
+  }
+
+  async function handleUsernameSave(e: React.FormEvent) {
+    e.preventDefault();
+    if (username.trim() === user?.username) { onClose(); return; }
+    setSaving(true);
+    setError('');
+    try {
+      const res = await api.patch<{ success: boolean; data?: User }>('/auth/username', { username: username.trim() });
+      if (res.data.success && res.data.data) {
+        setUser(res.data.data);
+        setSuccessMsg('닉네임이 변경됐어요');
+        setTimeout(() => { setSuccessMsg(''); onClose(); }, 1200);
+      }
+    } catch (err: unknown) {
+      const msg = (err as { response?: { data?: { error?: string } } })?.response?.data?.error ?? '변경 실패';
+      setError(msg);
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  const avatarUrl = user?.avatarUrl;
+  const initial = user?.username?.[0]?.toUpperCase() ?? '?';
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center" style={{ background: 'rgba(0,0,0,0.6)' }}>
+      <div className="w-full max-w-sm rounded-2xl p-6 shadow-2xl" style={{ background: '#2b2d31', color: 'var(--text-primary)' }}>
+        <h2 className="mb-5 text-lg font-bold">프로필 편집</h2>
+
+        {error && <p className="mb-3 rounded-lg p-2 text-sm" style={{ background: '#ed4245', color: '#fff' }}>{error}</p>}
+        {successMsg && <p className="mb-3 rounded-lg p-2 text-sm" style={{ background: '#3ba55c', color: '#fff' }}>{successMsg}</p>}
+
+        {/* 아바타 */}
+        <div className="flex flex-col items-center mb-6">
+          <button
+            type="button"
+            onClick={() => avatarInputRef.current?.click()}
+            disabled={uploading}
+            className="relative rounded-full overflow-hidden flex-shrink-0 group"
+            style={{ width: 80, height: 80 }}
+            title="사진 변경"
+          >
+            {avatarUrl ? (
+              <img src={avatarUrl} alt={user?.username} className="w-full h-full object-cover" />
+            ) : (
+              <div className="w-full h-full flex items-center justify-center text-2xl font-bold" style={{ background: 'var(--accent)', color: '#fff' }}>
+                {initial}
+              </div>
+            )}
+            {/* hover 오버레이 */}
+            <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity" style={{ background: 'rgba(0,0,0,0.55)' }}>
+              {uploading
+                ? <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2"><path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"/></svg>
+                : <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
+              }
+            </div>
+          </button>
+          <p className="mt-2 text-xs" style={{ color: 'var(--text-muted)' }}>사진을 눌러 변경</p>
+          <input ref={avatarInputRef} type="file" accept="image/*" className="hidden" onChange={handleAvatarChange} />
+        </div>
+
+        {/* 닉네임 */}
+        <form onSubmit={handleUsernameSave} className="space-y-4">
+          <div>
+            <label className="block text-xs font-bold uppercase mb-1.5" style={{ color: 'var(--text-muted)' }}>닉네임</label>
+            <input
+              type="text"
+              value={username}
+              onChange={(e) => setUsername(e.target.value)}
+              maxLength={50}
+              className="w-full rounded-md px-3 py-2.5 text-sm outline-none"
+              style={{ background: '#1e1f22', color: 'var(--text-primary)', border: '1px solid #1e1f22' }}
+            />
+          </div>
+          <div className="flex gap-3 pt-1">
+            <button type="button" onClick={onClose}
+              className="flex-1 rounded-md py-2.5 text-sm font-medium transition-opacity hover:opacity-80"
+              style={{ background: '#4e5058', color: '#fff' }}>
+              취소
+            </button>
+            <button type="submit" disabled={saving || uploading}
+              className="flex-1 rounded-md py-2.5 text-sm font-bold transition-opacity hover:opacity-90 disabled:opacity-50"
+              style={{ background: 'var(--accent)', color: '#fff' }}>
+              {saving ? '저장 중...' : '저장'}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+}
 
 /* ── 채팅방 생성 모달 ─────────────────────────────── */
 export function CreateRoomModal({ onClose, onCreated }: { onClose: () => void; onCreated: (room: Room) => void }) {
@@ -119,8 +245,11 @@ export function CreateRoomModal({ onClose, onCreated }: { onClose: () => void; o
                       className="w-full flex items-center gap-3 px-3 py-2.5 text-left transition-colors hover:opacity-80"
                       style={{ color: selectedIds.includes(u.id) ? '#fff' : 'var(--text-muted)' }}
                     >
-                      <div className="w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 text-sm font-bold" style={{ background: 'var(--accent)' }}>
-                        {u.username[0].toUpperCase()}
+                      <div className="w-8 h-8 rounded-full overflow-hidden flex items-center justify-center flex-shrink-0 text-sm font-bold" style={{ background: 'var(--accent)' }}>
+                        {u.avatarUrl
+                          ? <img src={u.avatarUrl} alt={u.username} className="w-full h-full object-cover" />
+                          : u.username[0].toUpperCase()
+                        }
                       </div>
                       <div className="flex-1 min-w-0">
                         <p className="text-sm font-medium truncate" style={{ color: 'var(--text-primary)' }}>{u.username}</p>
@@ -163,6 +292,7 @@ export function RoomList() {
   const user = useAuthStore((s) => s.user);
   const clear = useAuthStore((s) => s.clear);
   const [showModal, setShowModal] = useState(false);
+  const [profileOpen, setProfileOpen] = useState(false);
   const lockTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
@@ -241,10 +371,21 @@ export function RoomList() {
 
       {/* 하단 내 프로필 */}
       <div className="flex items-center gap-2 px-3 py-3 border-t" style={{ borderColor: '#1e1f22', background: '#232428' }}>
-        <div className="w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold flex-shrink-0"
-          style={{ background: 'var(--accent)', color: '#fff' }}>
-          {user?.username?.[0]?.toUpperCase()}
-        </div>
+        <button
+          type="button"
+          onClick={() => setProfileOpen(true)}
+          title="프로필 편집"
+          className="rounded-full overflow-hidden flex-shrink-0 hover:ring-2 transition-all"
+          style={{ width: 32, height: 32, background: 'var(--accent)', ringColor: 'var(--accent)' }}
+        >
+          {user?.avatarUrl ? (
+            <img src={user.avatarUrl} alt={user.username} className="w-full h-full object-cover" />
+          ) : (
+            <div className="w-full h-full flex items-center justify-center text-sm font-bold" style={{ color: '#fff' }}>
+              {user?.username?.[0]?.toUpperCase()}
+            </div>
+          )}
+        </button>
         <div className="flex-1 min-w-0">
           <p className="text-sm font-medium truncate" style={{ color: 'var(--sidebar-text-active)' }}>{user?.username}</p>
           <p className="text-xs truncate" style={{ color: 'var(--text-muted)' }}>온라인</p>
@@ -260,6 +401,7 @@ export function RoomList() {
       </div>
 
       {showModal && <CreateRoomModal onClose={() => setShowModal(false)} onCreated={handleCreated} />}
+      {profileOpen && <ProfileModal onClose={() => setProfileOpen(false)} />}
     </div>
   );
 }
