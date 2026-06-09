@@ -662,6 +662,8 @@ export default function ChatPage() {
     setSelectedRoom(room);
     setShowChatList(false);
     setRoomView('');
+    // 방을 클릭하는 즉시 미읽음 배지 제거 (ChatWindow 마운트 전에도 바로 반영)
+    useChatStore.getState().clearRoomUnread(room.id);
   }
 
   if (!hydrated || !accessToken) return null;

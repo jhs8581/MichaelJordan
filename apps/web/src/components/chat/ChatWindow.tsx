@@ -147,6 +147,7 @@ export function ChatWindow({ roomId, onLeave, onImageView, naverTheme, naverDark
   const prependMessages = useChatStore((s) => s.prependMessages);
   const setMessages = useChatStore((s) => s.setMessages);
   const markRead = useChatStore((s) => s.markRead);
+  const clearRoomUnread = useChatStore((s) => s.clearRoomUnread);
   const updateMessage = useChatStore((s) => s.updateMessage);
   const removeMessage = useChatStore((s) => s.removeMessage);
   const setRooms = useChatStore((s) => s.setRooms);
@@ -241,7 +242,8 @@ export function ChatWindow({ roomId, onLeave, onImageView, naverTheme, naverDark
         const msgs = res.data.data.messages;
         setMessages(roomId, msgs);
         setNextCursor(res.data.data.nextCursor);
-        // 채팅방 열 때 마지막 메시지 읽음 처리
+        // 채팅방 열 때 즉시 미읽음 배지 제거 + 서버에 읽음 처리 전송
+        clearRoomUnread(roomId);
         if (msgs.length > 0 && accessToken) {
           const socket = getSocket();
           socket.emit('message:read', { roomId, messageId: msgs[msgs.length - 1].id });
@@ -339,6 +341,7 @@ export function ChatWindow({ roomId, onLeave, onImageView, naverTheme, naverDark
       addMessage(roomId, nextMsg);
       // 페이지가 활성 상태일 때만 읽음 처리 (백그라운드/잠금화면이면 포커스 복귀 시 처리됨)
       if (isPageActive()) {
+        clearRoomUnread(roomId);
         socket.emit('message:read', { roomId, messageId: msg.id });
       }
     });
@@ -384,7 +387,7 @@ export function ChatWindow({ roomId, onLeave, onImageView, naverTheme, naverDark
       socket.off('user:status');
       socket.off('message:deleted');
     };
-  }, [roomId, accessToken, addMessage, markRead, removeMessage, updateMessage, user?.id]);
+  }, [roomId, accessToken, addMessage, clearRoomUnread, markRead, removeMessage, updateMessage, user?.id]);
 
   // 새 메시지가 오면 맨 아래로 (단, 이미 거의 아래에 있을 때만 → 위 스크롤 중에는 유지)
   const scrollContainerRef = useRef<HTMLDivElement>(null);

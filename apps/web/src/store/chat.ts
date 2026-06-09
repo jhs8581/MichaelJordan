@@ -15,6 +15,7 @@ interface ChatState {
   updateMessage: (roomId: number, messageId: number, content: string) => void;
   removeMessage: (roomId: number, messageId: number) => void;
   markRead: (roomId: number, userId: number, lastReadMessageId: number) => void;
+  clearRoomUnread: (roomId: number) => void;
 }
 
 export const useChatStore = create<ChatState>()((set) => ({
@@ -45,7 +46,12 @@ export const useChatStore = create<ChatState>()((set) => ({
       },
       rooms: state.rooms.map((r) =>
         r.id === roomId
-          ? { ...r, messages: [{ id: message.id, content: message.content, createdAt: message.createdAt, senderId: message.senderId }] }
+          ? {
+              ...r,
+              messages: [{ id: message.id, content: message.content, createdAt: message.createdAt, senderId: message.senderId }],
+              // 현재 보고 있지 않은 방에 새 메시지가 오면 미읽음 카운트 증가
+              unreadCount: state.activeRoomId === roomId ? (r.unreadCount ?? 0) : (r.unreadCount ?? 0) + 1,
+            }
           : r
       ),
     })),
@@ -98,6 +104,15 @@ export const useChatStore = create<ChatState>()((set) => ({
             : m
         ),
       },
+      // 내가 읽었을 때(activeRoomId와 일치) unreadCount를 0으로 초기화
+      rooms: state.activeRoomId === roomId
+        ? state.rooms.map((r) => r.id === roomId ? { ...r, unreadCount: 0 } : r)
+        : state.rooms,
+    })),
+
+  clearRoomUnread: (roomId) =>
+    set((state) => ({
+      rooms: state.rooms.map((r) => r.id === roomId ? { ...r, unreadCount: 0 } : r),
     })),
 
   removeMessage: (roomId, messageId) =>
