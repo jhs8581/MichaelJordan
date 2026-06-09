@@ -8,7 +8,7 @@ import { useChatStore } from '@/store/chat';
 import { usePreferencesStore } from '@/store/preferences';
 import { api } from '@/lib/api';
 import { ChatWindow } from '@/components/chat/ChatWindow';
-import { CreateRoomModal } from '@/components/chat/RoomList';
+import { CreateRoomModal, ProfileModal } from '@/components/chat/RoomList';
 import NaverChatPage from './NaverChatPage';
 import type { Room } from '@chat/types';
 
@@ -487,6 +487,7 @@ export default function ChatPage() {
   const [postContent, setPostContent] = useState('');
   const [postDetail, setPostDetail] = useState<Post | null>(null);
   const [showMenu, setShowMenu] = useState(false);
+  const [profileOpen, setProfileOpen] = useState(false);
   const [activeTab, setActiveTab] = useState<'커뮤니티' | '포럼' | '갤러리' | '인포메이션' | '마켓'>('커뮤니티');
 
   // ── 댓글 상태
@@ -1337,8 +1338,9 @@ export default function ChatPage() {
                 <span style={{ fontSize: 13, color: '#888' }}>님</span>
               </div>
             )}
-            {([
+            {([  
               { icon: '💬', label: '채팅 목록', action: () => { setSelectedRoom(null); setShowChatList(true); setRoomView(''); setShowMenu(false); } },
+              { icon: '👤', label: '프로필 편집', action: () => { setShowMenu(false); setProfileOpen(true); } },
             ] as { icon: string; label: string; action: () => void }[]).map(({ icon, label, action }) => (
               <button key={label} onClick={action} style={{
                 width: '100%', padding: '15px 20px', background: 'none', border: 'none',
@@ -1358,7 +1360,7 @@ export default function ChatPage() {
         </>
       )}
 
-      {/* 이미지 라이트박스 오버레이 — 어떤 상태에서도 렌더럁 되도록 최상단에 배치 */}
+      {profileOpen && <ProfileModal onClose={() => setProfileOpen(false)} />}
       {viewingImages.length > 0 && viewingImage && (
         <div
           onClick={() => { if (!showImageGrid) setViewingImageItems([]); }}

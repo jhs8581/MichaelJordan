@@ -34,7 +34,7 @@ const MutedIcon = () => (
 );
 
 /* ── 프로필 편집 모달 ─────────────────────────────── */
-function ProfileModal({ onClose }: { onClose: () => void }) {
+export function ProfileModal({ onClose }: { onClose: () => void }) {
   const user = useAuthStore((s) => s.user);
   const setUser = useAuthStore((s) => s.setUser);
   const avatarInputRef = useRef<HTMLInputElement>(null);
