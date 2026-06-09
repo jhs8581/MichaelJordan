@@ -376,7 +376,7 @@ export function RoomList() {
           onClick={() => setProfileOpen(true)}
           title="프로필 편집"
           className="rounded-full overflow-hidden flex-shrink-0 hover:ring-2 transition-all"
-          style={{ width: 32, height: 32, background: 'var(--accent)', ringColor: 'var(--accent)' }}
+          style={{ width: 32, height: 32, background: 'var(--accent)' }}
         >
           {user?.avatarUrl ? (
             <img src={user.avatarUrl} alt={user.username} className="w-full h-full object-cover" />
