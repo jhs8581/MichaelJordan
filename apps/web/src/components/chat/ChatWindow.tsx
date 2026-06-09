@@ -426,11 +426,15 @@ export function ChatWindow({ roomId, onLeave, onImageView, naverTheme, naverDark
     if (!hasScrolledToBottom.current) {
       // 처음 진입 or 방 전환 시 → 메시지가 있으면 무조건 맨 아래로
       if (messages.length > 0) {
-        // requestAnimationFrame: DOM 레이아웃 완료 후 스크롤 (scrollIntoView보다 안정적)
-        requestAnimationFrame(() => {
-          el.scrollTop = el.scrollHeight;
-        });
         hasScrolledToBottom.current = true;
+        // 더블 rAF: 이미지/아바타 레이아웃 완료 후 정확한 scrollHeight 확보
+        requestAnimationFrame(() => {
+          requestAnimationFrame(() => {
+            el.scrollTop = el.scrollHeight;
+          });
+        });
+        // 이미지 로드로 인한 높이 변화 대비 폴백
+        setTimeout(() => { el.scrollTop = el.scrollHeight; }, 150);
       }
       return;
     }
