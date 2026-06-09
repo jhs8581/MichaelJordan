@@ -8,7 +8,7 @@ import { useChatStore } from '@/store/chat';
 import { usePreferencesStore } from '@/store/preferences';
 import { api } from '@/lib/api';
 import { ChatWindow } from '@/components/chat/ChatWindow';
-import { CreateRoomModal } from '@/components/chat/RoomList';
+import { CreateRoomModal, ProfileModal } from '@/components/chat/RoomList';
 import type { Room } from '@chat/types';
 
 type View = 'home' | 'rooms' | 'chat';
@@ -214,6 +214,7 @@ export default function NaverChatPage({ backRef }: { backRef?: MutableRefObject<
 
   const [view, setView] = useState<View>('home');
   const [selectedRoom, setSelectedRoom] = useState<Room | null>(null);
+  const [profileOpen, setProfileOpen] = useState(false);
   const [roomView, setRoomView] = useState<'' | 'schedule' | 'posts'>('');
   const [newsTab, setNewsTab] = useState(0);
   const [showCreateModal, setShowCreateModal] = useState(false);
@@ -1039,7 +1040,7 @@ export default function NaverChatPage({ backRef }: { backRef?: MutableRefObject<
         </div>
       </div>
 
-      {/* 하단 바 (다크모드 토글 + 테마전환 + 로그아웃) */}
+      {/* 하단 바 (다크모드 토글 + 테마전환 + 프로필 편집 + 로그아웃) */}
       <div style={{ position: 'fixed', bottom: 0, left: '50%', transform: 'translateX(-50%)', width: '100%', maxWidth: 430, background: nv.bottomBg, borderTop: `1px solid ${nv.border}`, padding: '10px 16px', display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 8, zIndex: 50 }}>
         <button onClick={() => setNaverDark(!naverDark)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: naverDark ? '#ffd700' : '#aaa', padding: 4, display: 'flex', alignItems: 'center' }} title="다크/라이트 모드">
           {naverDark ? <IconSun /> : <IconMoon />}
@@ -1047,8 +1048,10 @@ export default function NaverChatPage({ backRef }: { backRef?: MutableRefObject<
         <button onClick={() => setChatTheme('slr')} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#aaa', padding: 4, display: 'flex', alignItems: 'center' }} title="SLR 테마로 전환">
           <IconPalette />
         </button>
+        <button onClick={() => setProfileOpen(true)} style={{ background: naverDark ? '#2a2a2a' : '#f5f5f5', border: `1px solid ${naverDark ? '#444' : '#e0e0e0'}`, borderRadius: 16, padding: '6px 14px', fontSize: 12, color: naverDark ? '#cccccc' : '#555', cursor: 'pointer', fontWeight: 600 }}>프로필</button>
         <button onClick={() => { clearAuth(); router.replace('/login'); }} style={{ background: naverDark ? '#2a2a2a' : '#f5f5f5', border: `1px solid ${naverDark ? '#444' : '#e0e0e0'}`, borderRadius: 16, padding: '6px 14px', fontSize: 12, color: naverDark ? '#cccccc' : '#555', cursor: 'pointer', fontWeight: 600 }}>로그아웃</button>
       </div>
+      {profileOpen && <ProfileModal onClose={() => setProfileOpen(false)} />}
     </div>
   );
 }
