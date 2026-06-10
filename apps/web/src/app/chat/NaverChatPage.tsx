@@ -1048,6 +1048,7 @@ export default function NaverChatPage({ backRef }: { backRef?: MutableRefObject<
         <button onClick={() => setChatTheme('slr')} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#aaa', padding: 4, display: 'flex', alignItems: 'center' }} title="SLR 테마로 전환">
           <IconPalette />
         </button>
+        <button onClick={() => setChatTheme('oliveyoung')} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#00C4B4', fontSize: 16, padding: 4 }} title="올리브영 테마로 전환">🌿</button>
         <button onClick={() => setProfileOpen(true)} style={{ background: naverDark ? '#2a2a2a' : '#f5f5f5', border: `1px solid ${naverDark ? '#444' : '#e0e0e0'}`, borderRadius: 16, padding: '6px 14px', fontSize: 12, color: naverDark ? '#cccccc' : '#555', cursor: 'pointer', fontWeight: 600 }}>프로필</button>
         <button onClick={() => { clearAuth(); router.replace('/login'); }} style={{ background: naverDark ? '#2a2a2a' : '#f5f5f5', border: `1px solid ${naverDark ? '#444' : '#e0e0e0'}`, borderRadius: 16, padding: '6px 14px', fontSize: 12, color: naverDark ? '#cccccc' : '#555', cursor: 'pointer', fontWeight: 600 }}>로그아웃</button>
       </div>

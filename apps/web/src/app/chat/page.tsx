@@ -10,6 +10,7 @@ import { api } from '@/lib/api';
 import { ChatWindow } from '@/components/chat/ChatWindow';
 import { CreateRoomModal, ProfileModal } from '@/components/chat/RoomList';
 import NaverChatPage from './NaverChatPage';
+import OliveYoungChatPage from './OliveYoungChatPage';
 import type { Room } from '@chat/types';
 
 type Schedule = {
@@ -669,8 +670,9 @@ export default function ChatPage() {
 
   if (!hydrated || !accessToken) return null;
 
-  // 네이버 테마 선택 시 전용 컴포넌트 렌더링
+  // 테마 선택 시 전용 컴포넌트 렌더링
   if (chatTheme === 'naver') return <NaverChatPage backRef={naverBackRef} />;
+  if (chatTheme === 'oliveyoung') return <OliveYoungChatPage backRef={naverBackRef} />;
 
   const HOT_POSTS = [
     { category: '자유게시판', title: '정말 좋으네요', count: 11 },
@@ -761,6 +763,11 @@ export default function ChatPage() {
             style={{ background: 'none', cursor: 'pointer', color: 'rgba(255,255,255,0.8)', fontSize: 11, fontWeight: 600, padding: '3px 7px', borderRadius: 10, border: '1px solid rgba(255,255,255,0.35)' }}
             title="네이버 스타일로 전환"
           >N테마</button>
+          <button
+            onClick={() => setChatTheme('oliveyoung')}
+            style={{ background: 'none', cursor: 'pointer', color: 'rgba(255,255,255,0.8)', fontSize: 11, fontWeight: 600, padding: '3px 7px', borderRadius: 10, border: '1px solid rgba(255,255,255,0.35)' }}
+            title="올리브영 스타일로 전환"
+          >🌿</button>
           {user?.username ? (
             <button onClick={handleLogout}
               style={{ background: 'none', border: 'none', color: '#fff', fontSize: 12, fontWeight: 700, cursor: 'pointer' }}

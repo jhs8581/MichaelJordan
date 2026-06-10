@@ -1,7 +1,7 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 
-export type ChatTheme = 'slr' | 'naver';
+export type ChatTheme = 'slr' | 'naver' | 'oliveyoung';
 
 interface PreferencesState {
   chatTheme: ChatTheme;
