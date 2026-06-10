@@ -16,6 +16,8 @@ interface Props {
   onImageView?: (url: string, imageList: RoomImageItem[], options?: ImageViewOptions) => void;
   naverTheme?: boolean;
   naverDark?: boolean;
+  oyTheme?: boolean;
+  oyDark?: boolean;
   backInterceptorRef?: React.MutableRefObject<(() => boolean) | null>;
 }
 
@@ -130,7 +132,7 @@ function loadChatViewSettings(): ChatViewSettings {
   }
 }
 
-export function ChatWindow({ roomId, onLeave, onImageView, naverTheme, naverDark, backInterceptorRef }: Props) {
+export function ChatWindow({ roomId, onLeave, onImageView, naverTheme, naverDark, oyTheme, oyDark, backInterceptorRef }: Props) {
   const user = useAuthStore((s) => s.user);
   const accessToken = useAuthStore((s) => s.accessToken);
   const setUser = useAuthStore((s) => s.setUser);
@@ -1150,6 +1152,7 @@ export function ChatWindow({ roomId, onLeave, onImageView, naverTheme, naverDark
 
   const trimmedEditContent = editContent.trim();
   const isNaverLight = Boolean(naverTheme && !naverDark);
+  const isOyLight = Boolean(oyTheme && !oyDark);
 
   // 날짜 구분선 렌더링
   function renderMessages() {
@@ -1237,6 +1240,8 @@ export function ChatWindow({ roomId, onLeave, onImageView, naverTheme, naverDark
               showNickname={settings.showNickname}
               naverTheme={naverTheme}
               naverDark={naverDark}
+              oyTheme={oyTheme}
+              oyDark={oyDark}
               viewerTimeZone={user?.timeZone || getLocalTimeZone()}
               onImageClick={onImageView ? (url) => {
                 loadAllRoomImageItems(url)
@@ -1257,11 +1262,11 @@ export function ChatWindow({ roomId, onLeave, onImageView, naverTheme, naverDark
   }
 
   return (
-    <div className="relative flex flex-col h-full" style={{ background: 'var(--chat-bg)' }} {...(naverTheme ? { 'data-ntheme': '', ...(naverDark ? { 'data-ndark': '' } : {}) } : {})}>
+    <div className="relative flex flex-col h-full" style={{ background: 'var(--chat-bg)' }} {...(naverTheme ? { 'data-ntheme': '', ...(naverDark ? { 'data-ndark': '' } : {}) } : {})} {...(oyTheme ? { 'data-oytheme': '', ...(oyDark ? { 'data-oydark': '' } : {}) } : {})}>
       {/* 채널 헤더 — 모바일: 헤더 길게 누르면 잠금 */}
       <div
         className="flex items-center gap-2 px-4 py-3 border-b shadow-md flex-shrink-0"
-        style={{ borderColor: naverTheme ? (naverDark ? '#2e2e2e' : '#e8e8e8') : '#1e1f22', background: naverTheme ? (naverDark ? '#161616' : '#ffffff') : 'var(--chat-bg)' }}
+        style={{ borderColor: naverTheme ? (naverDark ? '#2e2e2e' : '#e8e8e8') : oyTheme ? (oyDark ? '#1A3030' : '#EEF0F0') : '#1e1f22', background: naverTheme ? (naverDark ? '#161616' : '#ffffff') : oyTheme ? (oyDark ? '#0F2222' : '#ffffff') : 'var(--chat-bg)' }}
         onContextMenu={isMobile && canLock ? (e) => e.preventDefault() : undefined}
         onTouchStart={isMobile && canLock ? () => { longPressTimer.current = setTimeout(() => lockChat(), 2000); } : undefined}
         onTouchEnd={isMobile && canLock ? () => { if (longPressTimer.current) { clearTimeout(longPressTimer.current); longPressTimer.current = null; } } : undefined}
@@ -2152,7 +2157,7 @@ export function ChatWindow({ roomId, onLeave, onImageView, naverTheme, naverDark
 
       {/* 입력창 */}
       <div className={`px-4 pt-3 pb-5 flex-shrink-0 ${(isLocked || !isContentUnlocked) ? 'pointer-events-none opacity-40' : ''}`}
-        style={{ borderTop: naverTheme ? `1px solid ${naverDark ? '#2e2e2e' : '#e8e8e8'}` : '1px solid #24262d', background: naverTheme ? (naverDark ? '#1c1c1c' : '#ffffff') : undefined }}>
+        style={{ borderTop: naverTheme ? `1px solid ${naverDark ? '#2e2e2e' : '#e8e8e8'}` : oyTheme ? `1px solid ${oyDark ? '#1A3030' : '#EEF0F0'}` : '1px solid #24262d', background: naverTheme ? (naverDark ? '#1c1c1c' : '#ffffff') : oyTheme ? (oyDark ? '#0F2222' : '#ffffff') : undefined }}>
         {uploadError && (
           <div className="mt-2 mb-1 px-3 py-1.5 rounded-lg text-xs font-medium" style={{ background: '#ed424522', color: '#ed4245', border: '1px solid #ed424544' }}>
             ⚠ {uploadError}

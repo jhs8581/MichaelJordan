@@ -8,6 +8,8 @@ interface PreferencesState {
   setChatTheme: (theme: ChatTheme) => void;
   naverDark: boolean;
   setNaverDark: (dark: boolean) => void;
+  oyDark: boolean;
+  setOyDark: (dark: boolean) => void;
 }
 
 export const usePreferencesStore = create<PreferencesState>()(
@@ -17,6 +19,8 @@ export const usePreferencesStore = create<PreferencesState>()(
       setChatTheme: (chatTheme) => set({ chatTheme }),
       naverDark: false,
       setNaverDark: (naverDark: boolean) => set({ naverDark }),
+      oyDark: false,
+      setOyDark: (oyDark: boolean) => set({ oyDark }),
     }),
     { name: 'chat-preferences' }
   )

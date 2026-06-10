@@ -105,3 +105,51 @@ body {
 [data-ntheme][data-ndark] .settings-btn { color: #aaaaaa !important; background: #252525 !important; }
 [data-ntheme][data-ndark] .toolbar-mobile { border-bottom-color: #2e2e2e !important; background: #1c1c1c !important; }
 
+/* ── 올리브영 테마 (day) ────────────────────────────────────────────── */
+[data-oytheme] {
+  --chat-bg: #F0F5F5;
+  --bubble-mine: #00C4B4;
+  --bubble-other: #ffffff;
+  --text-primary: #1A1A1A;
+  --text-muted: #888888;
+  --accent: #00C4B4;
+  --input-bg: #ffffff;
+  color: #1A1A1A;
+}
+[data-oytheme] .border-b { border-color: #EEF0F0 !important; background: #ffffff !important; }
+[data-oytheme] .overflow-y-auto { background: #F0F5F5 !important; }
+[data-oytheme] ::-webkit-scrollbar-thumb { background: #ccdddd; }
+[data-oytheme] ::-webkit-scrollbar-thumb:hover { background: #aacccc; }
+[data-oytheme] .read-label { color: #888888 !important; }
+[data-oytheme] .online-dot-on  { background: #00C4B4 !important; }
+[data-oytheme] .online-dot-off { background: #cccccc !important; }
+[data-oytheme] .online-text-on  { color: #00C4B4 !important; }
+[data-oytheme] .online-text-off { color: #aaaaaa !important; }
+[data-oytheme] .view-mode-bar { background: #E8F2F2 !important; }
+[data-oytheme] .settings-btn { color: #444 !important; background: #E8F2F2 !important; }
+[data-oytheme] .toolbar-mobile { border-bottom-color: #EEF0F0 !important; background: #ffffff !important; }
+
+/* ── 올리브영 나이트 테마 (night) ──────────────────────────────────── */
+[data-oytheme][data-oydark] {
+  --chat-bg: #0D1A1A;
+  --bubble-mine: #00968A;
+  --bubble-other: #162626;
+  --text-primary: #E0E8E8;
+  --text-muted: #6A9090;
+  --accent: #00C4B4;
+  --input-bg: #162626;
+  color: #E0E8E8;
+}
+[data-oytheme][data-oydark] .border-b { border-color: #1A3030 !important; background: #0F2222 !important; }
+[data-oytheme][data-oydark] .overflow-y-auto { background: #0D1A1A !important; }
+[data-oytheme][data-oydark] ::-webkit-scrollbar-thumb { background: #1E4040; }
+[data-oytheme][data-oydark] ::-webkit-scrollbar-thumb:hover { background: #2A5050; }
+[data-oytheme][data-oydark] .read-label { color: #4A7070 !important; }
+[data-oytheme][data-oydark] .online-dot-on  { background: #00C4B4 !important; }
+[data-oytheme][data-oydark] .online-dot-off { background: #2A4040 !important; }
+[data-oytheme][data-oydark] .online-text-on  { color: #00C4B4 !important; }
+[data-oytheme][data-oydark] .online-text-off { color: #4A7070 !important; }
+[data-oytheme][data-oydark] .view-mode-bar { background: #162626 !important; }
+[data-oytheme][data-oydark] .settings-btn { color: #6AC8C8 !important; background: #162626 !important; }
+[data-oytheme][data-oydark] .toolbar-mobile { border-bottom-color: #1A3030 !important; background: #0F2222 !important; }
+

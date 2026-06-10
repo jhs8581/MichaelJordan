@@ -103,6 +103,8 @@ interface Props {
   showNickname?: boolean;
   naverTheme?: boolean;
   naverDark?: boolean;
+  oyTheme?: boolean;
+  oyDark?: boolean;
   viewerTimeZone?: string;
   onImageClick?: (url: string) => void;
   onAvatarClick?: (url: string) => void;
@@ -158,7 +160,7 @@ function getValidTimeZone(timeZone?: string): string | undefined {
   }
 }
 
-export function MessageBubble({ message, isMine, isConsecutive, timeFormat, showNickname = true, naverTheme, naverDark, viewerTimeZone, onImageClick, onAvatarClick, onLongPress, onReply, onJumpToMessage }: Props) {
+export function MessageBubble({ message, isMine, isConsecutive, timeFormat, showNickname = true, naverTheme, naverDark, oyTheme, oyDark, viewerTimeZone, onImageClick, onAvatarClick, onLongPress, onReply, onJumpToMessage }: Props) {
   const time = formatMessageTime(new Date(message.createdAt), timeFormat, message.senderTimeZone, message.senderLocalTime, viewerTimeZone);
   // 보낸 사람 본인을 제외한 읽음 수 (본인 읽음은 항상 있어서 무조건 읽음으로 표시되는 버그 방지)
   const readCount = (message.reads ?? []).filter((r) => r.userId !== message.senderId).length;
@@ -298,28 +300,28 @@ export function MessageBubble({ message, isMine, isConsecutive, timeFormat, show
                   // 부모 버블의 whitespace-pre-wrap / overflowWrap 상속 차단
                   whiteSpace: 'normal',
                   overflowWrap: 'normal',
-                  background: (!isMine && naverTheme && !naverDark)
+                  background: (!isMine && naverTheme && !naverDark) || (!isMine && oyTheme && !oyDark)
                     ? 'rgba(0,0,0,0.07)'
                     : (isMine ? 'rgba(255,255,255,0.26)' : 'rgba(255,255,255,0.10)'),
                   border: 'none',
-                  borderLeft: (!isMine && naverTheme && !naverDark)
+                  borderLeft: (!isMine && naverTheme && !naverDark) || (!isMine && oyTheme && !oyDark)
                     ? '3px solid rgba(0,0,0,0.25)'
                     : '3px solid rgba(255,255,255,0.72)',
                   cursor: 'pointer',
                   display: 'block',
                   WebkitAppearance: 'none',
                   appearance: 'none',
-                  boxShadow: (!isMine && naverTheme && !naverDark)
+                  boxShadow: (!isMine && naverTheme && !naverDark) || (!isMine && oyTheme && !oyDark)
                     ? 'inset 0 0 0 1px rgba(0,0,0,0.06)'
                     : 'inset 0 0 0 1px rgba(255,255,255,0.12)',
                 }}
                 title="원본 메시지로 이동"
                 aria-label={`답장 대상: ${message.replyTo.sender?.username ?? `사용자${message.replyTo.senderId}`} — 원본 메시지로 이동`}
               >
-                <p style={{ fontSize: 11, fontWeight: 700, lineHeight: 1.3, marginBottom: 4, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', color: (!isMine && naverTheme && !naverDark) ? '#333' : '#fff' }}>
+                <p style={{ fontSize: 11, fontWeight: 700, lineHeight: 1.3, marginBottom: 4, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', color: ((!isMine && naverTheme && !naverDark) || (!isMine && oyTheme && !oyDark)) ? '#333' : '#fff' }}>
                   {message.replyTo.sender?.username ?? `사용자${message.replyTo.senderId}`}에게 답장
                 </p>
-                <p style={{ fontSize: 11, lineHeight: 1.3, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', color: (!isMine && naverTheme && !naverDark) ? '#666' : 'rgba(255,255,255,0.78)' }}>
+                <p style={{ fontSize: 11, lineHeight: 1.3, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', color: ((!isMine && naverTheme && !naverDark) || (!isMine && oyTheme && !oyDark)) ? '#666' : 'rgba(255,255,255,0.78)' }}>
                   {message.replyTo.fileUrl ? '[사진]' : (message.replyTo.content || '[메시지]')}
                 </p>
               </div>
