@@ -255,7 +255,6 @@ export default function OliveYoungChatPage({ backRef }: { backRef?: MutableRefOb
               {badge > 0 && <span style={{ position: 'absolute', top: -5, right: -8, background: oy.red, color: '#fff', borderRadius: 8, fontSize: 9, fontWeight: 700, padding: '1px 4px', minWidth: 14, textAlign: 'center', lineHeight: '14px' }}>{badge > 99 ? '99+' : badge}</span>}
             </div>
             <span style={{ fontSize: 10, fontWeight: active ? 700 : 400, lineHeight: 1 }}>{tab}</span>
-            {tab === '뷰티톡' && !active && <span style={{ fontSize: 8, color: oy.textMuted, lineHeight: 1 }}>더블탭</span>}
           </button>
         );
       })}
