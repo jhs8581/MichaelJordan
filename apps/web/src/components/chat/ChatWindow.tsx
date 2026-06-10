@@ -341,6 +341,10 @@ export function ChatWindow({ roomId, onLeave, onImageView, naverTheme, naverDark
         }
       }
       addMessage(roomId, nextMsg);
+      // 새 이미지 메시지가 오면 이미지 목록 캐시 무효화
+      if (nextMsg.fileUrl && !/\.(mp4|webm|mov|m4v|avi)(\?.*)?$/i.test(nextMsg.fileUrl)) {
+        allRoomImagesRef.current = null;
+      }
       // 페이지가 활성 상태일 때만 읽음 처리 (백그라운드/잠금화면이면 포커스 복귀 시 처리됨)
       if (isPageActive()) {
         clearRoomUnread(roomId);
