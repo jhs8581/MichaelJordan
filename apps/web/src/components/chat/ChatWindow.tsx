@@ -211,7 +211,6 @@ export function ChatWindow({ roomId, onLeave, onImageView, naverTheme, naverDark
   const [onlineUserIds, setOnlineUserIds] = useState<Set<number>>(new Set());
   const typingTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const cameraInputRef = useRef<HTMLInputElement>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const partialCopyTextareaRef = useRef<HTMLTextAreaElement>(null);
@@ -2196,8 +2195,6 @@ export function ChatWindow({ roomId, onLeave, onImageView, naverTheme, naverDark
         {/* 갤러리 선택: accept="image/*"만 써야 Android에서 갤러리 앱이 열려 다중선택 가능
             (image/*,video/* 혼용 시 Files 앱이 열려 다중선택 안 됨) / iOS도 사진 보관함 다중선택 지원 */}
         <input ref={fileInputRef} type="file" accept="image/*" multiple className="hidden" onChange={handleFileChange} />
-        {/* 카메라 촬영: capture="environment" → 바로 카메라 실행, 동영상 촬영도 가능 */}
-        <input ref={cameraInputRef} type="file" accept="image/*,video/*" capture="environment" className="hidden" onChange={handleFileChange} />
         <form onSubmit={sendMessage} className="flex items-end gap-2 rounded-xl px-4 py-3" style={{ background: 'var(--input-bg)', padding: isMobile ? '10px 12px' : undefined }}>
           {/* 사진첩 버튼 */}
           <button
@@ -2218,17 +2215,7 @@ export function ChatWindow({ roomId, onLeave, onImageView, naverTheme, naverDark
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
             )}
           </button>
-          {/* 카메라 버튼 */}
-          <button
-            type="button"
-            disabled={uploading}
-            onClick={() => cameraInputRef.current?.click()}
-            className="flex-shrink-0 rounded-lg p-1.5 transition-all"
-            style={{ color: uploading ? '#57f287' : 'var(--text-muted)', background: 'transparent' }}
-            title="카메라"
-          >
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
-          </button>
+
           <textarea
             ref={textareaRef}
             rows={1}
