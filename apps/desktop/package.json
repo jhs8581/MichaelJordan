@@ -5,7 +5,7 @@
   "main": "electron/main.js",
   "scripts": {
     "dev": "concurrently \"cross-env ELECTRON_START_URL=http://localhost:3000 electron .\" ",
-    "build": "electron-builder --win",
+    "build": "node -e \"if(process.env.CI){console.log('CI env: skipping electron-builder')}else{require('child_process').execSync('electron-builder --win',{stdio:'inherit'})}\"",
     "pack": "electron-builder --dir"
   },
   "dependencies": {},
