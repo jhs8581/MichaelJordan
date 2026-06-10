@@ -401,7 +401,7 @@ export function MessageBubble({ message, isMine, isConsecutive, timeFormat, show
 
 // 사용자 이름을 색상으로 변환 (항상 같은 색)
 function stringToColor(str: string): string {
-  const colors = ['#5865f2', '#57f287', '#fee75c', '#eb459e', '#ed4245', '#3ba55d', '#faa61a', '#00aff4'];
+  const colors = ['#5865f2', '#57f287', '#e67e22', '#eb459e', '#ed4245', '#3ba55d', '#faa61a', '#00aff4'];
   let hash = 0;
   for (let i = 0; i < str.length; i++) hash = str.charCodeAt(i) + ((hash << 5) - hash);
   return colors[Math.abs(hash) % colors.length];
