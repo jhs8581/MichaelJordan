@@ -14,6 +14,65 @@ import type { Room } from '@chat/types';
 type View = 'home' | 'rooms' | 'chat';
 type BottomTab = '홈' | '카테고리' | '뷰티톡' | 'MY' | '더보기';
 
+type Schedule = {
+  id: number; roomId: number; title: string; description?: string | null;
+  scheduledAt: string; isAllDay: boolean; notified: boolean;
+  createdById: number; createdAt: string;
+  createdBy: { id: number; username: string };
+};
+type Post = {
+  id: number; roomId: number; title: string; content: string; authorId: number;
+  sourceMessageId?: number | null; createdAt: string; updatedAt: string;
+  author: { id: number; username: string; avatarUrl?: string };
+  sourceMessage?: { id: number; content: string; createdAt: string; sender?: { id: number; username: string } | null } | null;
+  _count?: { comments: number };
+};
+type Comment = {
+  id: number; postId: number; content: string; authorId: number;
+  createdAt: string; updatedAt: string;
+  author: { id: number; username: string; avatarUrl?: string };
+};
+type RoomImageItem = { url: string; createdAt?: string };
+
+async function handleImageDownload(url: string, e: React.MouseEvent<HTMLAnchorElement>) {
+  e.preventDefault(); e.stopPropagation();
+  try {
+    const response = await fetch(url);
+    const blob = await response.blob();
+    const blobUrl = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = blobUrl;
+    const extension = url.split('.').pop()?.split('?')[0] || 'jpg';
+    link.download = `image_${Date.now()}.${extension}`;
+    document.body.appendChild(link); link.click(); document.body.removeChild(link);
+    setTimeout(() => URL.revokeObjectURL(blobUrl), 100);
+  } catch {
+    const link = document.createElement('a');
+    link.href = url; link.download = '';
+    document.body.appendChild(link); link.click(); document.body.removeChild(link);
+  }
+}
+function getTouchDistance(touches: React.TouchList): number {
+  if (touches.length < 2) return 0;
+  return Math.hypot(touches[0].clientX - touches[1].clientX, touches[0].clientY - touches[1].clientY);
+}
+function getImageDateLabel(createdAt?: string): string {
+  if (!createdAt) return '날짜 없음';
+  const date = new Date(createdAt);
+  if (Number.isNaN(date.getTime())) return '날짜 없음';
+  return date.toLocaleDateString('ko-KR', { year: 'numeric', month: 'long', day: 'numeric' });
+}
+function groupImagesByDate(items: RoomImageItem[]) {
+  const groups: { label: string; items: Array<RoomImageItem & { index: number }> }[] = [];
+  items.forEach((item, index) => {
+    const label = getImageDateLabel(item.createdAt);
+    const lastGroup = groups[groups.length - 1];
+    if (lastGroup?.label === label) lastGroup.items.push({ ...item, index });
+    else groups.push({ label, items: [{ ...item, index }] });
+  });
+  return groups;
+}
+
 const OY_CATEGORIES = [
   { emoji: '🧴', label: '스킨케어' },
   { emoji: '🫧', label: '클렌징' },
@@ -161,6 +220,7 @@ function RoomCard({ room, onClick, oy }: { room: Room; onClick: () => void; oy: 
 export default function OliveYoungChatPage({ backRef }: { backRef?: MutableRefObject<(() => void) | null> }) {
   const router = useRouter();
   const accessToken = useAuthStore((s) => s.accessToken);
+  const user = useAuthStore((s) => s.user);
   const [hydrated, setHydrated] = useState(false);
   const rooms = useChatStore((s) => s.rooms);
   const setRooms = useChatStore((s) => s.setRooms);
@@ -176,12 +236,49 @@ export default function OliveYoungChatPage({ backRef }: { backRef?: MutableRefOb
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [bannerIdx, setBannerIdx] = useState(0);
 
+  // 이미지 뷰어 상태
+  const [roomView, setRoomView] = useState<'' | 'schedule' | 'posts'>('');
+  const [viewingImageItems, setViewingImageItems] = useState<RoomImageItem[]>([]);
+  const [viewingImageIdx, setViewingImageIdx] = useState(0);
+  const [imageZoom, setImageZoom] = useState(1);
+  const [imagePan, setImagePan] = useState({ x: 0, y: 0 });
+  const [showImageGrid, setShowImageGrid] = useState(false);
+  const touchStartX = useRef<number | null>(null);
+  const imageDragStart = useRef<{ x: number; y: number; panX: number; panY: number } | null>(null);
+  const pinchStart = useRef<{ distance: number; zoom: number } | null>(null);
+  const pinchMoved = useRef(false);
+
+  // 일정/게시판 상태
+  const [schedules, setSchedules] = useState<Schedule[]>([]);
+  const [schedLoading, setSchedLoading] = useState(false);
+  const [schedFormOpen, setSchedFormOpen] = useState(false);
+  const [schedEditTarget, setSchedEditTarget] = useState<Schedule | null>(null);
+  const [schedTitle, setSchedTitle] = useState('');
+  const [schedDesc, setSchedDesc] = useState('');
+  const [schedDate, setSchedDate] = useState('');
+  const [schedTime, setSchedTime] = useState('');
+  const [schedAllDay, setSchedAllDay] = useState(false);
+  const [posts, setPosts] = useState<Post[]>([]);
+  const [postsLoading, setPostsLoading] = useState(false);
+  const [postFormOpen, setPostFormOpen] = useState(false);
+  const [postEditTarget, setPostEditTarget] = useState<Post | null>(null);
+  const [postTitle, setPostTitle] = useState('');
+  const [postContent, setPostContent] = useState('');
+  const [postDetail, setPostDetail] = useState<Post | null>(null);
+  // 댓글 상태
+  const [comments, setComments] = useState<Comment[]>([]);
+  const [commentsLoading, setCommentsLoading] = useState(false);
+  const [commentInput, setCommentInput] = useState('');
+  const [commentEditId, setCommentEditId] = useState<number | null>(null);
+
   const oyTabClickCount = useRef(0);
   const oyTabClickTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const chatBackInterceptorRef = useRef<(() => boolean) | null>(null);
 
   if (backRef) backRef.current = () => {
+    if (showImageGrid || viewingImageItems.length > 0) { setViewingImageItems([]); setShowImageGrid(false); return; }
     if (chatBackInterceptorRef.current?.()) return;
+    if (roomView !== '') { setRoomView(''); return; }
     if (view === 'chat') { setView('rooms'); setActiveTab('뷰티톡'); return; }
     if (view === 'rooms') { setView('home'); setActiveTab('홈'); return; }
   };
@@ -203,12 +300,40 @@ export default function OliveYoungChatPage({ backRef }: { backRef?: MutableRefOb
   useEffect(() => {
     if (view === 'chat' || view === 'rooms') history.pushState({ _chat: true }, '', window.location.href);
   }, [view]);
+  useEffect(() => {
+    if (roomView !== '') history.pushState({ _chat: true }, '', window.location.href);
+  }, [roomView]);
+  useEffect(() => {
+    if (viewingImageItems.length > 0) history.pushState({ _chat: true }, '', window.location.href);
+  }, [viewingImageItems.length]);
+  useEffect(() => {
+    if (roomView === 'schedule' && selectedRoom && accessToken) {
+      setSchedLoading(true); setSchedules([]);
+      api.get<{ data: { schedules: Schedule[] } }>(`/schedules?roomId=${selectedRoom.id}`)
+        .then(res => setSchedules(res.data.data.schedules)).catch(() => {}).finally(() => setSchedLoading(false));
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [roomView, selectedRoom?.id, accessToken]);
+  useEffect(() => {
+    if (roomView === 'posts' && selectedRoom && accessToken) {
+      setPostsLoading(true); setPosts([]);
+      api.get<{ data: { posts: Post[] } }>(`/posts?roomId=${selectedRoom.id}`)
+        .then(res => setPosts(res.data.data.posts)).catch(() => {}).finally(() => setPostsLoading(false));
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [roomView, selectedRoom?.id, accessToken]);
+  useEffect(() => {
+    if (postDetail) { loadComments(postDetail.id); }
+    else { setComments([]); setCommentInput(''); setCommentEditId(null); }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [postDetail?.id]);
 
   const totalUnread = useMemo(() => rooms.reduce((acc, r) => acc + (!r.isMuted ? (r.unreadCount ?? 0) : 0), 0), [rooms]);
 
   function openRoom(room: Room) {
     setRooms(rooms.map((r) => r.id === room.id ? { ...r, unreadCount: 0 } : r));
     setSelectedRoom({ ...room, unreadCount: 0 });
+    setRoomView('');
     setView('chat');
   }
 
@@ -230,7 +355,182 @@ export default function OliveYoungChatPage({ backRef }: { backRef?: MutableRefOb
     }
   }
 
+  function openScheduleForm(edit?: Schedule) {
+    setSchedEditTarget(edit ?? null);
+    if (edit) {
+      setSchedTitle(edit.title); setSchedDesc(edit.description ?? '');
+      const d = new Date(edit.scheduledAt);
+      setSchedDate([d.getFullYear(), String(d.getMonth()+1).padStart(2,'0'), String(d.getDate()).padStart(2,'0')].join('-'));
+      setSchedTime(edit.isAllDay ? '' : `${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`);
+      setSchedAllDay(edit.isAllDay);
+    } else {
+      const now = new Date(); now.setMinutes(now.getMinutes() + 30);
+      setSchedTitle(''); setSchedDesc('');
+      setSchedDate([now.getFullYear(), String(now.getMonth()+1).padStart(2,'0'), String(now.getDate()).padStart(2,'0')].join('-'));
+      setSchedTime(`${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}`);
+      setSchedAllDay(false);
+    }
+    setSchedFormOpen(true);
+  }
+  async function submitSchedule() {
+    if (!schedTitle.trim() || !schedDate || !selectedRoom) return;
+    const scheduledAt = schedAllDay ? new Date(schedDate + 'T00:00:00').toISOString() : new Date(`${schedDate}T${schedTime || '00:00'}:00`).toISOString();
+    try {
+      if (schedEditTarget) {
+        const res = await api.patch<{ data: { schedule: Schedule } }>(`/schedules/${schedEditTarget.id}`, { title: schedTitle.trim(), description: schedDesc.trim() || undefined, scheduledAt, isAllDay: schedAllDay });
+        setSchedules(prev => prev.map(s => s.id === schedEditTarget.id ? res.data.data.schedule : s));
+      } else {
+        const res = await api.post<{ data: { schedule: Schedule } }>('/schedules', { roomId: selectedRoom.id, title: schedTitle.trim(), description: schedDesc.trim() || undefined, scheduledAt, isAllDay: schedAllDay });
+        setSchedules(prev => [res.data.data.schedule, ...prev]);
+      }
+      setSchedFormOpen(false);
+    } catch { /* 무시 */ }
+  }
+  async function deleteSchedule(id: number) {
+    if (!confirm('일정을 삭제하시겠습니까?')) return;
+    await api.delete(`/schedules/${id}`);
+    setSchedules(prev => prev.filter(s => s.id !== id));
+  }
+  async function submitPost() {
+    if (!postTitle.trim() || !postContent.trim() || !selectedRoom) return;
+    try {
+      if (postEditTarget) {
+        const res = await api.patch<{ data: { post: Post } }>(`/posts/${postEditTarget.id}`, { title: postTitle.trim(), content: postContent.trim() });
+        setPosts(prev => prev.map(p => p.id === postEditTarget.id ? res.data.data.post : p));
+        if (postDetail?.id === postEditTarget.id) setPostDetail(res.data.data.post);
+      } else {
+        const res = await api.post<{ data: { post: Post } }>('/posts', { roomId: selectedRoom.id, title: postTitle.trim(), content: postContent.trim() });
+        setPosts(prev => [res.data.data.post, ...prev]);
+      }
+      setPostFormOpen(false);
+    } catch { /* 무시 */ }
+  }
+  async function deletePost(id: number) {
+    if (!confirm('게시글을 삭제하시겠습니까?')) return;
+    await api.delete(`/posts/${id}`);
+    setPosts(prev => prev.filter(p => p.id !== id));
+    if (postDetail?.id === id) setPostDetail(null);
+  }
+  async function loadComments(postId: number) {
+    setCommentsLoading(true);
+    try {
+      const res = await api.get<{ data: { comments: Comment[] } }>(`/comments?postId=${postId}`);
+      setComments(res.data.data.comments);
+    } catch { setComments([]); } finally { setCommentsLoading(false); }
+  }
+  async function submitComment() {
+    if (!commentInput.trim() || !postDetail) return;
+    try {
+      if (commentEditId) {
+        const res = await api.patch<{ data: { comment: Comment } }>(`/comments/${commentEditId}`, { content: commentInput.trim() });
+        setComments(prev => prev.map(c => c.id === commentEditId ? res.data.data.comment : c));
+        setCommentEditId(null);
+      } else {
+        const res = await api.post<{ data: { comment: Comment } }>('/comments', { postId: postDetail.id, content: commentInput.trim() });
+        setComments(prev => [...prev, res.data.data.comment]);
+      }
+      setCommentInput('');
+    } catch { /* 무시 */ }
+  }
+  function startEditComment(comment: Comment) { setCommentEditId(comment.id); setCommentInput(comment.content); }
+  function cancelEditComment() { setCommentEditId(null); setCommentInput(''); }
+  async function deleteComment(id: number) {
+    if (!confirm('댓글을 삭제하시겠습니까?')) return;
+    await api.delete(`/comments/${id}`);
+    setComments(prev => prev.filter(c => c.id !== id));
+  }
+
   if (!hydrated || !accessToken) return null;
+
+  const viewingImages = viewingImageItems.map((i) => i.url);
+  const viewingImage = viewingImages[viewingImageIdx] ?? null;
+  const imageDateGroups = groupImagesByDate(viewingImageItems);
+
+  // ── 이미지 라이트박스 ─────────────────────────────────────────────────────────
+  const lightbox = viewingImages.length > 0 && viewingImage ? (
+    <div
+      onClick={() => { if (!showImageGrid) { setViewingImageItems([]); setShowImageGrid(false); } }}
+      onTouchStart={(e) => {
+        if (showImageGrid) return;
+        if (e.touches.length >= 2) {
+          pinchStart.current = { distance: getTouchDistance(e.touches), zoom: imageZoom };
+          pinchMoved.current = false; touchStartX.current = null; return;
+        }
+        touchStartX.current = e.touches[0].clientX;
+      }}
+      onTouchMove={(e) => {
+        if (showImageGrid || !pinchStart.current || e.touches.length < 2) return;
+        e.preventDefault();
+        const d = getTouchDistance(e.touches);
+        if (pinchStart.current.distance <= 0 || d <= 0) return;
+        const nz = Math.min(4, Math.max(1, Number((pinchStart.current.zoom * (d / pinchStart.current.distance)).toFixed(2))));
+        pinchMoved.current = true; setImageZoom(nz);
+        if (nz === 1) setImagePan({ x: 0, y: 0 });
+      }}
+      onTouchEnd={(e) => {
+        if (showImageGrid) return;
+        if (pinchStart.current) {
+          if (e.touches.length >= 2) return;
+          pinchStart.current = null;
+          if (pinchMoved.current) { pinchMoved.current = false; touchStartX.current = null; return; }
+        }
+        if (imageZoom > 1 || touchStartX.current === null) return;
+        const dx = e.changedTouches[0].clientX - touchStartX.current;
+        touchStartX.current = null;
+        if (Math.abs(dx) < 40) return;
+        if (dx < 0) setViewingImageIdx((i) => Math.min(viewingImages.length - 1, i + 1));
+        else setViewingImageIdx((i) => Math.max(0, i - 1));
+      }}
+      tabIndex={0}
+      style={{ position: 'fixed', inset: 0, zIndex: 9999, background: '#000', display: 'flex', alignItems: 'center', justifyContent: 'center', outline: 'none', touchAction: showImageGrid ? 'auto' : 'none' }}
+    >
+      {showImageGrid ? (
+        <div onClick={(e) => e.stopPropagation()} style={{ position: 'absolute', inset: '60px 10px 20px', overflowY: 'auto', padding: '2px 6px 20px' }}>
+          {imageDateGroups.map((group) => (
+            <section key={group.label} style={{ marginBottom: 22 }}>
+              <div style={{ position: 'sticky', top: 0, zIndex: 1, display: 'flex', alignItems: 'center', gap: 10, padding: '8px 2px 10px', background: '#000' }}>
+                <span style={{ color: '#fff', fontSize: 13, fontWeight: 800 }}>{group.label}</span>
+                <span style={{ color: 'rgba(255,255,255,0.55)', fontSize: 11 }}>{group.items.length}장</span>
+                <span style={{ height: 1, flex: 1, background: 'rgba(255,255,255,0.16)' }} />
+              </div>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: 12 }}>
+                {group.items.map((item) => (
+                  <button key={`${item.url}-${item.index}`} type="button"
+                    onClick={(e) => { e.stopPropagation(); setViewingImageIdx(item.index); setShowImageGrid(false); setImageZoom(1); setImagePan({ x: 0, y: 0 }); }}
+                    style={{ aspectRatio: '1 / 1', borderRadius: 12, padding: 0, overflow: 'hidden', border: item.index === viewingImageIdx ? '3px solid #00C4B4' : '1px solid rgba(255,255,255,0.22)', background: 'rgba(255,255,255,0.08)', cursor: 'pointer', position: 'relative' }}>
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img src={item.url} alt="" loading="lazy" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
+                    <span style={{ position: 'absolute', right: 6, bottom: 6, minWidth: 20, height: 20, borderRadius: 10, background: 'rgba(0,0,0,0.55)', color: '#fff', fontSize: 11, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', padding: '0 6px' }}>{item.index + 1}</span>
+                  </button>
+                ))}
+              </div>
+            </section>
+          ))}
+        </div>
+      ) : (
+        /* eslint-disable-next-line @next/next/no-img-element */
+        <img src={viewingImage} alt="이미지" onClick={(e) => e.stopPropagation()}
+          onDoubleClick={(e) => { e.stopPropagation(); setImageZoom((z) => z > 1 ? 1 : 2); setImagePan({ x: 0, y: 0 }); }}
+          onPointerDown={(e) => { if (imageZoom <= 1) return; e.stopPropagation(); e.currentTarget.setPointerCapture(e.pointerId); imageDragStart.current = { x: e.clientX, y: e.clientY, panX: imagePan.x, panY: imagePan.y }; }}
+          onPointerMove={(e) => { if (!imageDragStart.current) return; e.stopPropagation(); const s = imageDragStart.current; setImagePan({ x: s.panX + e.clientX - s.x, y: s.panY + e.clientY - s.y }); }}
+          onPointerUp={(e) => { e.stopPropagation(); imageDragStart.current = null; }}
+          onPointerCancel={() => { imageDragStart.current = null; }}
+          style={{ maxWidth: '95vw', maxHeight: '78vh', borderRadius: 8, objectFit: 'contain', userSelect: 'none', cursor: imageZoom > 1 ? 'grab' : 'zoom-in', transform: `translate(${imagePan.x}px, ${imagePan.y}px) scale(${imageZoom})`, transition: imageDragStart.current ? 'none' : 'transform 120ms ease' }}
+        />
+      )}
+      <div onClick={(e) => e.stopPropagation()} style={{ position: 'absolute', top: 14, left: 14 }}>
+        <button onClick={() => setShowImageGrid((v) => !v)} style={{ background: showImageGrid ? 'rgba(255,255,255,0.92)' : 'rgba(255,255,255,0.15)', border: '1px solid rgba(255,255,255,0.28)', borderRadius: 18, color: showImageGrid ? '#111' : '#fff', height: 34, padding: '0 12px', cursor: 'pointer', fontSize: 13, fontWeight: 700 }}>▦ 사진목록</button>
+      </div>
+      <button onClick={(e) => { e.stopPropagation(); setViewingImageItems([]); setShowImageGrid(false); }} style={{ position: 'absolute', top: 14, right: 14, background: 'rgba(255,255,255,0.15)', border: 'none', borderRadius: '50%', width: 36, height: 36, color: '#fff', fontSize: 20, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>✕</button>
+      {!showImageGrid && viewingImageIdx > 0 && <button onClick={(e) => { e.stopPropagation(); setViewingImageIdx((i) => i - 1); }} style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', background: 'rgba(255,255,255,0.15)', border: 'none', borderRadius: '50%', width: 44, height: 44, color: '#fff', fontSize: 22, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>‹</button>}
+      {!showImageGrid && viewingImageIdx < viewingImages.length - 1 && <button onClick={(e) => { e.stopPropagation(); setViewingImageIdx((i) => i + 1); }} style={{ position: 'absolute', right: 12, top: '50%', transform: 'translateY(-50%)', background: 'rgba(255,255,255,0.15)', border: 'none', borderRadius: '50%', width: 44, height: 44, color: '#fff', fontSize: 22, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>›</button>}
+      {!showImageGrid && <div onClick={(e) => e.stopPropagation()} style={{ position: 'absolute', bottom: 16, left: '50%', transform: 'translateX(-50%)', display: 'flex', alignItems: 'center', gap: 16 }}>
+        <span style={{ color: 'rgba(255,255,255,0.7)', fontSize: 13 }}>{viewingImageIdx + 1} / {viewingImages.length}</span>
+        <a href={viewingImage} download onClick={(e) => handleImageDownload(viewingImage, e)}
+          style={{ background: 'rgba(255,255,255,0.15)', border: '1px solid rgba(255,255,255,0.3)', borderRadius: 20, padding: '6px 16px', color: '#fff', fontSize: 13, textDecoration: 'none', cursor: 'pointer' }}>⬇ 저장</a>
+      </div>}
+    </div>
+  ) : null;
 
   const DayNightBtn = () => (
     <button onClick={() => setOyDark(!oyDark)} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 4, display: 'flex' }} title={oyDark ? '라이트 모드' : '다크 모드'}>
@@ -267,18 +567,197 @@ export default function OliveYoungChatPage({ backRef }: { backRef?: MutableRefOb
     return (
       <div style={{ maxWidth: 430, margin: '0 auto', position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, fontFamily: '"Apple SD Gothic Neo","Malgun Gothic",Arial,sans-serif', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
         <div style={{ height: HEADER_H, background: oy.cardBg, borderBottom: `1px solid ${oy.border}`, display: 'flex', alignItems: 'center', padding: '0 16px', gap: 10, flexShrink: 0 }}>
-          <button onClick={() => { setView('rooms'); setActiveTab('뷰티톡'); }} style={{ background: 'none', border: 'none', cursor: 'pointer', color: oy.primary, fontSize: 22, padding: '4px 8px 4px 0', lineHeight: 1 }}>←</button>
+          {roomView !== '' ? (
+            <button onClick={() => setRoomView('')} style={{ background: 'none', border: 'none', cursor: 'pointer', color: oy.primary, fontSize: 22, padding: '4px 8px 4px 0', lineHeight: 1 }}>←</button>
+          ) : (
+            <button onClick={() => { setView('rooms'); setActiveTab('뷰티톡'); }} style={{ background: 'none', border: 'none', cursor: 'pointer', color: oy.primary, fontSize: 22, padding: '4px 8px 4px 0', lineHeight: 1 }}>←</button>
+          )}
           <div style={{ width: 32, height: 32, borderRadius: 10, flexShrink: 0, background: `linear-gradient(135deg, ${rColor}, ${rColor}BB)`, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontSize: 14, fontWeight: 800 }}>
             {selectedRoom.isArchive ? '📦' : selectedRoom.name.charAt(0)}
           </div>
           <div style={{ flex: 1, minWidth: 0 }}>
             <div style={{ fontSize: 15, fontWeight: 700, color: oy.text, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{selectedRoom.name}</div>
           </div>
+          {roomView === '' && (
+            <>
+              <button onClick={() => setRoomView('schedule')} title="일정" style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 18, padding: '2px 4px', lineHeight: 1, flexShrink: 0 }}>📅</button>
+              <button onClick={() => setRoomView('posts')} title="게시판" style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 18, padding: '2px 4px', lineHeight: 1, flexShrink: 0 }}>📝</button>
+            </>
+          )}
           <DayNightBtn />
         </div>
         <div style={{ flex: 1, overflow: 'hidden' }}>
-          <ChatWindow roomId={selectedRoom.id} onLeave={() => { setView('rooms'); setActiveTab('뷰티톡'); }} backInterceptorRef={chatBackInterceptorRef} oyTheme oyDark={oyDark} />
+          {roomView === 'schedule' ? (
+            /* ── 일정 패널 ── */
+            <div style={{ background: oy.bg, height: '100%', overflowY: 'auto' }}>
+              <div style={{ background: oy.cardBg, borderBottom: `1px solid ${oy.border}`, padding: '9px 14px', display: 'flex', alignItems: 'center', gap: 8 }}>
+                <span style={{ flex: 1, fontSize: 15, fontWeight: 800, color: oy.primary }}>📅 {selectedRoom.name} 일정</span>
+                <button onClick={() => openScheduleForm()} style={{ background: oy.primary, color: '#fff', border: 'none', borderRadius: 8, padding: '5px 14px', fontSize: 13, fontWeight: 700, cursor: 'pointer' }}>+ 등록</button>
+              </div>
+              {schedLoading ? (
+                <p style={{ textAlign: 'center', color: oy.textMuted, padding: '40px 0', fontSize: 13 }}>불러오는 중...</p>
+              ) : schedules.length === 0 ? (
+                <p style={{ textAlign: 'center', color: oy.textMuted, padding: '40px 0', fontSize: 13 }}>등록된 일정이 없습니다</p>
+              ) : schedules.map(sc => {
+                const d = new Date(sc.scheduledAt);
+                const timeStr = sc.isAllDay ? '종일' : d.toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' });
+                const isPast = d < new Date();
+                return (
+                  <div key={sc.id} style={{ background: oy.cardBg, marginBottom: 1, padding: '14px 16px', display: 'flex', alignItems: 'flex-start', gap: 12, borderBottom: `1px solid ${oy.border}` }}>
+                    <div style={{ width: 42, flexShrink: 0, textAlign: 'center' as const }}>
+                      <div style={{ fontSize: 20, fontWeight: 900, color: isPast ? oy.textMuted : oy.primary, lineHeight: 1 }}>{d.getDate()}</div>
+                      <div style={{ fontSize: 10, color: oy.textMuted, marginTop: 1 }}>{d.toLocaleDateString('ko-KR', { weekday: 'short' })}</div>
+                    </div>
+                    <div style={{ flex: 1 }}>
+                      <div style={{ fontWeight: 700, fontSize: 14, color: isPast ? oy.textMuted : oy.text, marginBottom: 2, textDecoration: isPast ? 'line-through' : 'none' }}>{sc.title}</div>
+                      <div style={{ fontSize: 12, color: oy.textMuted }}>{d.toLocaleDateString('ko-KR', { year: 'numeric', month: 'short', day: 'numeric' })} · {timeStr}</div>
+                      {sc.description && <div style={{ fontSize: 12, color: oy.textMuted, marginTop: 4, whiteSpace: 'pre-wrap' }}>{sc.description}</div>}
+                      <div style={{ fontSize: 11, color: oy.textFaint, marginTop: 4 }}>등록: {sc.createdBy.username}</div>
+                    </div>
+                    {sc.createdById === user?.id && (
+                      <div style={{ display: 'flex', gap: 6, flexShrink: 0 }}>
+                        <button onClick={() => openScheduleForm(sc)} style={{ background: 'none', border: `1px solid ${oy.border}`, borderRadius: 6, padding: '4px 8px', fontSize: 11, cursor: 'pointer', color: oy.text }}>수정</button>
+                        <button onClick={() => deleteSchedule(sc.id)} style={{ background: 'none', border: '1px solid #f5c6c6', borderRadius: 6, padding: '4px 8px', fontSize: 11, cursor: 'pointer', color: '#f7685b' }}>삭제</button>
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+              {schedFormOpen && (
+                <div style={{ position: 'fixed', inset: 0, zIndex: 200, background: 'rgba(0,0,0,0.55)', display: 'flex', alignItems: 'flex-end', justifyContent: 'center' }} onClick={() => setSchedFormOpen(false)}>
+                  <div style={{ background: oy.cardBg, borderRadius: '16px 16px 0 0', padding: '20px 16px 32px', width: '100%', maxWidth: 430 }} onClick={e => e.stopPropagation()}>
+                    <h3 style={{ fontSize: 16, fontWeight: 700, marginBottom: 16, color: oy.text }}>{schedEditTarget ? '일정 수정' : '일정 등록'}</h3>
+                    <input value={schedTitle} onChange={e => setSchedTitle(e.target.value)} placeholder="일정 제목 *" maxLength={200} style={{ width: '100%', border: `1px solid ${oy.border}`, borderRadius: 8, padding: '10px 12px', fontSize: 14, marginBottom: 10, boxSizing: 'border-box' as const, background: oy.searchBg, color: oy.text }} />
+                    <textarea value={schedDesc} onChange={e => setSchedDesc(e.target.value)} placeholder="설명 (선택)" rows={2} style={{ width: '100%', border: `1px solid ${oy.border}`, borderRadius: 8, padding: '10px 12px', fontSize: 14, resize: 'none' as const, marginBottom: 10, boxSizing: 'border-box' as const, background: oy.searchBg, color: oy.text }} />
+                    <div style={{ display: 'flex', gap: 8, marginBottom: 10 }}>
+                      <input type="date" value={schedDate} onChange={e => setSchedDate(e.target.value)} style={{ flex: 1, border: `1px solid ${oy.border}`, borderRadius: 8, padding: '10px 12px', fontSize: 14, background: oy.searchBg, color: oy.text }} />
+                      {!schedAllDay && <input type="time" value={schedTime} onChange={e => setSchedTime(e.target.value)} style={{ width: 100, border: `1px solid ${oy.border}`, borderRadius: 8, padding: '10px 12px', fontSize: 14, background: oy.searchBg, color: oy.text }} />}
+                    </div>
+                    <label style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 16, fontSize: 13, color: oy.textMuted, cursor: 'pointer' }}>
+                      <input type="checkbox" checked={schedAllDay} onChange={e => setSchedAllDay(e.target.checked)} /> 종일
+                    </label>
+                    <div style={{ display: 'flex', gap: 8 }}>
+                      <button onClick={() => setSchedFormOpen(false)} style={{ flex: 1, padding: '12px', borderRadius: 10, border: `1px solid ${oy.border}`, background: oy.searchBg, fontSize: 14, cursor: 'pointer', color: oy.text }}>취소</button>
+                      <button onClick={submitSchedule} disabled={!schedTitle.trim() || !schedDate} style={{ flex: 1, padding: '12px', borderRadius: 10, border: 'none', background: oy.primary, color: '#fff', fontSize: 14, fontWeight: 700, cursor: 'pointer', opacity: (!schedTitle.trim() || !schedDate) ? 0.5 : 1 }}>저장</button>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+          ) : roomView === 'posts' ? (
+            /* ── 게시판 패널 ── */
+            <div style={{ background: oy.bg, height: '100%', overflowY: 'auto' }}>
+              {postDetail ? (
+                <div style={{ background: oy.cardBg, minHeight: '100%', padding: '16px' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', marginBottom: 12, gap: 8 }}>
+                    <button onClick={() => setPostDetail(null)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: oy.primary, fontSize: 13, fontWeight: 700, padding: 0 }}>← 목록</button>
+                    {postDetail.authorId === user?.id && (
+                      <div style={{ marginLeft: 'auto', display: 'flex', gap: 6 }}>
+                        <button onClick={() => { setPostEditTarget(postDetail); setPostTitle(postDetail.title); setPostContent(postDetail.content); setPostFormOpen(true); }} style={{ background: 'none', border: `1px solid ${oy.border}`, borderRadius: 6, padding: '4px 10px', fontSize: 12, cursor: 'pointer', color: oy.text }}>수정</button>
+                        <button onClick={() => deletePost(postDetail.id)} style={{ background: 'none', border: '1px solid #f5c6c6', borderRadius: 6, padding: '4px 10px', fontSize: 12, cursor: 'pointer', color: '#f7685b' }}>삭제</button>
+                      </div>
+                    )}
+                  </div>
+                  <div style={{ fontSize: 16, fontWeight: 800, color: oy.text, marginBottom: 8 }}>{postDetail.title}</div>
+                  <div style={{ fontSize: 11, color: oy.textFaint, marginBottom: 12 }}>{postDetail.author.username} · {new Date(postDetail.createdAt).toLocaleDateString('ko-KR', { year: 'numeric', month: 'short', day: 'numeric' })}</div>
+                  {postDetail.sourceMessage && (
+                    <div style={{ background: oyDark ? '#1A3030' : '#E8F9F7', borderLeft: `3px solid ${oy.primary}`, borderRadius: 6, padding: '10px 12px', marginBottom: 14 }}>
+                      <div style={{ fontSize: 11, color: oy.textMuted, marginBottom: 4 }}>💬 원본 메시지 · {postDetail.sourceMessage.sender?.username}</div>
+                      <div style={{ fontSize: 13, color: oy.text, whiteSpace: 'pre-wrap' }}>{postDetail.sourceMessage.content}</div>
+                    </div>
+                  )}
+                  <p style={{ fontSize: 14.5, color: oy.text, lineHeight: 1.75, whiteSpace: 'pre-wrap', marginBottom: 24 }}>{postDetail.content}</p>
+                  <div style={{ borderTop: `1px solid ${oy.border}`, paddingTop: 16 }}>
+                    <div style={{ fontSize: 13, fontWeight: 700, color: oy.text, marginBottom: 12 }}>댓글 {comments.length}개</div>
+                    <div style={{ marginBottom: 16 }}>
+                      <textarea value={commentInput} onChange={e => setCommentInput(e.target.value)}
+                        onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey && commentInput.trim()) { e.preventDefault(); submitComment(); } }}
+                        placeholder="댓글을 입력하세요..." rows={2}
+                        style={{ width: '100%', border: `1px solid ${oy.border}`, borderRadius: 8, padding: '10px 12px', fontSize: 13, resize: 'none' as const, marginBottom: 8, boxSizing: 'border-box' as const, background: oy.searchBg, color: oy.text }} />
+                      <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 6 }}>
+                        {commentEditId && <button onClick={cancelEditComment} style={{ padding: '6px 16px', borderRadius: 6, border: `1px solid ${oy.border}`, background: oy.searchBg, fontSize: 12, cursor: 'pointer', color: oy.text }}>취소</button>}
+                        <button onClick={submitComment} disabled={!commentInput.trim()} style={{ padding: '6px 16px', borderRadius: 6, border: 'none', background: oy.primary, color: '#fff', fontSize: 12, fontWeight: 700, cursor: 'pointer', opacity: commentInput.trim() ? 1 : 0.5 }}>{commentEditId ? '수정' : '등록'}</button>
+                      </div>
+                    </div>
+                    {commentsLoading ? (
+                      <p style={{ textAlign: 'center', color: oy.textMuted, padding: '20px 0', fontSize: 12 }}>불러오는 중...</p>
+                    ) : comments.length === 0 ? (
+                      <p style={{ textAlign: 'center', color: oy.textMuted, padding: '20px 0', fontSize: 12 }}>첫 댓글을 작성해보세요</p>
+                    ) : (
+                      <div style={{ display: 'flex', flexDirection: 'column' as const, gap: 12 }}>
+                        {comments.map(comment => (
+                          <div key={comment.id} style={{ padding: '12px', background: oyDark ? '#162626' : '#F5F5F5', borderRadius: 8 }}>
+                            <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 6 }}>
+                              <div>
+                                <span style={{ fontSize: 12, fontWeight: 700, color: oy.text }}>{comment.author.username}</span>
+                                <span style={{ fontSize: 11, color: oy.textFaint, marginLeft: 6 }}>{new Date(comment.createdAt).toLocaleDateString('ko-KR', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}</span>
+                              </div>
+                              {comment.authorId === user?.id && (
+                                <div style={{ display: 'flex', gap: 4 }}>
+                                  <button onClick={() => startEditComment(comment)} style={{ background: 'none', border: `1px solid ${oy.border}`, borderRadius: 4, padding: '2px 8px', fontSize: 11, cursor: 'pointer', color: oy.text }}>수정</button>
+                                  <button onClick={() => deleteComment(comment.id)} style={{ background: 'none', border: '1px solid #f5c6c6', borderRadius: 4, padding: '2px 8px', fontSize: 11, cursor: 'pointer', color: '#f7685b' }}>삭제</button>
+                                </div>
+                              )}
+                            </div>
+                            <p style={{ fontSize: 13, color: oy.text, lineHeight: 1.5, whiteSpace: 'pre-wrap', margin: 0 }}>{comment.content}</p>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              ) : (
+                <>
+                  <div style={{ background: oy.cardBg, borderBottom: `1px solid ${oy.border}`, padding: '9px 14px', display: 'flex', alignItems: 'center', gap: 8 }}>
+                    <span style={{ flex: 1, fontSize: 15, fontWeight: 800, color: oy.primary }}>📝 {selectedRoom.name} 게시판</span>
+                    <button onClick={() => { setPostEditTarget(null); setPostTitle(''); setPostContent(''); setPostFormOpen(true); }} style={{ background: oy.primary, color: '#fff', border: 'none', borderRadius: 8, padding: '5px 14px', fontSize: 13, fontWeight: 700, cursor: 'pointer' }}>+ 글쓰기</button>
+                  </div>
+                  {postsLoading ? (
+                    <p style={{ textAlign: 'center', color: oy.textMuted, padding: '40px 0', fontSize: 13 }}>불러오는 중...</p>
+                  ) : posts.length === 0 ? (
+                    <p style={{ textAlign: 'center', color: oy.textMuted, padding: '40px 0', fontSize: 13 }}>게시글이 없습니다</p>
+                  ) : posts.map(p => (
+                    <div key={p.id} onClick={() => setPostDetail(p)} style={{ background: oy.cardBg, padding: '13px 16px', cursor: 'pointer', borderBottom: `1px solid ${oy.border}` }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 4 }}>
+                        {p.sourceMessageId && <span style={{ fontSize: 10, background: oyDark ? '#1A3030' : '#E8F9F7', color: oy.primary, borderRadius: 4, padding: '1px 5px', fontWeight: 700 }}>채팅</span>}
+                        <span style={{ fontWeight: 700, fontSize: 14, color: oy.text, flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{p.title}</span>
+                        {p._count && p._count.comments > 0 && <span style={{ fontSize: 12, color: oy.primary, fontWeight: 700 }}>[{p._count.comments}]</span>}
+                      </div>
+                      <div style={{ fontSize: 12, color: oy.textMuted }}>{p.author.username} · {new Date(p.createdAt).toLocaleDateString('ko-KR', { month: 'short', day: 'numeric' })}</div>
+                    </div>
+                  ))}
+                </>
+              )}
+              {postFormOpen && (
+                <div style={{ position: 'fixed', inset: 0, zIndex: 200, background: 'rgba(0,0,0,0.55)', display: 'flex', alignItems: 'flex-end', justifyContent: 'center' }} onClick={() => setPostFormOpen(false)}>
+                  <div style={{ background: oy.cardBg, borderRadius: '16px 16px 0 0', padding: '20px 16px 32px', width: '100%', maxWidth: 430 }} onClick={e => e.stopPropagation()}>
+                    <h3 style={{ fontSize: 16, fontWeight: 700, marginBottom: 16, color: oy.text }}>{postEditTarget ? '게시글 수정' : '게시글 작성'}</h3>
+                    <input value={postTitle} onChange={e => setPostTitle(e.target.value)} placeholder="제목 *" maxLength={200} style={{ width: '100%', border: `1px solid ${oy.border}`, borderRadius: 8, padding: '10px 12px', fontSize: 14, marginBottom: 10, boxSizing: 'border-box' as const, background: oy.searchBg, color: oy.text }} />
+                    <textarea value={postContent} onChange={e => setPostContent(e.target.value)} placeholder="내용 *" rows={6} style={{ width: '100%', border: `1px solid ${oy.border}`, borderRadius: 8, padding: '10px 12px', fontSize: 14, resize: 'none' as const, marginBottom: 16, boxSizing: 'border-box' as const, background: oy.searchBg, color: oy.text }} />
+                    <div style={{ display: 'flex', gap: 8 }}>
+                      <button onClick={() => setPostFormOpen(false)} style={{ flex: 1, padding: '12px', borderRadius: 10, border: `1px solid ${oy.border}`, background: oy.searchBg, fontSize: 14, cursor: 'pointer', color: oy.text }}>취소</button>
+                      <button onClick={submitPost} disabled={!postTitle.trim() || !postContent.trim()} style={{ flex: 1, padding: '12px', borderRadius: 10, border: 'none', background: oy.primary, color: '#fff', fontSize: 14, fontWeight: 700, cursor: 'pointer', opacity: (!postTitle.trim() || !postContent.trim()) ? 0.5 : 1 }}>저장</button>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+          ) : (
+            <ChatWindow
+              roomId={selectedRoom.id}
+              onLeave={() => { setView('rooms'); setActiveTab('뷰티톡'); }}
+              backInterceptorRef={chatBackInterceptorRef}
+              oyTheme oyDark={oyDark}
+              onImageView={(url, imageList, options) => {
+                const idx = imageList.findIndex((item) => item.url === url);
+                setViewingImageItems(imageList); setViewingImageIdx(idx >= 0 ? idx : 0);
+                setImageZoom(1); setImagePan({ x: 0, y: 0 });
+                setShowImageGrid(Boolean(options?.showGrid));
+              }}
+            />
+          )}
         </div>
+        {lightbox}
       </div>
     );
   }
