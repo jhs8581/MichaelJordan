@@ -5,7 +5,7 @@
   "main": "electron/main.js",
   "scripts": {
     "dev": "concurrently \"cross-env ELECTRON_START_URL=http://localhost:3000 electron .\" ",
-    "build": "echo \"Desktop build skipped (web-only deployment)\"",
+    "build": "mkdir -p dist && echo 'Desktop build skipped' > dist/.gitkeep",
     "pack": "electron-builder --dir",
     "build:win": "electron-builder --win"
   },
