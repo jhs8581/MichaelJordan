@@ -122,6 +122,7 @@ const OY_DAY = {
   tagNew: '#FF424D', tagExclusive: '#FF8C00', iconLabel: '#444444',
   bestRankHigh: '#00C4B4', bestRankMid: '#00968A', bestRankLow: '#D0D0D0',
   couponGlow: '#00C4B4', tagNewBg: '#FFF0F1', tagExBg: '#FFF8F0',
+  popupText: '#FFFFFF',
 };
 const OY_NIGHT = {
   primary: '#00C4B4', primaryLight: '#0A2424', primaryDark: '#00968A',
@@ -133,6 +134,7 @@ const OY_NIGHT = {
   tagNew: '#FF6B74', tagExclusive: '#FFB347', iconLabel: '#8ABCBC',
   bestRankHigh: '#00C4B4', bestRankMid: '#00968A', bestRankLow: '#3A6060',
   couponGlow: '#00968A', tagNewBg: '#3A1A1A', tagExBg: '#2A1A0A',
+  popupText: '#FFFFFF',
 };
 
 const HEADER_H = 54;
