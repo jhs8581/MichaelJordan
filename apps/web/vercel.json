@@ -2,7 +2,6 @@
   "framework": "nextjs",
   "installCommand": "cd ../.. && pnpm install --frozen-lockfile",
   "buildCommand": "cd ../.. && pnpm --filter @chat/web build",
-  "outputDirectory": "public",
   "env": {
     "NEXT_PUBLIC_API_URL": "https://15.164.117.143.nip.io",
     "NEXT_PUBLIC_SOCKET_URL": "https://15.164.117.143.nip.io"
