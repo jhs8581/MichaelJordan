@@ -1,7 +1,7 @@
 import type { FastifyInstance } from 'fastify';
 import bcrypt from 'bcryptjs';
 import { z } from 'zod';
-import { prisma } from '../lib/prisma';
+import { prisma, nowKST } from '../lib/prisma';
 import { pipeline } from 'node:stream/promises';
 import fs from 'node:fs';
 import path from 'node:path';
@@ -86,7 +86,7 @@ export async function authRoutes(app: FastifyInstance) {
       { expiresIn: '365d' }
     );
 
-    const expiresAt = new Date(Date.now() + 365 * 24 * 60 * 60 * 1000);
+    const expiresAt = new Date(nowKST().getTime() + 365 * 24 * 60 * 60 * 1000);
     await prisma.refreshToken.create({
       data: { token: refreshToken, userId: user.id, expiresAt },
     });
@@ -166,7 +166,7 @@ export async function authRoutes(app: FastifyInstance) {
     const stored = await prisma.refreshToken.findUnique({
       where: { token: body.refreshToken },
     });
-    if (!stored || stored.expiresAt < new Date()) {
+    if (!stored || stored.expiresAt < nowKST()) {
       return reply.status(401).send({ success: false, error: '만료된 토큰입니다.' });
     }
 
@@ -176,7 +176,7 @@ export async function authRoutes(app: FastifyInstance) {
     const accessToken = app.jwt.sign({ sub: payload.sub }, { expiresIn: '15m' });
     const newRefreshToken = app.jwt.sign({ sub: payload.sub, type: 'refresh' }, { expiresIn: '365d' });
 
-    const expiresAt = new Date(Date.now() + 365 * 24 * 60 * 60 * 1000);
+    const expiresAt = new Date(nowKST().getTime() + 365 * 24 * 60 * 60 * 1000);
     await prisma.refreshToken.create({
       data: { token: newRefreshToken, userId: payload.sub, expiresAt },
     });

@@ -1,6 +1,6 @@
 import type { Server, Socket } from 'socket.io';
 import type { ServerToClientEvents, ClientToServerEvents } from '@chat/types';
-import { prisma } from '../lib/prisma';
+import { prisma, nowKST } from '../lib/prisma';
 import jwt from 'jsonwebtoken';
 import { sendPushToUsers } from '../routes/push';
 import { emitMessageUpdated } from '../lib/chat-io';
@@ -382,8 +382,8 @@ export function registerSocketHandlers(io: ChatServer) {
     socket.on('message:read', async ({ roomId, messageId }) => {
       await prisma.messageRead.upsert({
         where: { messageId_userId: { messageId, userId } },
-        create: { messageId, userId, readAt: new Date() },
-        update: { readAt: new Date() },
+        create: { messageId, userId, readAt: nowKST() },
+        update: { readAt: nowKST() },
       });
 
       io.to(`room:${roomId}`).emit('message:read', {
@@ -398,7 +398,7 @@ export function registerSocketHandlers(io: ChatServer) {
       console.log(`🔴 연결 해제: userId=${userId}`);
       await prisma.user.update({
         where: { id: userId },
-        data: { isOnline: false, lastSeenAt: new Date() },
+        data: { isOnline: false, lastSeenAt: nowKST() },
       });
       io.emit('user:status', { userId, isOnline: false });
     });

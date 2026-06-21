@@ -16,7 +16,7 @@ model User {
   isOnline          Boolean            @default(false)
   lastSeenAt        DateTime?
   createdAt         DateTime           @default(now())
-  updatedAt         DateTime           @updatedAt
+  updatedAt         DateTime           @default(now())
   chatLockCode      String             @default("") @db.NVarChar(32)
   timeZone          String?            @db.NVarChar(100)
   comments          Comment[]          @relation("AuthoredComments")
@@ -122,7 +122,7 @@ model Post {
   authorId        Int
   sourceMessageId Int?
   createdAt       DateTime  @default(now())
-  updatedAt       DateTime  @updatedAt
+  updatedAt       DateTime  @default(now())
   roomId          Int
   comments        Comment[]
   author          User      @relation("AuthoredPosts", fields: [authorId], references: [id], onDelete: Cascade)
@@ -138,7 +138,7 @@ model Comment {
   authorId  Int
   content   String   @db.NVarChar(2000)
   createdAt DateTime @default(now(), map: "DF_comments_createdAt")
-  updatedAt DateTime @updatedAt
+  updatedAt DateTime @default(now())
   author    User     @relation("AuthoredComments", fields: [authorId], references: [id], onUpdate: NoAction)
   post      Post     @relation(fields: [postId], references: [id], onDelete: Cascade)
 

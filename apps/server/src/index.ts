@@ -9,6 +9,7 @@ import path from 'node:path';
 import type { ServerToClientEvents, ClientToServerEvents } from '@chat/types';
 
 import { prisma } from './lib/prisma';
+import { nowKST } from './lib/prisma';
 import { authRoutes } from './routes/auth';
 import { roomRoutes } from './routes/rooms';
 import { messageRoutes } from './routes/messages';
@@ -139,7 +140,7 @@ async function main() {
   // ── 일정 알람 스케줄러 (1분마다 확인) ───────────────────────
   setInterval(async () => {
     try {
-      const now = new Date();
+      const now = nowKST();
       const oneMinuteAgo = new Date(now.getTime() - 60 * 1000);
       const dueSchedules = await prisma.schedule.findMany({
         where: { scheduledAt: { gte: oneMinuteAgo, lte: now }, notified: false },
@@ -168,7 +169,7 @@ async function main() {
   // ── 데이터 클렌징 (24시간마다) ────────────────────────────────
   async function runCleanup() {
     try {
-      const now = new Date();
+      const now = nowKST();
 
       // 1) 만료된 RefreshToken 삭제
       const { count: tokenCount } = await prisma.refreshToken.deleteMany({
