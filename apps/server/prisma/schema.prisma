@@ -7,115 +7,88 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-// ─────────────────────────────────────────
-// 사용자
-// ─────────────────────────────────────────
 model User {
-  id           Int           @id @default(autoincrement())
-  email        String        @unique @db.NVarChar(255)
-  username     String        @unique @db.NVarChar(50)
-  passwordHash String        @db.NVarChar(255)
-  chatLockCode String        @default("") @db.NVarChar(32)
-  avatarUrl    String?       @db.NVarChar(500)
-  timeZone     String?       @db.NVarChar(100)
-  isOnline     Boolean       @default(false)
-  lastSeenAt   DateTime?
-  createdAt    DateTime      @default(now())
-  updatedAt    DateTime      @updatedAt
-
+  id                Int                @id @default(autoincrement())
+  email             String             @unique @db.NVarChar(255)
+  username          String             @unique @db.NVarChar(50)
+  passwordHash      String             @db.NVarChar(255)
+  avatarUrl         String?            @db.NVarChar(500)
+  isOnline          Boolean            @default(false)
+  lastSeenAt        DateTime?
+  createdAt         DateTime           @default(now())
+  updatedAt         DateTime           @updatedAt
+  chatLockCode      String             @default("") @db.NVarChar(32)
+  timeZone          String?            @db.NVarChar(100)
+  comments          Comment[]          @relation("AuthoredComments")
+  sentMessages      Message[]          @relation("SentMessages")
+  messageReads      MessageRead[]
+  posts             Post[]             @relation("AuthoredPosts")
+  pushSubscriptions PushSubscription[]
   refreshTokens     RefreshToken[]
   roomMembers       RoomMember[]
-  sentMessages      Message[]           @relation("SentMessages")
-  messageReads      MessageRead[]
-  pushSubscriptions PushSubscription[]
   createdSchedules  Schedule[]
-  posts             Post[]              @relation("AuthoredPosts")
-  comments          Comment[]           @relation("AuthoredComments")
 }
 
-// ─────────────────────────────────────────
-// JWT Refresh Token
-// ─────────────────────────────────────────
 model RefreshToken {
   id        Int      @id @default(autoincrement())
   token     String   @unique @db.NVarChar(500)
   userId    Int
   expiresAt DateTime
   createdAt DateTime @default(now())
-
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
 
-// ─────────────────────────────────────────
-// 채팅방
-// ─────────────────────────────────────────
 model Room {
   id        Int          @id @default(autoincrement())
   name      String       @db.NVarChar(100)
   isGroup   Boolean      @default(false)
-  isArchive Boolean      @default(false)
   createdAt DateTime     @default(now())
-
-  members   RoomMember[]
+  isArchive Boolean      @default(false)
   messages  Message[]
-  schedules Schedule[]
   posts     Post[]
+  members   RoomMember[]
+  schedules Schedule[]
 }
 
-// ─────────────────────────────────────────
-// 채팅방 멤버
-// ─────────────────────────────────────────
 model RoomMember {
   userId   Int
   roomId   Int
   joinedAt DateTime @default(now())
   isMuted  Boolean  @default(false)
-
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
-  room Room @relation(fields: [roomId], references: [id], onDelete: Cascade)
+  room     Room     @relation(fields: [roomId], references: [id], onDelete: Cascade)
+  user     User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@id([userId, roomId])
 }
 
-// ─────────────────────────────────────────
-// 메시지
-// ─────────────────────────────────────────
 model Message {
-  id        Int      @id @default(autoincrement())
-  roomId    Int
-  senderId  Int
-  content   String   @db.NVarChar(Max)
-  fileUrl   String?  @db.NVarChar(500)
-  replyToId Int?
-  senderTimeZone String? @db.NVarChar(100)
-  senderLocalTime String? @db.NVarChar(16)
-  createdAt DateTime @default(now())
-
-  room   Room          @relation(fields: [roomId], references: [id], onDelete: Cascade)
-  sender User          @relation("SentMessages", fields: [senderId], references: [id])
-  replyTo Message?     @relation("MessageReplies", fields: [replyToId], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  replies Message[]    @relation("MessageReplies")
-  reads  MessageRead[]
-  posts  Post[]        @relation("PostSourceMessage")
+  id              Int           @id @default(autoincrement())
+  roomId          Int
+  senderId        Int
+  content         String        @db.NVarChar(Max)
+  fileUrl         String?       @db.NVarChar(500)
+  createdAt       DateTime      @default(now())
+  senderTimeZone  String?       @db.NVarChar(100)
+  senderLocalTime String?       @db.NVarChar(16)
+  replyToId       Int?
+  replyTo         Message?      @relation("MessageReplies", fields: [replyToId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  replies         Message[]     @relation("MessageReplies")
+  room            Room          @relation(fields: [roomId], references: [id], onDelete: Cascade)
+  sender          User          @relation("SentMessages", fields: [senderId], references: [id])
+  reads           MessageRead[]
+  posts           Post[]        @relation("PostSourceMessage")
 }
 
-// ─────────────────────────────────────────
-// 메시지 읽음 확인
-// ─────────────────────────────────────────
 model MessageRead {
   messageId Int
   userId    Int
   readAt    DateTime @default(now())
-
-  message Message @relation(fields: [messageId], references: [id], onDelete: Cascade)
-  user    User    @relation(fields: [userId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  message   Message  @relation(fields: [messageId], references: [id], onDelete: Cascade)
+  user      User     @relation(fields: [userId], references: [id], onUpdate: NoAction)
 
   @@id([messageId, userId])
 }
 
-// ─────────────────────────────────────────
-// 웹 푸시 구독 정보
-// ─────────────────────────────────────────
 model PushSubscription {
   id        Int      @id @default(autoincrement())
   userId    Int
@@ -123,16 +96,11 @@ model PushSubscription {
   p256dh    String   @db.NVarChar(Max)
   auth      String   @db.NVarChar(Max)
   createdAt DateTime @default(now())
-
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
 
-// ─────────────────────────────────────────
-// 일정
-// ─────────────────────────────────────────
 model Schedule {
   id          Int      @id @default(autoincrement())
-  roomId      Int
   title       String   @db.NVarChar(200)
   description String?  @db.NVarChar(Max)
   scheduledAt DateTime
@@ -140,47 +108,39 @@ model Schedule {
   notified    Boolean  @default(false)
   createdById Int
   createdAt   DateTime @default(now())
-
-  room      Room @relation(fields: [roomId], references: [id], onDelete: Cascade)
-  createdBy User @relation(fields: [createdById], references: [id], onDelete: Cascade)
+  roomId      Int
+  createdBy   User     @relation(fields: [createdById], references: [id], onDelete: Cascade)
+  room        Room     @relation(fields: [roomId], references: [id], onDelete: Cascade)
 
   @@map("schedules")
 }
 
-// ─────────────────────────────────────────
-// 게시글
-// ─────────────────────────────────────────
 model Post {
-  id              Int      @id @default(autoincrement())
-  roomId          Int
-  title           String   @db.NVarChar(200)
-  content         String   @db.NVarChar(Max)
+  id              Int       @id @default(autoincrement())
+  title           String    @db.NVarChar(200)
+  content         String    @db.NVarChar(Max)
   authorId        Int
   sourceMessageId Int?
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
-
-  room          Room      @relation(fields: [roomId], references: [id], onDelete: Cascade)
-  author        User      @relation("AuthoredPosts", fields: [authorId], references: [id], onDelete: Cascade)
-  sourceMessage Message?  @relation("PostSourceMessage", fields: [sourceMessageId], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  comments      Comment[]
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+  roomId          Int
+  comments        Comment[]
+  author          User      @relation("AuthoredPosts", fields: [authorId], references: [id], onDelete: Cascade)
+  room            Room      @relation(fields: [roomId], references: [id], onDelete: Cascade)
+  sourceMessage   Message?  @relation("PostSourceMessage", fields: [sourceMessageId], references: [id], onDelete: NoAction, onUpdate: NoAction)
 
   @@map("posts")
 }
 
-// ─────────────────────────────────────────
-// 댓글
-// ─────────────────────────────────────────
 model Comment {
   id        Int      @id @default(autoincrement())
   postId    Int
   authorId  Int
   content   String   @db.NVarChar(2000)
-  createdAt DateTime @default(now())
+  createdAt DateTime @default(now(), map: "DF_comments_createdAt")
   updatedAt DateTime @updatedAt
-
-  post   Post @relation(fields: [postId], references: [id], onDelete: Cascade)
-  author User @relation("AuthoredComments", fields: [authorId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  author    User     @relation("AuthoredComments", fields: [authorId], references: [id], onUpdate: NoAction)
+  post      Post     @relation(fields: [postId], references: [id], onDelete: Cascade)
 
   @@map("comments")
 }

@@ -13,6 +13,7 @@ module.exports = {
       exec_mode: 'fork',
       env: {
         NODE_ENV: 'production',
+        TZ: 'Asia/Seoul',
         PORT: 3001,
         CORS_ORIGIN: 'https://mjchat.vercel.app,https://michael-jordan-web.vercel.app',
         VAPID_PUBLIC_KEY: 'BB2mAmRavxRSZuNI4PudmztwgHtvUgMIa8wLl-dwp9Ln0OCbmIc-5vUhobtNpa7PSdJkE6TA2pf4lK9morCMthM',

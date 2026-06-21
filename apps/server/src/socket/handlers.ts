@@ -382,7 +382,7 @@ export function registerSocketHandlers(io: ChatServer) {
     socket.on('message:read', async ({ roomId, messageId }) => {
       await prisma.messageRead.upsert({
         where: { messageId_userId: { messageId, userId } },
-        create: { messageId, userId },
+        create: { messageId, userId, readAt: new Date() },
         update: { readAt: new Date() },
       });
 
