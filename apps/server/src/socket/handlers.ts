@@ -388,23 +388,44 @@ export function registerSocketHandlers(io: ChatServer) {
 
       if (finalTargetIds.length > 0) {
         try {
-          // 받는사람들의 테마 조회 (DB 컬럼/배포 상태가 달라도 실패 시 기본값으로 폴백)
-          const userThemes = await prisma.user.findMany({
-            where: { id: { in: finalTargetIds } },
-            select: { id: true, chatTheme: true },
+          // Prisma Client 타입 반영 전에도 동작하도록 raw query로 테마 조회
+          const userIdListSql = finalTargetIds
+            .map((id) => Number(id))
+            .filter((id) => Number.isFinite(id))
+            .join(',');
+
+          const themeRows = userIdListSql
+            ? await prisma.$queryRawUnsafe<Array<{ id: number; chatTheme: string | null }>>(
+                `SELECT [id], [chatTheme] FROM [User] WHERE [id] IN (${userIdListSql})`,
+              )
+            : [];
+
+          const themeMap = new Map<number, ChatTheme>();
+          themeRows.forEach((row) => {
+            const rawTheme = row.chatTheme;
+            const theme: ChatTheme = rawTheme === 'naver' || rawTheme === 'oliveyoung' ? rawTheme : 'slr';
+            themeMap.set(row.id, theme);
           });
-          const themeMap = new Map<number, string>(userThemes.map((user) => [user.id, user.chatTheme]));
 
-          // 사용자별로 그들의 테마로 맞춤형 푸시 알람 발송
+          // 테마별로 묶어서 발송 (반복 호출 감소 + 안정성 개선)
+          const groupedTargets = new Map<ChatTheme, number[]>();
           for (const targetUserId of finalTargetIds) {
-            const theme = (themeMap.get(targetUserId) ?? 'slr') as ChatTheme;
-            const pushPayload = createThemePushPayload(roomId, theme);
-            await sendPushToUsers([targetUserId], pushPayload);
-            console.log(`[PUSH-THEME] userId=${targetUserId} theme=${theme} roomId=${roomId}`);
+            const theme = themeMap.get(targetUserId) ?? 'slr';
+            const list = groupedTargets.get(theme) ?? [];
+            list.push(targetUserId);
+            groupedTargets.set(theme, list);
+          }
 
+          for (const [theme, userIds] of groupedTargets.entries()) {
+            const pushPayload = createThemePushPayload(roomId, theme);
+            await sendPushToUsers(userIds, pushPayload);
+            console.log(`[PUSH-THEME-GROUP] theme=${theme} roomId=${roomId} users=${userIds.length}`);
+          }
+
+          finalTargetIds.forEach((targetUserId) => {
             const key = `${targetUserId}-${roomId}`;
             userNotificationSent.set(key, true);
-          }
+          });
         } catch (err) {
           console.error('[PUSH-FALLBACK] 테마 조회 실패, 기본 푸시로 전송', err);
           const pushPayload = createThemePushPayload(roomId, 'slr');
