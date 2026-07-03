@@ -387,26 +387,33 @@ export function registerSocketHandlers(io: ChatServer) {
       });
 
       if (finalTargetIds.length > 0) {
-        // 받는사람들의 테마 조회 (DB에 저장된 각 사용자의 preferences)
-        const userThemes = await prisma.user.findMany({
-          where: { id: { in: finalTargetIds } },
-          select: { id: true, chatTheme: true },
-        });
-        const themeMap = new Map<number, string>(userThemes.map(u => [u.id, u.chatTheme]));
-        
-        // 사용자별로 그들의 테마로 맞춤형 푸시 알람 발송
-        for (const targetUserId of finalTargetIds) {
-          try {
+        try {
+          // 받는사람들의 테마 조회 (DB 컬럼/배포 상태가 달라도 실패 시 기본값으로 폴백)
+          const userThemes = await prisma.user.findMany({
+            where: { id: { in: finalTargetIds } },
+            select: { id: true, chatTheme: true },
+          });
+          const themeMap = new Map<number, string>(userThemes.map((user) => [user.id, user.chatTheme]));
+
+          // 사용자별로 그들의 테마로 맞춤형 푸시 알람 발송
+          for (const targetUserId of finalTargetIds) {
             const theme = (themeMap.get(targetUserId) ?? 'slr') as ChatTheme;
             const pushPayload = createThemePushPayload(roomId, theme);
-            sendPushToUsers([targetUserId], pushPayload);
+            await sendPushToUsers([targetUserId], pushPayload);
             console.log(`[PUSH-THEME] userId=${targetUserId} theme=${theme} roomId=${roomId}`);
-            
+
             const key = `${targetUserId}-${roomId}`;
             userNotificationSent.set(key, true);
-          } catch (err) {
-            console.error(`[PUSH-ERROR] userId=${targetUserId}:`, err);
           }
+        } catch (err) {
+          console.error('[PUSH-FALLBACK] 테마 조회 실패, 기본 푸시로 전송', err);
+          const pushPayload = createThemePushPayload(roomId, 'slr');
+          await sendPushToUsers(finalTargetIds, pushPayload);
+
+          finalTargetIds.forEach((targetUserId) => {
+            const key = `${targetUserId}-${roomId}`;
+            userNotificationSent.set(key, true);
+          });
         }
       }
     });
