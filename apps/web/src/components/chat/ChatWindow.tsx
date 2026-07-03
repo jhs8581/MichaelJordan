@@ -815,6 +815,8 @@ export function ChatWindow({ roomId, onLeave, onImageView, naverTheme, naverDark
     setUploadError('');
     try {
       const url = await doUpload(file);
+      // 이미지 업로드 후 캐시 무효화 (새로운 이미지가 갤러리에 표시되도록)
+      allRoomImagesRef.current = null;
       const socket = getSocket();
       socket.emit('message:send', { roomId, content: '', fileUrl: url, ...getMessageSendMeta(user?.timeZone) });
       requestAnimationFrame(() => {
@@ -843,6 +845,8 @@ export function ChatWindow({ roomId, onLeave, onImageView, naverTheme, naverDark
     setUploading(true);
     setUploadError('');
     const socket = getSocket();
+    // 이미지 업로드 시작 시 캐시 무효화
+    allRoomImagesRef.current = null;
     for (let i = 0; i < files.length; i++) {
       setUploadProgress(`${i + 1}/${files.length}`);
       try {
@@ -1046,6 +1050,8 @@ export function ChatWindow({ roomId, onLeave, onImageView, naverTheme, naverDark
   async function handleOpenImageCollection() {
     if (!onImageView || imageCollectionLoading) return;
     setImageCollectionLoading(true);
+    // 갤러리 열 때 캐시 무효화 (최새 이미지 항상 표시)
+    allRoomImagesRef.current = null;
     try {
       const imageItems = await loadAllRoomImageItems();
       if (imageItems.length === 0) {

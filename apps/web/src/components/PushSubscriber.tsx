@@ -12,6 +12,10 @@ function urlBase64ToUint8Array(base64String: string) {
   return Uint8Array.from([...rawData].map((c) => c.charCodeAt(0)));
 }
 
+// 구독 상태 플래그 (중복 구독 방지)
+let subscriptionInProgress = false;
+let subscribed = false;
+
 export default function PushSubscriber() {
   const accessToken = useAuthStore((s) => s.accessToken);
   const [asked, setAsked] = useState(false);
@@ -23,13 +27,16 @@ export default function PushSubscriber() {
     if (asked) return;
 
     // 이미 granted면 바로 구독, 아니면 배너로 물어봄
-    if (Notification.permission === 'granted') {
+    if (Notification.permission === 'granted' && !subscribed && !subscriptionInProgress) {
       subscribe();
     }
     // 'default' 상태면 PushBanner 컴포넌트에서 처리
-  }, [accessToken]);
+  }, [accessToken, asked]);
 
   async function subscribe() {
+    if (subscriptionInProgress || subscribed) return;
+    subscriptionInProgress = true;
+    
     try {
       const sw = await navigator.serviceWorker.ready;
       const { data } = await api.get('/push/vapid-public-key');
@@ -49,7 +56,13 @@ export default function PushSubscriber() {
         endpoint: json.endpoint,
         keys: { p256dh: json.keys?.p256dh, auth: json.keys?.auth },
       });
-    } catch {}
+      subscribed = true;
+      console.log('[PUSH] 성공적으로 구독되었습니다');
+    } catch (err) {
+      console.error('[PUSH] 구독 실패:', err instanceof Error ? err.message : String(err));
+    } finally {
+      subscriptionInProgress = false;
+    }
   }
 
   return null;

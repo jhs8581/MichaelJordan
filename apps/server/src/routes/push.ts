@@ -2,17 +2,30 @@ import type { FastifyInstance } from 'fastify';
 import webpush from 'web-push';
 import { z } from 'zod';
 import { prisma } from '../lib/prisma';
+import type { PushPayload } from '@chat/types';
+
+// VAPID 초기화 상태 플래그
+let vapidInitialized = false;
+let vapidReady = false;
 
 function initVapid() {
+  // 이미 초기화됨
+  if (vapidInitialized) return vapidReady;
+  
+  vapidInitialized = true;
   const pub = process.env.VAPID_PUBLIC_KEY;
   const priv = process.env.VAPID_PRIVATE_KEY;
   const subj = process.env.VAPID_SUBJECT ?? 'mailto:admin@example.com';
+  
   if (pub && priv) {
     webpush.setVapidDetails(subj, pub, priv);
     console.log('[VAPID] 키가 로드되었습니다');
+    vapidReady = true;
     return true;
   }
+  
   console.warn('[VAPID] 키가 설정되지 않았습니다. 푸시 알림이 비활성화됩니다.');
+  vapidReady = false;
   return false;
 }
 
@@ -25,7 +38,7 @@ const subscribeSchema = z.object({
 });
 
 export async function pushRoutes(app: FastifyInstance) {
-  // VAPID 초기화 (서버 시작 후 env 로드 완료 시점에 실행)
+  // 서버 시작 시 한 번만 초기화
   initVapid();
 
   // VAPID 공개 키 반환
@@ -68,14 +81,14 @@ export async function pushRoutes(app: FastifyInstance) {
 
 // 특정 userId들에게 푸시 알림 발송 (handlers.ts에서 사용)
 export async function sendPushToUsers(userIds: number[], payload: object) {
-  if (!initVapid()) {
+  if (!vapidReady) {
     console.warn('[PUSH] VAPID 키 없음 - 푸시 발송 중단');
     return; // VAPID 키 없으면 푸시 스킵
   }
   const subs = await prisma.pushSubscription.findMany({
     where: { userId: { in: userIds } },
   });
-  console.log(`[PUSH] ${userIds.length}명에게 푸시 발송 시도 (구독: ${subs.length}개)`);
+  console.log(`[PUSH] ${userIds.length}명에게 푸시 발송 시도 (구독: ${subs.length}개)`, payload);
 
   const message = JSON.stringify(payload);
   const results = await Promise.allSettled(

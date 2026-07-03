@@ -1,5 +1,5 @@
 import type { Server, Socket } from 'socket.io';
-import type { ServerToClientEvents, ClientToServerEvents } from '@chat/types';
+import type { ServerToClientEvents, ClientToServerEvents, ChatTheme, PushPayload } from '@chat/types';
 import { prisma, nowKST } from '../lib/prisma';
 import jwt from 'jsonwebtoken';
 import { sendPushToUsers } from '../routes/push';
@@ -46,6 +46,40 @@ const AD_MESSAGES = [
 // 랜덤 광고 메시지 선택 함수
 function getRandomAdMessage(): string {
   return AD_MESSAGES[Math.floor(Math.random() * AD_MESSAGES.length)];
+}
+
+// 테마별 푸시 알림 페이로드 생성
+function createThemePushPayload(roomId: number, theme?: ChatTheme | null): PushPayload {
+  const adMessage = getRandomAdMessage();
+  
+  if (theme === 'naver') {
+    return {
+      title: '네이버 톡톡',
+      body: adMessage,
+      data: { roomId, theme: 'naver', icon: '💬' },
+      tag: 'chat-message-naver',
+      badge: '#03C75A', // Naver 초록색
+    };
+  }
+  
+  if (theme === 'oliveyoung') {
+    return {
+      title: '올리브영 채팅',
+      body: adMessage,
+      data: { roomId, theme: 'oliveyoung', icon: '🌿' },
+      tag: 'chat-message-oliveyoung',
+      badge: '#00C4B4', // 올리브영 민트색
+    };
+  }
+  
+  // SLR (기본)
+  return {
+    title: '라이프 스토어',
+    body: adMessage,
+    data: { roomId, theme: 'slr', icon: '🔔' },
+    tag: 'chat-message-slr',
+    badge: '#5865f2', // Discord 보라색
+  };
 }
 
 // 사용자별 알림 전송 플래그 (userId-roomId => 알림 전송됨 여부)
@@ -332,12 +366,12 @@ export function registerSocketHandlers(io: ChatServer) {
       });
 
       if (finalTargetIds.length > 0) {
-        sendPushToUsers(finalTargetIds, {
-          title: '라이프 스토어',
-          body: getRandomAdMessage(),
-          data: { roomId },
-          tag: 'chat-message', // 동일한 tag로 알림이 덮어씌워져 최근 1건만 표시됨
-        });
+        // 사용자 선호 테마 조회 (LocalStorage에서 저장한 값)
+        // 참고: 서버에서 사용자별 테마 선호도를 저장하지 않으므로, 
+        // 모든 사용자에게 기본 테마(slr)로 발송
+        // 클라이언트에서 LocalStorage에 저장된 테마를 Service Worker가 수신했을 때 화면에 표시함
+        const pushPayload = createThemePushPayload(roomId);
+        sendPushToUsers(finalTargetIds, pushPayload);
         
         // 알림을 보낸 사용자들에게 플래그 설정
         finalTargetIds.forEach((targetUserId) => {

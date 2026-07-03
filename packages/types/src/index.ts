@@ -119,6 +119,24 @@ export interface Comment {
 }
 
 // ──────────────────────────────────────────────
+// 푸시 알릿 페이로드
+// ──────────────────────────────────────────────
+export type ChatTheme = 'slr' | 'naver' | 'oliveyoung';
+
+export interface PushPayload {
+  title: string;
+  body: string;
+  data: {
+    roomId?: number;
+    scheduleId?: number;
+    theme?: ChatTheme;
+    icon?: string;
+  };
+  tag?: string;
+  badge?: string;
+}
+
+// ──────────────────────────────────────────────
 // Socket.io 이벤트 페이로드
 // ──────────────────────────────────────────────
 export interface ServerToClientEvents {
