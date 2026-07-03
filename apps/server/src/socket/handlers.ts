@@ -387,18 +387,27 @@ export function registerSocketHandlers(io: ChatServer) {
       });
 
       if (finalTargetIds.length > 0) {
-        // 사용자 선호 테마 조회 (LocalStorage에서 저장한 값)
-        // 참고: 서버에서 사용자별 테마 선호도를 저장하지 않으므로, 
-        // 모든 사용자에게 기본 테마(slr)로 발송
-        // 클라이언트에서 LocalStorage에 저장된 테마를 Service Worker가 수신했을 때 화면에 표시함
-        const pushPayload = createThemePushPayload(roomId);
-        sendPushToUsers(finalTargetIds, pushPayload);
-        
-        // 알림을 보낸 사용자들에게 플래그 설정
-        finalTargetIds.forEach((targetUserId) => {
-          const key = `${targetUserId}-${roomId}`;
-          userNotificationSent.set(key, true);
+        // 받는사람들의 테마 조회 (DB에 저장된 각 사용자의 preferences)
+        const userThemes = await prisma.user.findMany({
+          where: { id: { in: finalTargetIds } },
+          select: { id: true, chatTheme: true },
         });
+        const themeMap = new Map<number, string>(userThemes.map(u => [u.id, u.chatTheme]));
+        
+        // 사용자별로 그들의 테마로 맞춤형 푸시 알람 발송
+        for (const targetUserId of finalTargetIds) {
+          try {
+            const theme = (themeMap.get(targetUserId) ?? 'slr') as ChatTheme;
+            const pushPayload = createThemePushPayload(roomId, theme);
+            sendPushToUsers([targetUserId], pushPayload);
+            console.log(`[PUSH-THEME] userId=${targetUserId} theme=${theme} roomId=${roomId}`);
+            
+            const key = `${targetUserId}-${roomId}`;
+            userNotificationSent.set(key, true);
+          } catch (err) {
+            console.error(`[PUSH-ERROR] userId=${targetUserId}:`, err);
+          }
+        }
       }
     });
 

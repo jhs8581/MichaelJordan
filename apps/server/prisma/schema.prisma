@@ -19,6 +19,7 @@ model User {
   updatedAt         DateTime           @default(now())
   chatLockCode      String             @default("") @db.NVarChar(32)
   timeZone          String?            @db.NVarChar(100)
+  chatTheme         String             @default("slr") @db.NVarChar(20)
   comments          Comment[]          @relation("AuthoredComments")
   sentMessages      Message[]          @relation("SentMessages")
   messageReads      MessageRead[]
@@ -101,6 +102,7 @@ model PushSubscription {
 
 model Schedule {
   id          Int      @id @default(autoincrement())
+  roomId      Int
   title       String   @db.NVarChar(200)
   description String?  @db.NVarChar(Max)
   scheduledAt DateTime
@@ -108,39 +110,32 @@ model Schedule {
   notified    Boolean  @default(false)
   createdById Int
   createdAt   DateTime @default(now())
-  roomId      Int
-  createdBy   User     @relation(fields: [createdById], references: [id], onDelete: Cascade)
   room        Room     @relation(fields: [roomId], references: [id], onDelete: Cascade)
-
-  @@map("schedules")
+  createdBy   User     @relation(fields: [createdById], references: [id])
 }
 
 model Post {
-  id              Int       @id @default(autoincrement())
-  title           String    @db.NVarChar(200)
-  content         String    @db.NVarChar(Max)
+  id              Int      @id @default(autoincrement())
+  roomId          Int
+  title           String   @db.NVarChar(500)
+  content         String   @db.NVarChar(Max)
   authorId        Int
   sourceMessageId Int?
-  createdAt       DateTime  @default(now())
-  updatedAt       DateTime  @default(now())
-  roomId          Int
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @default(now())
+  author          User     @relation("AuthoredPosts", fields: [authorId], references: [id], onDelete: NoAction)
+  sourceMessage   Message? @relation("PostSourceMessage", fields: [sourceMessageId], references: [id], onDelete: NoAction)
+  room            Room     @relation(fields: [roomId], references: [id], onDelete: Cascade)
   comments        Comment[]
-  author          User      @relation("AuthoredPosts", fields: [authorId], references: [id], onDelete: Cascade)
-  room            Room      @relation(fields: [roomId], references: [id], onDelete: Cascade)
-  sourceMessage   Message?  @relation("PostSourceMessage", fields: [sourceMessageId], references: [id], onDelete: NoAction, onUpdate: NoAction)
-
-  @@map("posts")
 }
 
 model Comment {
   id        Int      @id @default(autoincrement())
   postId    Int
+  content   String   @db.NVarChar(Max)
   authorId  Int
-  content   String   @db.NVarChar(2000)
-  createdAt DateTime @default(now(), map: "DF_comments_createdAt")
+  createdAt DateTime @default(now())
   updatedAt DateTime @default(now())
-  author    User     @relation("AuthoredComments", fields: [authorId], references: [id], onUpdate: NoAction)
   post      Post     @relation(fields: [postId], references: [id], onDelete: Cascade)
-
-  @@map("comments")
+  author    User     @relation("AuthoredComments", fields: [authorId], references: [id], onDelete: NoAction)
 }
