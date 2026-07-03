@@ -56,32 +56,44 @@ export async function roomRoutes(app: FastifyInstance) {
       orderBy: { createdAt: 'desc' },
     });
 
+    if (rooms.length === 0) {
+      return reply.send({ success: true, data: [] });
+    }
+
+    const roomIds = rooms
+      .map((room) => Number(room.id))
+      .filter((id) => Number.isFinite(id));
+    const roomIdSql = roomIds.join(',');
+
     // isMuted: 현재 유저의 뮤트 여부를 각 방에 주입
     const memberMap = await prisma.roomMember.findMany({
-      where: { userId, roomId: { in: rooms.map((r) => r.id) } },
+      where: { userId, roomId: { in: roomIds } },
       select: { roomId: true, isMuted: true },
     });
     const muteByRoom = Object.fromEntries(memberMap.map((m) => [m.roomId, m.isMuted]));
-    const unreadCounts = await Promise.all(
-      rooms.map(async (r) => {
-        const lastRead = await prisma.messageRead.findFirst({
-          where: { userId, message: { roomId: r.id } },
-          orderBy: { messageId: 'desc' },
-          select: { messageId: true },
-        });
-        return {
-          roomId: r.id,
-          count: await prisma.message.count({
-            where: {
-              roomId: r.id,
-              senderId: { not: userId },
-              id: lastRead ? { gt: lastRead.messageId } : undefined,
-            },
-          }),
-        };
-      })
+
+    const unreadRows = roomIdSql
+      ? await prisma.$queryRawUnsafe<Array<{ roomId: number; unreadCount: number | bigint }>>(
+          `WITH lastReads AS (
+             SELECT m.[roomId] AS roomId, MAX(mr.[messageId]) AS lastReadMessageId
+             FROM [MessageRead] mr
+             INNER JOIN [Message] m ON m.[id] = mr.[messageId]
+             WHERE mr.[userId] = ${Number(userId)}
+               AND m.[roomId] IN (${roomIdSql})
+             GROUP BY m.[roomId]
+           )
+           SELECT m.[roomId] AS roomId, COUNT_BIG(1) AS unreadCount
+           FROM [Message] m
+           LEFT JOIN lastReads lr ON lr.roomId = m.[roomId]
+           WHERE m.[roomId] IN (${roomIdSql})
+             AND m.[senderId] <> ${Number(userId)}
+             AND m.[id] > ISNULL(lr.lastReadMessageId, 0)
+           GROUP BY m.[roomId]`,
+        )
+      : [];
+    const unreadByRoom = Object.fromEntries(
+      unreadRows.map((row) => [row.roomId, Number(row.unreadCount)]),
     );
-    const unreadByRoom = Object.fromEntries(unreadCounts.map((u) => [u.roomId, u.count]));
     const roomsWithMute = rooms.map((r) => ({
       ...r,
       isMuted: muteByRoom[r.id] ?? false,

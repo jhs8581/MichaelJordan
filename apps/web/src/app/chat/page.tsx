@@ -455,18 +455,18 @@ export default function ChatPage() {
   }, [viewingImageIdx, viewingImageItems]);
 
   useEffect(() => {
-    if (accessToken) {
+    if (accessToken && chatTheme === 'slr') {
       api.get<{ data: Room[] }>('/rooms').then((res) => setRooms(res.data.data));
     }
-  }, [accessToken, setRooms]);
+  }, [accessToken, chatTheme, setRooms]);
 
   useEffect(() => {
-    if (!accessToken || !showChatList || selectedRoom) return;
+    if (!accessToken || chatTheme !== 'slr' || !showChatList || selectedRoom) return;
     const timer = setInterval(() => {
       api.get<{ data: Room[] }>('/rooms').then((res) => setRooms(res.data.data)).catch(() => { /* 목록 갱신 실패 무시 */ });
     }, 8000);
     return () => clearInterval(timer);
-  }, [accessToken, showChatList, selectedRoom, setRooms]);
+  }, [accessToken, chatTheme, showChatList, selectedRoom, setRooms]);
 
   // ── 일정 상태
   const [schedules, setSchedules] = useState<Schedule[]>([]);
