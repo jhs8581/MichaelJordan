@@ -10,6 +10,15 @@ import type { Message, Room } from '@chat/types';
 import { MessageBubble, renderMessageContent } from './MessageBubble';
 import { RoomInfoPanel } from './RoomInfoPanel';
 
+declare global {
+  interface Window {
+    electronAPI?: {
+      isElectron?: boolean;
+      notify?: (payload: { title: string; body: string; theme?: 'slr' | 'naver' | 'oliveyoung' }) => void;
+    };
+  }
+}
+
 interface Props {
   roomId: number;
   onLeave?: () => void;
@@ -331,8 +340,9 @@ export function ChatWindow({ roomId, onLeave, onImageView, naverTheme, naverDark
 
     socket.on('message:new', (msg) => {
       if (msg.roomId !== roomId) return;
+      const isOwnMessage = msg.senderId === user?.id;
       let nextMsg = msg;
-      if (!nextMsg.replyTo && nextMsg.senderId === user?.id) {
+      if (!nextMsg.replyTo && isOwnMessage) {
         const pendingIndex = pendingRepliesRef.current.findIndex((pending) =>
           pending.roomId === nextMsg.roomId
           && pending.content === nextMsg.content
@@ -347,6 +357,14 @@ export function ChatWindow({ roomId, onLeave, onImageView, naverTheme, naverDark
       // 새 이미지 메시지가 오면 이미지 목록 캐시 무효화
       if (nextMsg.fileUrl && !/\.(mp4|webm|mov|m4v|avi)(\?.*)?$/i.test(nextMsg.fileUrl)) {
         allRoomImagesRef.current = null;
+      }
+      if (!isOwnMessage && window.electronAPI?.isElectron && document.visibilityState !== 'visible') {
+        const isImageOnly = !nextMsg.content?.trim() && !!nextMsg.fileUrl;
+        const theme = oyTheme ? 'oliveyoung' : naverTheme ? 'naver' : 'slr';
+        const prefix = theme === 'oliveyoung' ? '[OLIVE]' : theme === 'naver' ? '[NAVER]' : '[SLR]';
+        const body = isImageOnly ? `${prefix} 사진을 보냈습니다` : `${prefix} ${nextMsg.content}`;
+        const title = theme === 'oliveyoung' ? 'OLIVE YOUNG DESKTOP' : theme === 'naver' ? 'NAVER TALK DESKTOP' : 'SLR DESKTOP ALERT';
+        window.electronAPI.notify?.({ title, body, theme });
       }
       // 페이지가 활성 상태일 때만 읽음 처리 (백그라운드/잠금화면이면 포커스 복귀 시 처리됨)
       if (isPageActive()) {

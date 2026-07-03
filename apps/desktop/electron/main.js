@@ -137,8 +137,23 @@ app.on('activate', () => {
 });
 
 // 웹에서 Electron으로 알림 받기 (preload를 통해 ipcMain 활용)
-ipcMain.on('notify', (_event, { title, body }) => {
+ipcMain.on('notify', (_event, { title, body, theme }) => {
   if (Notification.isSupported()) {
-    new Notification({ title, body }).show();
+    const iconPath = path.join(__dirname, '..', 'assets', 'icon.ico');
+    const themeTitle = theme === 'oliveyoung'
+      ? `[OLIVE DESKTOP] ${title}`
+      : theme === 'naver'
+        ? `[NAVER DESKTOP] ${title}`
+        : `[SLR DESKTOP] ${title}`;
+    const themeBody = theme === 'oliveyoung'
+      ? `OLIVE ALERT · ${body}`
+      : theme === 'naver'
+        ? `NAVER ALERT · ${body}`
+        : `SLR ALERT · ${body}`;
+    new Notification({
+      title: themeTitle,
+      body: themeBody,
+      icon: iconPath,
+    }).show();
   }
 });

@@ -21,6 +21,9 @@ export default function PushSubscriber() {
   const [asked, setAsked] = useState(false);
 
   useEffect(() => {
+    if (typeof window !== 'undefined' && (window as Window & { electronAPI?: { isElectron?: boolean } }).electronAPI?.isElectron) {
+      return;
+    }
     if (!accessToken) return;
     if (!('serviceWorker' in navigator) || !('PushManager' in window)) return;
     if (Notification.permission === 'denied') return;
@@ -93,6 +96,9 @@ export function PushBanner() {
   })();
 
   useEffect(() => {
+    if (typeof window !== 'undefined' && (window as Window & { electronAPI?: { isElectron?: boolean } }).electronAPI?.isElectron) {
+      return;
+    }
     if (!accessToken) return;
     if (!('Notification' in window)) return;
     if (Notification.permission === 'default') {
