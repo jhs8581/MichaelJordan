@@ -284,9 +284,13 @@ export function ChatWindow({ roomId, onLeave, onImageView, naverTheme, naverDark
         if (msgs && msgs.length > 0) {
           const maxId = Math.max(...msgs.map((m) => m.id));
           socket.emit('message:read', { roomId, messageId: maxId });
+          console.log(`[VIEWING] room:viewing+message:read 발송 roomId=${roomId} maxMsgId=${maxId}`);
+        } else {
+          console.log(`[VIEWING] 로드된 메시지 없음 roomId=${roomId}`);
         }
       } else {
         socket.emit('room:stop-viewing', roomId);
+        console.log(`[STOP-VIEWING] 페이지 백그라운드 roomId=${roomId}`);
       }
     }
 
@@ -347,7 +351,9 @@ export function ChatWindow({ roomId, onLeave, onImageView, naverTheme, naverDark
       // 페이지가 활성 상태일 때만 읽음 처리 (백그라운드/잠금화면이면 포커스 복귀 시 처리됨)
       if (isPageActive()) {
         clearRoomUnread(roomId);
+        // 새로운 메시지 수신 시 읽음 처리
         socket.emit('message:read', { roomId, messageId: msg.id });
+        console.log(`[MESSAGE:RECEIVED] 메시지 읽음 처리 전송 messageId=${msg.id}`);
       }
     });
     socket.on('message:read', ({ roomId: rId, userId, lastReadMessageId }) => {

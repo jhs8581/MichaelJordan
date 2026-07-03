@@ -343,6 +343,27 @@ export function registerSocketHandlers(io: ChatServer) {
         where: { roomId },
         select: { userId: true, isMuted: true },
       });
+      
+      // 현재 방을 보고 있는 사용자는 자동 읽음 처리 + 플래그 해제
+      // (UI가 업데이트되지 않거나 네트워크 지연으로 message:read가 안 올 경우 대비)
+      for (const viewingUserId of viewingUserIds) {
+        if (viewingUserId !== userId) {
+          try {
+            // 읽음 처리 기록
+            await prisma.messageRead.upsert({
+              where: { messageId_userId: { messageId: message.id, userId: viewingUserId } },
+              create: { messageId: message.id, userId: viewingUserId, readAt: nowKST() },
+              update: { readAt: nowKST() },
+            });
+            // 알림 플래그 해제 (다음 메시지부터 알림 받음)
+            const key = `${viewingUserId}-${roomId}`;
+            userNotificationSent.delete(key);
+          } catch (err) {
+            console.error(`[AUTO-READ] 자동 읽음 처리 실패 userId=${viewingUserId}:`, err);
+          }
+        }
+      }
+      
       const pushTargetIds = allMembers
         .filter((m) => m.userId !== userId && !viewingUserIds.has(m.userId) && !m.isMuted)
         .map((m) => m.userId);
@@ -419,6 +440,12 @@ export function registerSocketHandlers(io: ChatServer) {
         create: { messageId, userId, readAt: nowKST() },
         update: { readAt: nowKST() },
       });
+
+      // 메시지 읽음 처리 → 해당 방에 대한 알림 차단 플래그 해제
+      // (다음 메시지가 오면 푸시 알림 수신 가능하도록)
+      const key = `${userId}-${roomId}`;
+      userNotificationSent.delete(key);
+      console.log(`[READ] userId=${userId} roomId=${roomId} 알림 플래그 해제`);
 
       io.to(`room:${roomId}`).emit('message:read', {
         roomId,
