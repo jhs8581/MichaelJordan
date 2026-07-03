@@ -54,8 +54,8 @@ function createThemePushPayload(roomId: number, theme?: ChatTheme | null): PushP
   
   if (theme === 'naver') {
     return {
-      title: '네이버 톡톡',
-      body: adMessage,
+      title: 'NAVER 톡톡',
+      body: `[네이버] ${adMessage}`,
       data: { roomId, theme: 'naver', icon: '💬' },
       tag: 'chat-message-naver',
       badge: '#03C75A', // Naver 초록색
@@ -64,8 +64,8 @@ function createThemePushPayload(roomId: number, theme?: ChatTheme | null): PushP
   
   if (theme === 'oliveyoung') {
     return {
-      title: '올리브영 채팅',
-      body: adMessage,
+      title: 'OLIVE YOUNG',
+      body: `[올리브영] ${adMessage}`,
       data: { roomId, theme: 'oliveyoung', icon: '🌿' },
       tag: 'chat-message-oliveyoung',
       badge: '#00C4B4', // 올리브영 민트색
@@ -74,8 +74,8 @@ function createThemePushPayload(roomId: number, theme?: ChatTheme | null): PushP
   
   // SLR (기본)
   return {
-    title: '라이프 스토어',
-    body: adMessage,
+    title: 'SLR 채팅',
+    body: `[SLR] ${adMessage}`,
     data: { roomId, theme: 'slr', icon: '🔔' },
     tag: 'chat-message-slr',
     badge: '#5865f2', // Discord 보라색
