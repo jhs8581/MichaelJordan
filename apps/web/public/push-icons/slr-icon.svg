@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="192" height="192" viewBox="0 0 192 192">
+  <defs>
+    <linearGradient id="g" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#2b2f77"/>
+      <stop offset="100%" stop-color="#5865f2"/>
+    </linearGradient>
+  </defs>
+  <rect width="192" height="192" rx="38" fill="url(#g)"/>
+  <circle cx="96" cy="96" r="58" fill="#ffffff" opacity="0.16"/>
+  <text x="96" y="112" text-anchor="middle" font-size="54" font-family="Segoe UI, Arial, sans-serif" fill="#ffffff" font-weight="700">SLR</text>
+</svg>

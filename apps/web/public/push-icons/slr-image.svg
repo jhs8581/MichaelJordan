@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="600" height="320" viewBox="0 0 600 320">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#1f245e"/>
+      <stop offset="100%" stop-color="#5865f2"/>
+    </linearGradient>
+  </defs>
+  <rect width="600" height="320" fill="url(#bg)"/>
+  <text x="42" y="170" font-size="72" font-family="Segoe UI, Arial, sans-serif" fill="#ffffff" font-weight="700">SLR ALERT</text>
+</svg>

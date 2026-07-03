@@ -48,6 +48,26 @@ function getRandomAdMessage(): string {
   return AD_MESSAGES[Math.floor(Math.random() * AD_MESSAGES.length)];
 }
 
+let cachedUserTableForPush: string | null = null;
+
+async function resolveUserTableForPush(): Promise<string> {
+  if (cachedUserTableForPush) return cachedUserTableForPush;
+  const rows = await prisma.$queryRaw<Array<{ fullName: string }>>`
+    SELECT TOP 1
+      QUOTENAME(s.name) + '.' + QUOTENAME(t.name) AS fullName
+    FROM sys.tables t
+    INNER JOIN sys.schemas s ON s.schema_id = t.schema_id
+    WHERE t.name IN ('User', 'Users')
+    ORDER BY CASE t.name WHEN 'User' THEN 0 ELSE 1 END
+  `;
+  const tableName = rows[0]?.fullName;
+  if (!tableName) {
+    throw new Error('User 테이블을 찾을 수 없습니다.');
+  }
+  cachedUserTableForPush = tableName;
+  return tableName;
+}
+
 // 테마별 푸시 알림 페이로드 생성
 function createThemePushPayload(roomId: number, theme?: ChatTheme | null): PushPayload {
   const adMessage = getRandomAdMessage();
@@ -56,9 +76,16 @@ function createThemePushPayload(roomId: number, theme?: ChatTheme | null): PushP
     return {
       title: 'NAVER 톡톡',
       body: `[네이버] ${adMessage}`,
-      data: { roomId, theme: 'naver', icon: '💬' },
+      data: {
+        roomId,
+        theme: 'naver',
+        icon: '💬',
+        iconUrl: '/push-icons/naver-icon.svg',
+        badgeUrl: '/push-icons/naver-badge.svg',
+        imageUrl: '/push-icons/naver-image.svg',
+      },
       tag: 'chat-message-naver',
-      badge: '#03C75A', // Naver 초록색
+      badge: '/push-icons/naver-badge.svg',
     };
   }
   
@@ -66,9 +93,16 @@ function createThemePushPayload(roomId: number, theme?: ChatTheme | null): PushP
     return {
       title: 'OLIVE YOUNG',
       body: `[올리브영] ${adMessage}`,
-      data: { roomId, theme: 'oliveyoung', icon: '🌿' },
+      data: {
+        roomId,
+        theme: 'oliveyoung',
+        icon: '🌿',
+        iconUrl: '/push-icons/oliveyoung-icon.svg',
+        badgeUrl: '/push-icons/oliveyoung-badge.svg',
+        imageUrl: '/push-icons/oliveyoung-image.svg',
+      },
       tag: 'chat-message-oliveyoung',
-      badge: '#00C4B4', // 올리브영 민트색
+      badge: '/push-icons/oliveyoung-badge.svg',
     };
   }
   
@@ -76,9 +110,16 @@ function createThemePushPayload(roomId: number, theme?: ChatTheme | null): PushP
   return {
     title: 'SLR 채팅',
     body: `[SLR] ${adMessage}`,
-    data: { roomId, theme: 'slr', icon: '🔔' },
+    data: {
+      roomId,
+      theme: 'slr',
+      icon: '🔔',
+      iconUrl: '/push-icons/slr-icon.svg',
+      badgeUrl: '/push-icons/slr-badge.svg',
+      imageUrl: '/push-icons/slr-image.svg',
+    },
     tag: 'chat-message-slr',
-    badge: '#5865f2', // Discord 보라색
+    badge: '/push-icons/slr-badge.svg',
   };
 }
 
@@ -388,7 +429,8 @@ export function registerSocketHandlers(io: ChatServer) {
 
       if (finalTargetIds.length > 0) {
         try {
-          // Prisma Client 타입 반영 전에도 동작하도록 raw query로 테마 조회
+          // users.ts와 동일하게 실제 User 테이블을 해석해 테마 조회
+          const userTable = await resolveUserTableForPush();
           const userIdListSql = finalTargetIds
             .map((id) => Number(id))
             .filter((id) => Number.isFinite(id))
@@ -396,7 +438,7 @@ export function registerSocketHandlers(io: ChatServer) {
 
           const themeRows = userIdListSql
             ? await prisma.$queryRawUnsafe<Array<{ id: number; chatTheme: string | null }>>(
-                `SELECT [id], [chatTheme] FROM [User] WHERE [id] IN (${userIdListSql})`,
+                `SELECT [id], [chatTheme] FROM ${userTable} WHERE [id] IN (${userIdListSql})`,
               )
             : [];
 

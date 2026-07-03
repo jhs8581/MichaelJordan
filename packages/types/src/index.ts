@@ -131,6 +131,9 @@ export interface PushPayload {
     scheduleId?: number;
     theme?: ChatTheme;
     icon?: string;
+    iconUrl?: string;
+    badgeUrl?: string;
+    imageUrl?: string;
   };
   tag?: string;
   badge?: string;

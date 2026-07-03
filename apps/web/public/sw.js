@@ -23,6 +23,29 @@ self.addEventListener('fetch', (e) => {
 self.addEventListener('push', (e) => {
   let data = { title: '라이프 스토어', body: '새 메시지가 도착했습니다.', data: {}, tag: 'chat-message' };
   try { data = e.data.json(); } catch {}
+
+  const theme = data?.data?.theme;
+  const fallbackByTheme = {
+    naver: {
+      iconUrl: '/push-icons/naver-icon.svg',
+      badgeUrl: '/push-icons/naver-badge.svg',
+      imageUrl: '/push-icons/naver-image.svg',
+    },
+    oliveyoung: {
+      iconUrl: '/push-icons/oliveyoung-icon.svg',
+      badgeUrl: '/push-icons/oliveyoung-badge.svg',
+      imageUrl: '/push-icons/oliveyoung-image.svg',
+    },
+    slr: {
+      iconUrl: '/push-icons/slr-icon.svg',
+      badgeUrl: '/push-icons/slr-badge.svg',
+      imageUrl: '/push-icons/slr-image.svg',
+    },
+  };
+  const fallback = fallbackByTheme[theme] || fallbackByTheme.slr;
+  const icon = data?.data?.iconUrl || fallback.iconUrl;
+  const badge = data?.data?.badgeUrl || fallback.badgeUrl;
+  const image = data?.data?.imageUrl || fallback.imageUrl;
   
   e.waitUntil(
     // iOS에서 tag가 제대로 작동하지 않으므로 기존 알림들을 먼저 닫음
@@ -31,6 +54,9 @@ self.addEventListener('push', (e) => {
       return self.registration.showNotification(data.title, {
         body: data.body,
         data: data.data,
+        icon,
+        badge,
+        image,
         tag: data.tag || 'chat-message', // 동일한 tag로 알림이 덮어씌워져 최근 1건만 표시됨
         renotify: true, // tag가 같은 알림이 와도 진동/소리 알림
         vibrate: [200, 100, 200],
