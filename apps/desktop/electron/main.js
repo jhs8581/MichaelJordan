@@ -136,20 +136,39 @@ app.on('activate', () => {
   if (BrowserWindow.getAllWindows().length === 0) createWindow();
 });
 
+function normalizeNotifyTheme(theme, title, body) {
+  const normalizedTheme = typeof theme === 'string' ? theme.toLowerCase() : '';
+  if (normalizedTheme === 'naver' || normalizedTheme === 'oliveyoung' || normalizedTheme === 'slr') {
+    return normalizedTheme;
+  }
+
+  const hint = `${title || ''} ${body || ''}`.toLowerCase();
+  if (hint.includes('naver')) return 'naver';
+  if (hint.includes('olive')) return 'oliveyoung';
+  return 'slr';
+}
+
+function compactBodyText(body) {
+  if (!body) return '';
+  return String(body)
+    .replace(/^\s*\[(slr|naver|olive)\]\s*/i, '')
+    .replace(/^\s*(slr|naver|olive)\s*alert\s*[\u00b7:\-]\s*/i, '')
+    .trim();
+}
+
 // 웹에서 Electron으로 알림 받기 (preload를 통해 ipcMain 활용)
 ipcMain.on('notify', (_event, { title, body, theme }) => {
   if (Notification.isSupported()) {
     const iconPath = path.join(__dirname, '..', 'assets', 'icon.ico');
-    const themeTitle = theme === 'oliveyoung'
-      ? `[OLIVE DESKTOP] ${title}`
-      : theme === 'naver'
-        ? `[NAVER DESKTOP] ${title}`
-        : `[SLR DESKTOP] ${title}`;
-    const themeBody = theme === 'oliveyoung'
-      ? `OLIVE ALERT · ${body}`
-      : theme === 'naver'
-        ? `NAVER ALERT · ${body}`
-        : `SLR ALERT · ${body}`;
+    const normalizedTheme = normalizeNotifyTheme(theme, title, body);
+    const brandTitle = normalizedTheme === 'oliveyoung'
+      ? 'OLIVE YOUNG'
+      : normalizedTheme === 'naver'
+        ? 'NAVER'
+        : 'SLR';
+    const themeTitle = title ? `[${brandTitle}] ${title}` : `[${brandTitle}] 새 알림`;
+    const themeBody = compactBodyText(body);
+
     new Notification({
       title: themeTitle,
       body: themeBody,
