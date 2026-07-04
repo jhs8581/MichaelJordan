@@ -449,6 +449,13 @@ export function registerSocketHandlers(io: ChatServer) {
             themeMap.set(row.id, theme);
           });
 
+          console.log('[PUSH-THEME-RESOLVE]', {
+            userTable,
+            finalTargetIds,
+            themeRows: themeRows.map((row) => ({ id: row.id, rawTheme: row.chatTheme })),
+            normalizedThemes: Array.from(themeMap.entries()).map(([id, theme]) => ({ id, theme })),
+          });
+
           // 테마별로 묶어서 발송 (반복 호출 감소 + 안정성 개선)
           const groupedTargets = new Map<ChatTheme, number[]>();
           for (const targetUserId of finalTargetIds) {
