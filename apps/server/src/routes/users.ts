@@ -54,7 +54,7 @@ export async function userRoutes(app: FastifyInstance) {
       const rows = await prisma.$queryRawUnsafe<Array<{ chatTheme: string | null }>>(
         `SELECT TOP 1 [chatTheme] FROM ${userTable} WHERE [id] = ${Number(userId)}`,
       );
-      const rawTheme = rows[0]?.chatTheme;
+      const rawTheme = String(rows[0]?.chatTheme ?? '').trim().toLowerCase();
       const chatTheme = rawTheme === "naver" || rawTheme === "oliveyoung" ? rawTheme : "slr";
       return reply.send({ success: true, data: { chatTheme } });
     } catch (err) {
@@ -122,7 +122,10 @@ export async function userRoutes(app: FastifyInstance) {
       );
       const themes = rows.map((row) => ({
         id: row.id,
-        chatTheme: row.chatTheme === "naver" || row.chatTheme === "oliveyoung" ? row.chatTheme : "slr",
+        chatTheme: (() => {
+          const rawTheme = String(row.chatTheme ?? '').trim().toLowerCase();
+          return rawTheme === "naver" || rawTheme === "oliveyoung" ? rawTheme : "slr";
+        })(),
       }));
       return reply.send({ success: true, data: themes });
     } catch (err) {
