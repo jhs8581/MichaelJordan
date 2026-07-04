@@ -11,6 +11,70 @@ self.addEventListener('message', (e) => {
   if (e.data?.type === 'SKIP_WAITING') self.skipWaiting();
 });
 
+const THEME_ICON_PRESETS = {
+  naver: { bg: '#03C75A', fg: '#FFFFFF', label: 'N' },
+  oliveyoung: { bg: '#00C4B4', fg: '#FFFFFF', label: 'OY' },
+  slr: { bg: '#4F5BD5', fg: '#FFFFFF', label: 'SLR' },
+};
+
+const generatedIconCache = new Map();
+
+function normalizeTheme(theme) {
+  const key = String(theme || '').trim().toLowerCase();
+  return key === 'naver' || key === 'oliveyoung' ? key : 'slr';
+}
+
+async function createThemeIcon(theme, size, isBadge) {
+  const cacheKey = `${theme}-${size}-${isBadge ? 'badge' : 'icon'}`;
+  const cached = generatedIconCache.get(cacheKey);
+  if (cached) return cached;
+
+  if (typeof OffscreenCanvas === 'undefined') return null;
+
+  try {
+    const preset = THEME_ICON_PRESETS[theme] || THEME_ICON_PRESETS.slr;
+    const canvas = new OffscreenCanvas(size, size);
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return null;
+
+    if (isBadge) {
+      ctx.clearRect(0, 0, size, size);
+      ctx.fillStyle = '#FFFFFF';
+      ctx.beginPath();
+      ctx.arc(size / 2, size / 2, size * 0.34, 0, Math.PI * 2);
+      ctx.fill();
+    } else {
+      const r = Math.max(10, Math.floor(size * 0.22));
+      ctx.fillStyle = preset.bg;
+      ctx.beginPath();
+      ctx.moveTo(r, 0);
+      ctx.lineTo(size - r, 0);
+      ctx.quadraticCurveTo(size, 0, size, r);
+      ctx.lineTo(size, size - r);
+      ctx.quadraticCurveTo(size, size, size - r, size);
+      ctx.lineTo(r, size);
+      ctx.quadraticCurveTo(0, size, 0, size - r);
+      ctx.lineTo(0, r);
+      ctx.quadraticCurveTo(0, 0, r, 0);
+      ctx.closePath();
+      ctx.fill();
+
+      ctx.fillStyle = preset.fg;
+      ctx.font = `700 ${Math.max(26, Math.floor(size * 0.26))}px sans-serif`;
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText(preset.label, size / 2, size / 2 + 1);
+    }
+
+    const blob = await canvas.convertToBlob({ type: 'image/png' });
+    const url = URL.createObjectURL(blob);
+    generatedIconCache.set(cacheKey, url);
+    return url;
+  } catch {
+    return null;
+  }
+}
+
 self.addEventListener('fetch', (e) => {
   if (e.request.method !== 'GET') return;
   const url = new URL(e.request.url);
@@ -24,7 +88,7 @@ self.addEventListener('push', (e) => {
   let data = { title: '라이프 스토어', body: '새 메시지가 도착했습니다.', data: {}, tag: 'chat-message' };
   try { data = e.data.json(); } catch {}
 
-  const theme = String(data?.data?.theme || '').trim().toLowerCase();
+  const theme = normalizeTheme(data?.data?.theme);
   const fallbackByTheme = {
     naver: {
       iconUrl: '/push-icons/naver-icon.svg',
@@ -43,14 +107,20 @@ self.addEventListener('push', (e) => {
     },
   };
   const fallback = fallbackByTheme[theme] || fallbackByTheme.slr;
-  const icon = data?.data?.iconUrl || fallback.iconUrl;
-  const badge = data?.data?.badgeUrl || fallback.badgeUrl;
+  const payloadIcon = data?.data?.iconUrl || fallback.iconUrl;
+  const payloadBadge = data?.data?.badgeUrl || fallback.badgeUrl;
   // Windows/PWA 알림 카드가 과도하게 커지는 문제를 막기 위해 image는 사용하지 않음
   
   e.waitUntil(
     // iOS에서 tag가 제대로 작동하지 않으므로 기존 알림들을 먼저 닫음
-    self.registration.getNotifications().then((notifications) => {
+    Promise.all([
+      self.registration.getNotifications(),
+      createThemeIcon(theme, 192, false),
+      createThemeIcon(theme, 96, true),
+    ]).then(([notifications, generatedIcon, generatedBadge]) => {
       notifications.forEach((notification) => notification.close());
+      const icon = generatedIcon || payloadIcon;
+      const badge = generatedBadge || payloadBadge;
       return self.registration.showNotification(data.title, {
         body: data.body,
         data: data.data,
