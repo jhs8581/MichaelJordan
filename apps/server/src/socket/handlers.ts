@@ -444,7 +444,7 @@ export function registerSocketHandlers(io: ChatServer) {
 
           const themeMap = new Map<number, ChatTheme>();
           themeRows.forEach((row) => {
-            const rawTheme = row.chatTheme;
+            const rawTheme = String(row.chatTheme ?? '').trim().toLowerCase();
             const theme: ChatTheme = rawTheme === 'naver' || rawTheme === 'oliveyoung' ? rawTheme : 'slr';
             themeMap.set(row.id, theme);
           });
