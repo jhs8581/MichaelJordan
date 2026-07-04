@@ -1176,6 +1176,7 @@ export function ChatWindow({ roomId, onLeave, onImageView, naverTheme, naverDark
   const trimmedEditContent = editContent.trim();
   const isNaverLight = Boolean(naverTheme && !naverDark);
   const isOyLight = Boolean(oyTheme && !oyDark);
+  const isLightContextMenu = isNaverLight || isOyLight;
 
   // 날짜 구분선 렌더링
   function renderMessages() {
@@ -1771,7 +1772,7 @@ export function ChatWindow({ roomId, onLeave, onImageView, naverTheme, naverDark
         >
           <div
             className="w-full max-w-sm rounded-t-2xl border p-4"
-            style={{ background: isNaverLight ? '#ffffff' : '#17191d', borderColor: isNaverLight ? '#e8e8e8' : '#3a3f4a' }}
+            style={{ background: isLightContextMenu ? '#ffffff' : '#17191d', borderColor: isLightContextMenu ? '#e8e8e8' : '#3a3f4a' }}
             onClick={(e) => e.stopPropagation()}
           >
             <p className="text-xs text-center mb-4 truncate px-2" style={{ color: 'var(--text-muted)' }}>
@@ -1781,7 +1782,7 @@ export function ChatWindow({ roomId, onLeave, onImageView, naverTheme, naverDark
               type="button"
               onClick={() => handleReplyMessage(contextMenu)}
               className="w-full flex items-center gap-3 rounded-xl px-4 py-3 mb-2"
-              style={{ background: isNaverLight ? '#f5f6f8' : '#2b2d31', color: 'var(--text-primary)' }}
+              style={{ background: isLightContextMenu ? '#f5f6f8' : '#2b2d31', color: 'var(--text-primary)' }}
             >
               <span style={{ fontSize: 18 }}>↩️</span>
               <span className="text-sm font-medium">답장</span>
@@ -1791,7 +1792,7 @@ export function ChatWindow({ roomId, onLeave, onImageView, naverTheme, naverDark
                 type="button"
                 onClick={() => handleCopyMessage(contextMenu)}
                 className="w-full flex items-center gap-3 rounded-xl px-4 py-3 mb-2"
-                style={{ background: isNaverLight ? '#f5f6f8' : '#2b2d31', color: 'var(--text-primary)' }}
+                style={{ background: isLightContextMenu ? '#f5f6f8' : '#2b2d31', color: 'var(--text-primary)' }}
               >
                 <span style={{ fontSize: 18 }}>📋</span>
                 <span className="text-sm font-medium">전체 복사</span>
@@ -1802,7 +1803,7 @@ export function ChatWindow({ roomId, onLeave, onImageView, naverTheme, naverDark
                 type="button"
                 onClick={() => openPartialCopyPopup(contextMenu)}
                 className="w-full flex items-center gap-3 rounded-xl px-4 py-3 mb-2"
-                style={{ background: isNaverLight ? '#f5f6f8' : '#2b2d31', color: 'var(--text-primary)' }}
+                style={{ background: isLightContextMenu ? '#f5f6f8' : '#2b2d31', color: 'var(--text-primary)' }}
               >
                 <span style={{ fontSize: 18 }}>✂️</span>
                 <span className="text-sm font-medium">선택 부분 복사</span>
@@ -1812,7 +1813,7 @@ export function ChatWindow({ roomId, onLeave, onImageView, naverTheme, naverDark
               type="button"
               onClick={() => handleSaveToArchive(contextMenu)}
               className="w-full flex items-center gap-3 rounded-xl px-4 py-3 mb-2"
-              style={{ background: isNaverLight ? '#f5f6f8' : '#2b2d31', color: 'var(--text-primary)' }}
+              style={{ background: isLightContextMenu ? '#f5f6f8' : '#2b2d31', color: 'var(--text-primary)' }}
             >
               <span style={{ fontSize: 18 }}>🔖</span>
               <span className="text-sm font-medium">보관함에 저장</span>
@@ -1822,7 +1823,7 @@ export function ChatWindow({ roomId, onLeave, onImageView, naverTheme, naverDark
                 type="button"
                 onClick={() => handleRegisterAsPost(contextMenu)}
                 className="w-full flex items-center gap-3 rounded-xl px-4 py-3 mb-2"
-                style={{ background: isNaverLight ? '#f5f6f8' : '#2b2d31', color: 'var(--text-primary)' }}
+                style={{ background: isLightContextMenu ? '#f5f6f8' : '#2b2d31', color: 'var(--text-primary)' }}
               >
                 <span style={{ fontSize: 18 }}>📝</span>
                 <span className="text-sm font-medium">게시글로 등록</span>
@@ -1833,7 +1834,7 @@ export function ChatWindow({ roomId, onLeave, onImageView, naverTheme, naverDark
                 type="button"
                 onClick={() => handleStartEditMessage(contextMenu)}
                 className="w-full flex items-center gap-3 rounded-xl px-4 py-3 mb-2"
-                style={{ background: isNaverLight ? '#f5f6f8' : '#2b2d31', color: 'var(--text-primary)' }}
+                style={{ background: isLightContextMenu ? '#f5f6f8' : '#2b2d31', color: 'var(--text-primary)' }}
               >
                 <span style={{ fontSize: 18 }}>✏️</span>
                 <span className="text-sm font-medium">수정</span>
@@ -1854,7 +1855,7 @@ export function ChatWindow({ roomId, onLeave, onImageView, naverTheme, naverDark
               type="button"
               onClick={() => setContextMenu(null)}
               className="w-full rounded-xl px-4 py-2.5 text-sm"
-              style={{ background: isNaverLight ? '#f5f6f8' : '#2b2d31', color: 'var(--text-muted)' }}
+              style={{ background: isLightContextMenu ? '#f5f6f8' : '#2b2d31', color: 'var(--text-muted)' }}
             >
               취소
             </button>
