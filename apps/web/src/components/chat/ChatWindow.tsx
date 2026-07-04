@@ -216,8 +216,6 @@ export function ChatWindow({ roomId, onLeave, onImageView, naverTheme, naverDark
   const [loadingOlder, setLoadingOlder] = useState(false);
   // 타이핑 중인 사용자 목록 { userId, username }
   const [typingUsers, setTypingUsers] = useState<{ userId: number; username: string }[]>([]);
-  // 온라인 사용자 ID 세트
-  const [onlineUserIds, setOnlineUserIds] = useState<Set<number>>(new Set());
   const typingTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
@@ -388,13 +386,6 @@ export function ChatWindow({ roomId, onLeave, onImageView, naverTheme, naverDark
           : prev.filter((u) => u.userId !== uid)
       );
     });
-    socket.on('user:status', ({ userId: uid, isOnline }) => {
-      setOnlineUserIds((prev) => {
-        const next = new Set(prev);
-        if (isOnline) next.add(uid); else next.delete(uid);
-        return next;
-      });
-    });
     socket.on('message:deleted', ({ messageId, roomId: rId }) => {
       if (rId === roomId) removeMessage(rId, messageId);
     });
@@ -413,7 +404,6 @@ export function ChatWindow({ roomId, onLeave, onImageView, naverTheme, naverDark
       socket.off('message:read');
       socket.off('message:updated');
       socket.off('typing:update');
-      socket.off('user:status');
       socket.off('message:deleted');
     };
   }, [roomId, accessToken, addMessage, clearRoomUnread, markRead, removeMessage, updateMessage, user?.id, naverTheme, oyTheme, activeRoom?.name]);
@@ -1313,17 +1303,6 @@ export function ChatWindow({ roomId, onLeave, onImageView, naverTheme, naverDark
         <span className="font-semibold text-sm min-w-0 truncate" style={{ color: 'var(--text-primary)' }}>
           {activeRoom?.name ?? ''}
         </span>
-        {/* 온라인 상태 (담화망 DM 방) */}
-        {activeRoom && !activeRoom.isGroup && (() => {
-          const otherMember = (activeRoom.members ?? []).find((m) => m.userId !== user?.id);
-          const isOnline = otherMember ? onlineUserIds.has(otherMember.userId) : false;
-          return (
-            <span className={`flex items-center gap-1 text-xs flex-shrink-0 whitespace-nowrap ${isOnline ? 'online-text-on' : 'online-text-off'}`} style={{ color: isOnline ? '#57f287' : 'var(--text-muted)' }}>
-              <span className={isOnline ? 'online-dot-on' : 'online-dot-off'} style={{ width: 7, height: 7, borderRadius: '50%', background: isOnline ? '#57f287' : '#72767d', display: 'inline-block', flexShrink: 0 }} />
-              {isOnline ? '온라인' : '오프라인'}
-            </span>
-          );
-        })()}
         <div className="flex-1" />
         {/* 알림 음소거 버튼 */}
         <button
