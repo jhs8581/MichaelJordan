@@ -1177,6 +1177,7 @@ export function ChatWindow({ roomId, onLeave, onImageView, naverTheme, naverDark
   const isNaverLight = Boolean(naverTheme && !naverDark);
   const isOyLight = Boolean(oyTheme && !oyDark);
   const isLightContextMenu = isNaverLight || isOyLight;
+  const isLightSettingsPanel = isNaverLight || isOyLight;
 
   // 날짜 구분선 렌더링
   function renderMessages() {
@@ -1491,7 +1492,13 @@ export function ChatWindow({ roomId, onLeave, onImageView, naverTheme, naverDark
         <div
           data-chat-settings-panel
           className="absolute z-20 rounded-xl border p-3 shadow-2xl"
-          style={{ background: '#1f2126', borderColor: '#3a3f4a', right: isMobile ? 8 : 16, top: isMobile ? 84 : 56, width: isMobile ? 'calc(100% - 16px)' : 256 }}
+          style={{
+            background: isLightSettingsPanel ? '#ffffff' : '#1f2126',
+            borderColor: isLightSettingsPanel ? '#e2e5ea' : '#3a3f4a',
+            right: isMobile ? 8 : 16,
+            top: isMobile ? 84 : 56,
+            width: isMobile ? 'calc(100% - 16px)' : 256,
+          }}
         >
           <div className="flex items-center justify-between mb-3">
             <span className="text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>채팅 보기 설정</span>
@@ -1505,20 +1512,23 @@ export function ChatWindow({ roomId, onLeave, onImageView, naverTheme, naverDark
               label="시간 형식"
               value={settings.timeFormat === '24h' ? '24시간' : '오전/오후'}
               onToggle={() => updateSettings({ timeFormat: settings.timeFormat === '24h' ? 'ampm' : '24h' })}
+              light={isLightSettingsPanel}
             />
             <SettingRow
               label="닉네임 표시"
               value={settings.showNickname ? '켜짐' : '꺼짐'}
               onToggle={() => updateSettings({ showNickname: !settings.showNickname })}
+              light={isLightSettingsPanel}
             />
             <SettingRow
               label="날짜 구분선"
               value={settings.showDateSeparator ? '켜짐' : '꺼짐'}
               onToggle={() => updateSettings({ showDateSeparator: !settings.showDateSeparator })}
+              light={isLightSettingsPanel}
             />
 
             {/* 사용자 시간대 설정 */}
-            <div className="pt-2 border-t" style={{ borderColor: '#3a3f4a' }}>
+            <div className="pt-2 border-t" style={{ borderColor: isLightSettingsPanel ? '#e8ebf0' : '#3a3f4a' }}>
               <div className="flex items-center justify-between gap-2 mb-2">
                 <div>
                   <p className="text-xs font-semibold" style={{ color: 'var(--text-primary)' }}>내 메시지 시간대</p>
@@ -1549,7 +1559,11 @@ export function ChatWindow({ roomId, onLeave, onImageView, naverTheme, naverDark
                   }}
                   disabled={timeZoneSaving}
                   className="flex-1 rounded-md px-2 py-1.5 text-xs outline-none"
-                  style={{ background: '#2b2d31', color: 'var(--text-primary)', border: '1px solid #3a3f4a' }}
+                  style={{
+                    background: isLightSettingsPanel ? '#f7f8fb' : '#2b2d31',
+                    color: 'var(--text-primary)',
+                    border: `1px solid ${isLightSettingsPanel ? '#dfe3ea' : '#3a3f4a'}`,
+                  }}
                 >
                   {user?.timeZone && !TIME_ZONE_OPTIONS.some((option) => option.value === user.timeZone) && (
                     <option value={user.timeZone}>{user.timeZone}</option>
@@ -1562,7 +1576,7 @@ export function ChatWindow({ roomId, onLeave, onImageView, naverTheme, naverDark
             </div>
 
             {/* 잠금 코드 설정 */}
-            <div className="pt-2 border-t" style={{ borderColor: '#3a3f4a' }}>
+            <div className="pt-2 border-t" style={{ borderColor: isLightSettingsPanel ? '#e8ebf0' : '#3a3f4a' }}>
               <p className="text-xs mb-2" style={{ color: 'var(--text-muted)' }}>
                 잠금 코드 {lockCode ? `(현재: ${'●'.repeat(lockCode.length)})` : '(미설정)'}
               </p>
@@ -1574,7 +1588,11 @@ export function ChatWindow({ roomId, onLeave, onImageView, naverTheme, naverDark
                   value={lockCodeInput}
                   onChange={(e) => { setLockCodeInput(e.target.value.replace(/\D/g, '').slice(0, 16)); setLockCodeMsg(''); }}
                   className="flex-1 rounded-md px-2 py-1 text-xs outline-none"
-                  style={{ background: '#2b2d31', color: 'var(--text-primary)', border: '1px solid #3a3f4a' }}
+                  style={{
+                    background: isLightSettingsPanel ? '#f7f8fb' : '#2b2d31',
+                    color: 'var(--text-primary)',
+                    border: `1px solid ${isLightSettingsPanel ? '#dfe3ea' : '#3a3f4a'}`,
+                  }}
                 />
                 <button
                   type="button"
@@ -2296,17 +2314,22 @@ function SettingRow({
   label,
   value,
   onToggle,
+  light = false,
 }: {
   label: string;
   value: string;
   onToggle: () => void;
+  light?: boolean;
 }) {
   return (
     <button
       type="button"
       onClick={onToggle}
       className="w-full flex items-center justify-between rounded-lg px-3 py-2 text-left transition-colors"
-      style={{ background: '#2b2d31' }}
+      style={{
+        background: light ? '#f7f8fb' : '#2b2d31',
+        border: `1px solid ${light ? '#dfe3ea' : '#2b2d31'}`,
+      }}
     >
       <span className="text-sm" style={{ color: 'var(--text-primary)' }}>{label}</span>
       <span className="text-xs" style={{ color: 'var(--text-muted)' }}>{value}</span>
