@@ -84,7 +84,7 @@ export async function messageRoutes(app: FastifyInstance) {
   auth.get('/:roomId', async (req, reply) => {
     const userId = (req.user as { sub: number }).sub;
     const { roomId } = req.params as { roomId: string };
-    const { cursor, around } = req.query as { cursor?: string; around?: string };
+    const { cursor, around, afterCursor } = req.query as { cursor?: string; around?: string; afterCursor?: string };
 
     // 해당 방 멤버인지 검증
     const member = await prisma.roomMember.findUnique({
@@ -134,8 +134,28 @@ export async function messageRoutes(app: FastifyInstance) {
 
       const combined = [...before.reverse(), ...after];
       const nextCursor = before.length === BEFORE ? before[before.length - 1].id : null;
+      const newerCursor = after.length === AFTER ? after[after.length - 1].id : null;
 
-      return reply.send({ success: true, data: { messages: combined, nextCursor } });
+      return reply.send({ success: true, data: { messages: combined, nextCursor, newerCursor } });
+    }
+
+    if (afterCursor) {
+      const messages = await prisma.message.findMany({
+        where: {
+          roomId: Number(roomId),
+          id: { gt: Number(afterCursor) },
+        },
+        include: messageInclude,
+        orderBy: { id: 'asc' },
+        take: PAGE_SIZE,
+      });
+
+      const newerCursor = messages.length === PAGE_SIZE ? messages[messages.length - 1].id : null;
+
+      return reply.send({
+        success: true,
+        data: { messages, nextCursor: null, newerCursor },
+      });
     }
 
     const messages = await prisma.message.findMany({
@@ -152,7 +172,7 @@ export async function messageRoutes(app: FastifyInstance) {
 
     return reply.send({
       success: true,
-      data: { messages: messages.reverse(), nextCursor },
+      data: { messages: messages.reverse(), nextCursor, newerCursor: null },
     });
   });
 

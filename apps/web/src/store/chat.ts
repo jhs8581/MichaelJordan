@@ -11,6 +11,7 @@ interface ChatState {
   setRoomMuted: (roomId: number, isMuted: boolean) => void;
   addMessage: (roomId: number, message: Message) => void;
   prependMessages: (roomId: number, messages: Message[]) => void;
+  appendMessages: (roomId: number, messages: Message[]) => void;
   setMessages: (roomId: number, messages: Message[]) => void;
   updateMessage: (roomId: number, messageId: number, content: string) => void;
   removeMessage: (roomId: number, messageId: number) => void;
@@ -63,6 +64,19 @@ export const useChatStore = create<ChatState>()((set) => ({
         [roomId]: [...messages, ...(state.messages[roomId] ?? [])],
       },
     })),
+
+  appendMessages: (roomId, messages) =>
+    set((state) => {
+      const existing = state.messages[roomId] ?? [];
+      const existingIds = new Set(existing.map((message) => message.id));
+      const merged = messages.filter((message) => !existingIds.has(message.id));
+      return {
+        messages: {
+          ...state.messages,
+          [roomId]: [...existing, ...merged],
+        },
+      };
+    }),
 
   setMessages: (roomId, messages) =>
     set((state) => ({

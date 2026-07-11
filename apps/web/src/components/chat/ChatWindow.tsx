@@ -78,6 +78,12 @@ type ChatViewSettings = {
   showDateSeparator: boolean;
 };
 
+type MessageListResponse = {
+  messages: Message[];
+  nextCursor: number | null;
+  newerCursor?: number | null;
+};
+
 function getLocalTimeZone(): string | undefined {
   try {
     return Intl.DateTimeFormat().resolvedOptions().timeZone;
@@ -190,6 +196,7 @@ export function ChatWindow({ roomId, onLeave, onImageView, naverTheme, naverDark
   const messages = useChatStore((s) => s.messages[roomId] ?? []);
   const addMessage = useChatStore((s) => s.addMessage);
   const prependMessages = useChatStore((s) => s.prependMessages);
+  const appendMessages = useChatStore((s) => s.appendMessages);
   const setMessages = useChatStore((s) => s.setMessages);
   const markRead = useChatStore((s) => s.markRead);
   const clearRoomUnread = useChatStore((s) => s.clearRoomUnread);
@@ -248,7 +255,9 @@ export function ChatWindow({ roomId, onLeave, onImageView, naverTheme, naverDark
   const [postMsgSaving, setPostMsgSaving] = useState(false);
   // 이전 메시지 페이지네이션
   const [nextCursor, setNextCursor] = useState<number | null>(null);
+  const [newerCursor, setNewerCursor] = useState<number | null>(null);
   const [loadingOlder, setLoadingOlder] = useState(false);
+  const [loadingNewer, setLoadingNewer] = useState(false);
   // 타이핑 중인 사용자 목록 { userId, username }
   const [typingUsers, setTypingUsers] = useState<{ userId: number; username: string }[]>([]);
   const typingTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -311,17 +320,19 @@ export function ChatWindow({ roomId, onLeave, onImageView, naverTheme, naverDark
 
   useEffect(() => {
     setNextCursor(null);
+    setNewerCursor(null);
     setReplyTarget(null);
     setEditingMessage(null);
     setEditContent('');
     setRoomInfoOpen(false);
     allRoomImagesRef.current = null;
     api
-      .get<{ data: { messages: Message[]; nextCursor: number | null } }>(`/messages/${roomId}`)
+      .get<{ data: MessageListResponse }>(`/messages/${roomId}`)
       .then((res) => {
         const msgs = res.data.data.messages;
         setMessages(roomId, msgs);
         setNextCursor(res.data.data.nextCursor);
+        setNewerCursor(res.data.data.newerCursor ?? null);
         // 채팅방 열 때 즉시 미읽음 배지 제거 + 서버에 읽음 처리 전송
         clearRoomUnread(roomId);
         if (msgs.length > 0 && accessToken) {
@@ -859,13 +870,14 @@ export function ChatWindow({ roomId, onLeave, onImageView, naverTheme, naverDark
 
   async function loadMessagesAround(messageId: number) {
     try {
-      const res = await api.get<{ data: { messages: Message[]; nextCursor: number | null } }>(
+      const res = await api.get<{ data: MessageListResponse }>(
         `/messages/${roomId}?around=${messageId}`
       );
       hasScrolledToBottom.current = false;
       setPendingScrollTo(messageId);
       setMessages(roomId, res.data.data.messages);
       setNextCursor(res.data.data.nextCursor);
+      setNewerCursor(res.data.data.newerCursor ?? null);
     } catch {
       showCopyNotice('메시지를 불러오지 못했습니다.');
     }
@@ -900,7 +912,7 @@ export function ChatWindow({ roomId, onLeave, onImageView, naverTheme, naverDark
       const prevScrollHeight = el.scrollHeight;
       const prevScrollTop = el.scrollTop;
       api
-        .get<{ data: { messages: Message[]; nextCursor: number | null } }>(`/messages/${roomId}?cursor=${nextCursor}`)
+        .get<{ data: MessageListResponse }>(`/messages/${roomId}?cursor=${nextCursor}`)
         .then((res) => {
           const older = res.data.data.messages;
           if (older.length > 0) {
@@ -914,6 +926,26 @@ export function ChatWindow({ roomId, onLeave, onImageView, naverTheme, naverDark
           setNextCursor(res.data.data.nextCursor);
         })
         .finally(() => setLoadingOlder(false));
+    }
+
+    if (distFromBottom < 80 && newerCursor && !loadingNewer) {
+      setLoadingNewer(true);
+      const prevScrollHeight = el.scrollHeight;
+      const prevScrollTop = el.scrollTop;
+      api
+        .get<{ data: MessageListResponse }>(`/messages/${roomId}?afterCursor=${newerCursor}`)
+        .then((res) => {
+          const newer = res.data.data.messages;
+          if (newer.length > 0) {
+            appendMessages(roomId, newer);
+            requestAnimationFrame(() => {
+              const newScrollHeight = el.scrollHeight;
+              el.scrollTop = prevScrollTop + (newScrollHeight - prevScrollHeight);
+            });
+          }
+          setNewerCursor(res.data.data.newerCursor ?? null);
+        })
+        .finally(() => setLoadingNewer(false));
     }
   }
 
@@ -1088,8 +1120,10 @@ export function ChatWindow({ roomId, onLeave, onImageView, naverTheme, naverDark
   async function handleRefresh() {
     setIsRefreshing(true);
     try {
-      const res = await api.get<{ data: { messages: Message[] } }>(`/messages/${roomId}`);
+      const res = await api.get<{ data: MessageListResponse }>(`/messages/${roomId}`);
       setMessages(roomId, res.data.data.messages);
+      setNextCursor(res.data.data.nextCursor);
+      setNewerCursor(res.data.data.newerCursor ?? null);
     } finally {
       setIsRefreshing(false);
     }
