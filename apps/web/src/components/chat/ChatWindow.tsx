@@ -183,6 +183,7 @@ export function ChatWindow({ roomId, onLeave, onImageView, naverTheme, naverDark
   const [timeZoneMsg, setTimeZoneMsg] = useState('');
   const [roomTimeZoneSaving, setRoomTimeZoneSaving] = useState(false);
   const [roomTimeZoneMsg, setRoomTimeZoneMsg] = useState('');
+  const [roomClockOpen, setRoomClockOpen] = useState(true);
   const rooms = useChatStore((s) => s.rooms);
   const removeRoom = useChatStore((s) => s.removeRoom);
   const setRoomMuted = useChatStore((s) => s.setRoomMuted);
@@ -271,9 +272,9 @@ export function ChatWindow({ roomId, onLeave, onImageView, naverTheme, naverDark
   const roomTimeZone1Label = ROOM_TIME_ZONE_OPTIONS.find((option) => option.value === roomTimeZone1)?.label ?? roomTimeZone1;
   const roomTimeZone2Label = ROOM_TIME_ZONE_OPTIONS.find((option) => option.value === roomTimeZone2)?.label ?? roomTimeZone2;
   const roomClockItems = [
-    { key: 'kr', title: '한국시간', zone: 'Asia/Seoul', subtitle: 'Asia/Seoul' },
-    ...(roomTimeZone1 ? [{ key: 's1', title: '설정시간1', zone: roomTimeZone1, subtitle: roomTimeZone1Label ?? roomTimeZone1 }] : []),
-    ...(roomTimeZone2 ? [{ key: 's2', title: '설정시간2', zone: roomTimeZone2, subtitle: roomTimeZone2Label ?? roomTimeZone2 }] : []),
+    { key: 'kr', zone: 'Asia/Seoul', subtitle: '한국 - 서울' },
+    ...(roomTimeZone1 ? [{ key: 's1', zone: roomTimeZone1, subtitle: roomTimeZone1Label ?? roomTimeZone1 }] : []),
+    ...(roomTimeZone2 ? [{ key: 's2', zone: roomTimeZone2, subtitle: roomTimeZone2Label ?? roomTimeZone2 }] : []),
   ];
 
   useEffect(() => {
@@ -288,6 +289,24 @@ export function ChatWindow({ roomId, onLeave, onImageView, naverTheme, naverDark
     const timer = setInterval(() => setClockNow(Date.now()), 30000);
     return () => clearInterval(timer);
   }, []);
+
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem('chat-room-clock-open');
+      if (saved === '0') setRoomClockOpen(false);
+      if (saved === '1') setRoomClockOpen(true);
+    } catch {
+      // localStorage 접근 실패 시 기본값 유지
+    }
+  }, []);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem('chat-room-clock-open', roomClockOpen ? '1' : '0');
+    } catch {
+      // 저장 실패 시 무시
+    }
+  }, [roomClockOpen]);
 
   useEffect(() => {
     setNextCursor(null);
@@ -1621,24 +1640,40 @@ export function ChatWindow({ roomId, onLeave, onImageView, naverTheme, naverDark
           background: naverTheme ? (naverDark ? '#161616' : '#ffffff') : oyTheme ? (oyDark ? '#0F2222' : '#ffffff') : 'var(--chat-bg)',
         }}
       >
-        <div className="grid gap-2" style={{ gridTemplateColumns: `repeat(${Math.min(roomClockItems.length, 3)}, minmax(0, 1fr))` }}>
-          {roomClockItems.map((clock) => (
-            <div
-              key={clock.key}
-              className="rounded-lg px-2.5 py-2"
-              style={{
-                background: naverTheme && !naverDark ? '#f4f5f7' : oyTheme && !oyDark ? '#f5f7f7' : '#2b2d31',
-                border: `1px solid ${naverTheme && !naverDark ? '#e1e5ea' : oyTheme && !oyDark ? '#dde8e8' : '#3a3f4a'}`,
-              }}
-            >
-              <p className="text-[10px] font-semibold" style={{ color: 'var(--text-muted)' }}>{clock.title}</p>
-              <p className="text-sm font-bold mt-0.5" style={{ color: 'var(--text-primary)' }}>
-                {formatCurrentTimeForZone(clock.zone, clockNow)}
-              </p>
-              <p className="text-[10px] mt-0.5 truncate" style={{ color: 'var(--text-muted)' }}>{clock.subtitle}</p>
-            </div>
-          ))}
+        <div className="flex items-center justify-end mb-2">
+          <button
+            type="button"
+            onClick={() => setRoomClockOpen((prev) => !prev)}
+            className="rounded-md px-2 py-1 text-[11px]"
+            style={{
+              background: naverTheme && !naverDark ? '#eef1f5' : oyTheme && !oyDark ? '#eff5f5' : '#2b2d31',
+              color: 'var(--text-muted)',
+              border: `1px solid ${naverTheme && !naverDark ? '#dde3ea' : oyTheme && !oyDark ? '#d9e5e5' : '#3a3f4a'}`,
+            }}
+            aria-label={roomClockOpen ? '시간 표시 접기' : '시간 표시 열기'}
+          >
+            {roomClockOpen ? '시간 접기' : '시간 열기'}
+          </button>
         </div>
+        {roomClockOpen && (
+          <div className="grid gap-2" style={{ gridTemplateColumns: `repeat(${Math.min(roomClockItems.length, 3)}, minmax(0, 1fr))` }}>
+            {roomClockItems.map((clock) => (
+              <div
+                key={clock.key}
+                className="rounded-lg px-2.5 py-2"
+                style={{
+                  background: naverTheme && !naverDark ? '#f4f5f7' : oyTheme && !oyDark ? '#f5f7f7' : '#2b2d31',
+                  border: `1px solid ${naverTheme && !naverDark ? '#e1e5ea' : oyTheme && !oyDark ? '#dde8e8' : '#3a3f4a'}`,
+                }}
+              >
+                <p className="text-sm font-bold" style={{ color: 'var(--text-primary)' }}>
+                  {formatCurrentTimeForZone(clock.zone, clockNow)}
+                </p>
+                <p className="text-[10px] mt-0.5 truncate" style={{ color: 'var(--text-muted)' }}>{clock.subtitle}</p>
+              </div>
+            ))}
+          </div>
+        )}
       </div>
 
       {settingsOpen && (
