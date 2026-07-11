@@ -45,6 +45,8 @@ model Room {
   isGroup   Boolean      @default(false)
   createdAt DateTime     @default(now())
   isArchive Boolean      @default(false)
+  roomTimeZone1 String?  @db.NVarChar(100)
+  roomTimeZone2 String?  @db.NVarChar(100)
   messages  Message[]
   posts     Post[]
   members   RoomMember[]

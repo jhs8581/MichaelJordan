@@ -9,6 +9,22 @@ const createRoomSchema = z.object({
   memberIds: z.array(z.number()).min(1),
 });
 
+const updateRoomTimeZonesSchema = z.object({
+  timeZone1: z.string().optional(),
+  timeZone2: z.string().optional(),
+});
+
+function normalizeTimeZone(value: string | undefined): string | null {
+  const timeZone = (value ?? '').trim();
+  if (!timeZone) return null;
+  try {
+    new Intl.DateTimeFormat('ko-KR', { timeZone }).format(new Date());
+    return timeZone;
+  } catch {
+    return null;
+  }
+}
+
 export async function roomRoutes(app: FastifyInstance) {
   // 인증 필요
   app.addHook('preHandler', requireAuth);
@@ -190,5 +206,42 @@ export async function roomRoutes(app: FastifyInstance) {
     });
 
     return reply.send({ success: true, data: { isMuted: body.mute } });
+  });
+
+  // ── 방 공통 시간대 설정 (모든 멤버 변경 가능) ──────────────────────
+  app.patch('/:roomId/time-zones', async (req, reply) => {
+    const userId = (req.user as { sub: number }).sub;
+    const { roomId } = req.params as { roomId: string };
+    const body = updateRoomTimeZonesSchema.safeParse(req.body);
+    if (!body.success) {
+      return reply.status(400).send({ success: false, error: body.error.message });
+    }
+
+    const member = await prisma.roomMember.findUnique({
+      where: { userId_roomId: { userId, roomId: Number(roomId) } },
+    });
+    if (!member) {
+      return reply.status(404).send({ success: false, error: '채팅방 멤버가 아닙니다.' });
+    }
+
+    const normalizedTimeZone1 = normalizeTimeZone(body.data.timeZone1) ?? null;
+    const normalizedTimeZone2 = normalizeTimeZone(body.data.timeZone2) ?? null;
+
+    if (normalizedTimeZone1 && normalizedTimeZone2 && normalizedTimeZone1 === normalizedTimeZone2) {
+      return reply.status(400).send({ success: false, error: '설정시간1과 설정시간2는 서로 달라야 합니다.' });
+    }
+
+    const updated = await prisma.room.update({
+      where: { id: Number(roomId) },
+      data: {
+        roomTimeZone1: normalizedTimeZone1,
+        roomTimeZone2: normalizedTimeZone2,
+      },
+      include: {
+        members: { include: { user: { select: { id: true, username: true, avatarUrl: true, isOnline: true } } } },
+      },
+    });
+
+    return reply.send({ success: true, data: updated });
   });
 }

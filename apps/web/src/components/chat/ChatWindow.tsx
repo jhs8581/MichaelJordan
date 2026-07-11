@@ -58,6 +58,19 @@ const TIME_ZONE_OPTIONS = [
   { value: 'Asia/Tokyo', label: '일본 - 도쿄' },
 ] as const;
 
+const ROOM_TIME_ZONE_OPTIONS = [
+  { value: '', label: '선택 안 함' },
+  { value: 'Asia/Kolkata', label: '인도 - 콜카타' },
+  { value: 'Asia/Ho_Chi_Minh', label: '베트남 - 호치민' },
+  { value: 'Asia/Bangkok', label: '태국 - 방콕' },
+  { value: 'Europe/Warsaw', label: '폴란드 - 바르샤바' },
+  { value: 'Europe/London', label: '영국 - 런던' },
+  { value: 'Europe/Paris', label: '프랑스/독일 - 중부유럽' },
+  { value: 'America/New_York', label: '미국 - 뉴욕' },
+  { value: 'America/Los_Angeles', label: '미국 - LA' },
+  { value: 'Asia/Tokyo', label: '일본 - 도쿄' },
+] as const;
+
 type ChatViewSettings = {
   viewMode: ChatViewMode;
   timeFormat: TimeFormatMode;
@@ -121,6 +134,19 @@ function sortImagesNewestFirst(items: RoomImageItem[]): RoomImageItem[] {
   });
 }
 
+function formatCurrentTimeForZone(timeZone: string): string {
+  try {
+    return new Date().toLocaleTimeString('ko-KR', {
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: false,
+      timeZone,
+    });
+  } catch {
+    return '--:--';
+  }
+}
+
 const DEFAULT_SETTINGS: ChatViewSettings = {
   viewMode: 'bubble',
   timeFormat: 'ampm',
@@ -155,6 +181,8 @@ export function ChatWindow({ roomId, onLeave, onImageView, naverTheme, naverDark
   const [lockCodeMsg, setLockCodeMsg] = useState('');
   const [timeZoneSaving, setTimeZoneSaving] = useState(false);
   const [timeZoneMsg, setTimeZoneMsg] = useState('');
+  const [roomTimeZoneSaving, setRoomTimeZoneSaving] = useState(false);
+  const [roomTimeZoneMsg, setRoomTimeZoneMsg] = useState('');
   const rooms = useChatStore((s) => s.rooms);
   const removeRoom = useChatStore((s) => s.removeRoom);
   const setRoomMuted = useChatStore((s) => s.setRoomMuted);
@@ -237,10 +265,18 @@ export function ChatWindow({ roomId, onLeave, onImageView, naverTheme, naverDark
   const isRoomMuted = muteOverride ?? Boolean(activeRoom?.isMuted);
   const lockCode = (user?.chatLockCode ?? '').trim();
   const canLock = lockCode.length > 0;
+  const roomTimeZone1 = getValidTimeZone(activeRoom?.roomTimeZone1) ?? undefined;
+  const roomTimeZone2 = getValidTimeZone(activeRoom?.roomTimeZone2) ?? undefined;
+  const roomTimeZone1Label = ROOM_TIME_ZONE_OPTIONS.find((option) => option.value === roomTimeZone1)?.label ?? roomTimeZone1;
+  const roomTimeZone2Label = ROOM_TIME_ZONE_OPTIONS.find((option) => option.value === roomTimeZone2)?.label ?? roomTimeZone2;
 
   useEffect(() => {
     setMuteOverride(null);
   }, [roomId, activeRoom?.isMuted]);
+
+  useEffect(() => {
+    setRoomTimeZoneMsg('');
+  }, [roomId]);
 
   useEffect(() => {
     setNextCursor(null);
@@ -666,6 +702,59 @@ export function ChatWindow({ roomId, onLeave, onImageView, naverTheme, naverDark
       showCopyNotice('알림 설정 변경에 실패했습니다.');
     } finally {
       setMuteSaving(false);
+    }
+  }
+
+  async function saveRoomTimeZones(nextTimeZone1?: string, nextTimeZone2?: string) {
+    if (!activeRoom || roomTimeZoneSaving) return;
+
+    const normalizedTimeZone1 = getValidTimeZone(nextTimeZone1) ?? undefined;
+    const normalizedTimeZone2 = getValidTimeZone(nextTimeZone2) ?? undefined;
+
+    if (normalizedTimeZone1 && normalizedTimeZone2 && normalizedTimeZone1 === normalizedTimeZone2) {
+      setRoomTimeZoneMsg('설정1/설정2는 서로 다르게 선택해주세요.');
+      return;
+    }
+
+    setRoomTimeZoneSaving(true);
+    setRoomTimeZoneMsg('');
+    const prevTimeZone1 = activeRoom.roomTimeZone1;
+    const prevTimeZone2 = activeRoom.roomTimeZone2;
+
+    setRooms(
+      rooms.map((room) =>
+        room.id === roomId
+          ? { ...room, roomTimeZone1: normalizedTimeZone1, roomTimeZone2: normalizedTimeZone2 }
+          : room,
+      ),
+    );
+
+    try {
+      const res = await api.patch<{ data: Room }>(`/rooms/${roomId}/time-zones`, {
+        timeZone1: normalizedTimeZone1,
+        timeZone2: normalizedTimeZone2,
+      });
+
+      const updated = res.data.data;
+      setRooms(
+        rooms.map((room) =>
+          room.id === roomId
+            ? { ...room, roomTimeZone1: updated.roomTimeZone1, roomTimeZone2: updated.roomTimeZone2 }
+            : room,
+        ),
+      );
+      setRoomTimeZoneMsg('저장됨');
+    } catch {
+      setRooms(
+        rooms.map((room) =>
+          room.id === roomId
+            ? { ...room, roomTimeZone1: prevTimeZone1, roomTimeZone2: prevTimeZone2 }
+            : room,
+        ),
+      );
+      setRoomTimeZoneMsg('저장 실패');
+    } finally {
+      setRoomTimeZoneSaving(false);
     }
   }
 
@@ -1307,9 +1396,16 @@ export function ChatWindow({ roomId, onLeave, onImageView, naverTheme, naverDark
             ? <><line x1="4" y1="9" x2="20" y2="9"/><line x1="4" y1="15" x2="20" y2="15"/><line x1="10" y1="3" x2="8" y2="21"/><line x1="16" y1="3" x2="14" y2="21"/></>
             : <><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></>}
         </svg>
-        <span className="font-semibold text-sm min-w-0 truncate" style={{ color: 'var(--text-primary)' }}>
-          {activeRoom?.name ?? ''}
-        </span>
+        <div className="min-w-0">
+          <span className="block font-semibold text-sm min-w-0 truncate" style={{ color: 'var(--text-primary)' }}>
+            {activeRoom?.name ?? ''}
+          </span>
+          <div className="mt-0.5 flex items-center gap-2 text-[10px] whitespace-nowrap overflow-hidden">
+            <span style={{ color: 'var(--text-muted)' }}>KR {formatCurrentTimeForZone('Asia/Seoul')}</span>
+            {roomTimeZone1 && <span style={{ color: 'var(--text-muted)' }}>S1 {formatCurrentTimeForZone(roomTimeZone1)}</span>}
+            {roomTimeZone2 && <span style={{ color: 'var(--text-muted)' }}>S2 {formatCurrentTimeForZone(roomTimeZone2)}</span>}
+          </div>
+        </div>
         <div className="flex-1" />
         {/* 알림 음소거 버튼 */}
         <button
@@ -1577,6 +1673,88 @@ export function ChatWindow({ roomId, onLeave, onImageView, naverTheme, naverDark
                     <option key={option.value || 'auto'} value={option.value}>{option.label}</option>
                   ))}
                 </select>
+              </div>
+            </div>
+
+            {/* 방 공통 시간대 설정 */}
+            <div className="pt-2 border-t" style={{ borderColor: isLightSettingsPanel ? '#e8ebf0' : '#3a3f4a' }}>
+              <div className="flex items-center justify-between gap-2 mb-2">
+                <div>
+                  <p className="text-xs font-semibold" style={{ color: 'var(--text-primary)' }}>방 공통 시간대</p>
+                  <p className="text-[11px] mt-0.5" style={{ color: 'var(--text-muted)' }}>
+                    한국시간은 고정, 설정시간1/2는 방 전체에 공통 적용됩니다.
+                  </p>
+                </div>
+                {roomTimeZoneMsg && (
+                  <span
+                    className="text-[11px]"
+                    style={{ color: roomTimeZoneMsg === '저장됨' ? '#57f287' : '#ed4245' }}
+                  >
+                    {roomTimeZoneMsg}
+                  </span>
+                )}
+              </div>
+
+              <div className="space-y-2">
+                <div className="flex items-center gap-2 text-[11px]" style={{ color: 'var(--text-muted)' }}>
+                  <span className="w-16">한국시간</span>
+                  <span style={{ color: 'var(--text-primary)' }}>Asia/Seoul</span>
+                  <span>({formatCurrentTimeForZone('Asia/Seoul')})</span>
+                </div>
+
+                <div className="flex items-center gap-2">
+                  <span className="w-16 text-[11px]" style={{ color: 'var(--text-muted)' }}>설정시간1</span>
+                  <select
+                    value={roomTimeZone1 ?? ''}
+                    onChange={(e) => saveRoomTimeZones(e.target.value || undefined, roomTimeZone2)}
+                    disabled={roomTimeZoneSaving}
+                    className="flex-1 rounded-md px-2 py-1.5 text-xs outline-none"
+                    style={{
+                      background: isLightSettingsPanel ? '#f7f8fb' : '#2b2d31',
+                      color: 'var(--text-primary)',
+                      border: `1px solid ${isLightSettingsPanel ? '#dfe3ea' : '#3a3f4a'}`,
+                    }}
+                  >
+                    {roomTimeZone1 && !ROOM_TIME_ZONE_OPTIONS.some((option) => option.value === roomTimeZone1) && (
+                      <option value={roomTimeZone1}>{roomTimeZone1}</option>
+                    )}
+                    {ROOM_TIME_ZONE_OPTIONS.map((option) => (
+                      <option key={`room-tz1-${option.value || 'none'}`} value={option.value}>{option.label}</option>
+                    ))}
+                  </select>
+                </div>
+                {roomTimeZone1 && (
+                  <p className="text-[11px] pl-[4.5rem]" style={{ color: 'var(--text-muted)' }}>
+                    현재: {roomTimeZone1Label} ({formatCurrentTimeForZone(roomTimeZone1)})
+                  </p>
+                )}
+
+                <div className="flex items-center gap-2">
+                  <span className="w-16 text-[11px]" style={{ color: 'var(--text-muted)' }}>설정시간2</span>
+                  <select
+                    value={roomTimeZone2 ?? ''}
+                    onChange={(e) => saveRoomTimeZones(roomTimeZone1, e.target.value || undefined)}
+                    disabled={roomTimeZoneSaving}
+                    className="flex-1 rounded-md px-2 py-1.5 text-xs outline-none"
+                    style={{
+                      background: isLightSettingsPanel ? '#f7f8fb' : '#2b2d31',
+                      color: 'var(--text-primary)',
+                      border: `1px solid ${isLightSettingsPanel ? '#dfe3ea' : '#3a3f4a'}`,
+                    }}
+                  >
+                    {roomTimeZone2 && !ROOM_TIME_ZONE_OPTIONS.some((option) => option.value === roomTimeZone2) && (
+                      <option value={roomTimeZone2}>{roomTimeZone2}</option>
+                    )}
+                    {ROOM_TIME_ZONE_OPTIONS.map((option) => (
+                      <option key={`room-tz2-${option.value || 'none'}`} value={option.value}>{option.label}</option>
+                    ))}
+                  </select>
+                </div>
+                {roomTimeZone2 && (
+                  <p className="text-[11px] pl-[4.5rem]" style={{ color: 'var(--text-muted)' }}>
+                    현재: {roomTimeZone2Label} ({formatCurrentTimeForZone(roomTimeZone2)})
+                  </p>
+                )}
               </div>
             </div>
 
