@@ -16,6 +16,11 @@ export function getSocket(_token?: string): Socket<ServerToClientEvents, ClientT
       },
       autoConnect: false,
       transports: ['websocket', 'polling'],
+      reconnection: true,
+      reconnectionDelay: 400,
+      reconnectionDelayMax: 1800,
+      randomizationFactor: 0.25,
+      timeout: 7000,
     });
   }
   return socket;

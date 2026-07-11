@@ -258,6 +258,7 @@ export function ChatWindow({ roomId, onLeave, onImageView, naverTheme, naverDark
   const partialCopyTextareaRef = useRef<HTMLTextAreaElement>(null);
   const longPressTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const copyNoticeTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const stopViewingTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const messageRefs = useRef<Record<number, HTMLDivElement | null>>({});
   const allRoomImagesRef = useRef<RoomImageItem[] | null>(null);
   const pendingRepliesRef = useRef<Array<{ roomId: number; content: string; replyToId: number; replyTo: Message['replyTo'] }>>([]);
@@ -354,8 +355,25 @@ export function ChatWindow({ roomId, onLeave, onImageView, naverTheme, naverDark
       return document.visibilityState === 'visible';
     }
 
+    function clearStopViewingTimer() {
+      if (stopViewingTimerRef.current) {
+        clearTimeout(stopViewingTimerRef.current);
+        stopViewingTimerRef.current = null;
+      }
+    }
+
+    function scheduleStopViewing(delayMs = 8000) {
+      clearStopViewingTimer();
+      stopViewingTimerRef.current = setTimeout(() => {
+        socket.emit('room:stop-viewing', roomId);
+        stopViewingTimerRef.current = null;
+        console.log(`[STOP-VIEWING] 지연 처리 roomId=${roomId}`);
+      }, delayMs);
+    }
+
     function emitViewingState() {
       if (isPageActive()) {
+        clearStopViewingTimer();
         socket.emit('room:viewing', roomId);
         // 페이지 복귀 시 현재 로드된 메시지 중 최신 것까지 읽음 처리
         const msgs = useChatStore.getState().messages[roomId];
@@ -367,13 +385,12 @@ export function ChatWindow({ roomId, onLeave, onImageView, naverTheme, naverDark
           console.log(`[VIEWING] 로드된 메시지 없음 roomId=${roomId}`);
         }
       } else {
-        socket.emit('room:stop-viewing', roomId);
-        console.log(`[STOP-VIEWING] 페이지 백그라운드 roomId=${roomId}`);
+        scheduleStopViewing();
       }
     }
 
     function emitStopViewing() {
-      socket.emit('room:stop-viewing', roomId);
+      scheduleStopViewing();
     }
 
     emitViewingState();
@@ -462,6 +479,7 @@ export function ChatWindow({ roomId, onLeave, onImageView, naverTheme, naverDark
     });
     return () => {
       // 채팅창 닫힘 → 더 이상 이 방을 보고 있지 않음, 푸시 다시 받기
+      clearStopViewingTimer();
       socket.emit('room:stop-viewing', roomId);
       socket.off('connect', onConnect);
       socket.off('disconnect', onDisconnect);
