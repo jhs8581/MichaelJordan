@@ -134,9 +134,9 @@ function sortImagesNewestFirst(items: RoomImageItem[]): RoomImageItem[] {
   });
 }
 
-function formatCurrentTimeForZone(timeZone: string): string {
+function formatCurrentTimeForZone(timeZone: string, nowMs: number): string {
   try {
-    return new Date().toLocaleTimeString('ko-KR', {
+    return new Date(nowMs).toLocaleTimeString('ko-KR', {
       hour: '2-digit',
       minute: '2-digit',
       hour12: false,
@@ -215,6 +215,7 @@ export function ChatWindow({ roomId, onLeave, onImageView, naverTheme, naverDark
   const [uploading, setUploading] = useState(false);
   const [uploadError, setUploadError] = useState('');
   const [uploadProgress, setUploadProgress] = useState('');
+  const [clockNow, setClockNow] = useState(() => Date.now());
   const [pendingPasteImage, setPendingPasteImage] = useState<{ file: File; url: string } | null>(null);
   const [copyNotice, setCopyNotice] = useState('');
   const [isRefreshing, setIsRefreshing] = useState(false);
@@ -269,6 +270,11 @@ export function ChatWindow({ roomId, onLeave, onImageView, naverTheme, naverDark
   const roomTimeZone2 = getValidTimeZone(activeRoom?.roomTimeZone2) ?? undefined;
   const roomTimeZone1Label = ROOM_TIME_ZONE_OPTIONS.find((option) => option.value === roomTimeZone1)?.label ?? roomTimeZone1;
   const roomTimeZone2Label = ROOM_TIME_ZONE_OPTIONS.find((option) => option.value === roomTimeZone2)?.label ?? roomTimeZone2;
+  const roomClockItems = [
+    { key: 'kr', title: '한국시간', zone: 'Asia/Seoul', subtitle: 'Asia/Seoul' },
+    ...(roomTimeZone1 ? [{ key: 's1', title: '설정시간1', zone: roomTimeZone1, subtitle: roomTimeZone1Label ?? roomTimeZone1 }] : []),
+    ...(roomTimeZone2 ? [{ key: 's2', title: '설정시간2', zone: roomTimeZone2, subtitle: roomTimeZone2Label ?? roomTimeZone2 }] : []),
+  ];
 
   useEffect(() => {
     setMuteOverride(null);
@@ -277,6 +283,11 @@ export function ChatWindow({ roomId, onLeave, onImageView, naverTheme, naverDark
   useEffect(() => {
     setRoomTimeZoneMsg('');
   }, [roomId]);
+
+  useEffect(() => {
+    const timer = setInterval(() => setClockNow(Date.now()), 30000);
+    return () => clearInterval(timer);
+  }, []);
 
   useEffect(() => {
     setNextCursor(null);
@@ -1400,11 +1411,6 @@ export function ChatWindow({ roomId, onLeave, onImageView, naverTheme, naverDark
           <span className="block font-semibold text-sm min-w-0 truncate" style={{ color: 'var(--text-primary)' }}>
             {activeRoom?.name ?? ''}
           </span>
-          <div className="mt-0.5 flex items-center gap-2 text-[10px] whitespace-nowrap overflow-hidden">
-            <span style={{ color: 'var(--text-muted)' }}>KR {formatCurrentTimeForZone('Asia/Seoul')}</span>
-            {roomTimeZone1 && <span style={{ color: 'var(--text-muted)' }}>S1 {formatCurrentTimeForZone(roomTimeZone1)}</span>}
-            {roomTimeZone2 && <span style={{ color: 'var(--text-muted)' }}>S2 {formatCurrentTimeForZone(roomTimeZone2)}</span>}
-          </div>
         </div>
         <div className="flex-1" />
         {/* 알림 음소거 버튼 */}
@@ -1589,6 +1595,33 @@ export function ChatWindow({ roomId, onLeave, onImageView, naverTheme, naverDark
         </div>
       )}
 
+      <div
+        className="flex-shrink-0 px-3 py-2 border-b"
+        style={{
+          borderColor: naverTheme ? (naverDark ? '#2e2e2e' : '#e8e8e8') : oyTheme ? (oyDark ? '#1A3030' : '#EEF0F0') : '#1e1f22',
+          background: naverTheme ? (naverDark ? '#161616' : '#ffffff') : oyTheme ? (oyDark ? '#0F2222' : '#ffffff') : 'var(--chat-bg)',
+        }}
+      >
+        <div className="grid gap-2" style={{ gridTemplateColumns: `repeat(${Math.min(roomClockItems.length, 3)}, minmax(0, 1fr))` }}>
+          {roomClockItems.map((clock) => (
+            <div
+              key={clock.key}
+              className="rounded-lg px-2.5 py-2"
+              style={{
+                background: naverTheme && !naverDark ? '#f4f5f7' : oyTheme && !oyDark ? '#f5f7f7' : '#2b2d31',
+                border: `1px solid ${naverTheme && !naverDark ? '#e1e5ea' : oyTheme && !oyDark ? '#dde8e8' : '#3a3f4a'}`,
+              }}
+            >
+              <p className="text-[10px] font-semibold" style={{ color: 'var(--text-muted)' }}>{clock.title}</p>
+              <p className="text-sm font-bold mt-0.5" style={{ color: 'var(--text-primary)' }}>
+                {formatCurrentTimeForZone(clock.zone, clockNow)}
+              </p>
+              <p className="text-[10px] mt-0.5 truncate" style={{ color: 'var(--text-muted)' }}>{clock.subtitle}</p>
+            </div>
+          ))}
+        </div>
+      </div>
+
       {settingsOpen && (
         <div
           data-chat-settings-panel
@@ -1699,7 +1732,7 @@ export function ChatWindow({ roomId, onLeave, onImageView, naverTheme, naverDark
                 <div className="flex items-center gap-2 text-[11px]" style={{ color: 'var(--text-muted)' }}>
                   <span className="w-16">한국시간</span>
                   <span style={{ color: 'var(--text-primary)' }}>Asia/Seoul</span>
-                  <span>({formatCurrentTimeForZone('Asia/Seoul')})</span>
+                  <span>({formatCurrentTimeForZone('Asia/Seoul', clockNow)})</span>
                 </div>
 
                 <div className="flex items-center gap-2">
@@ -1725,7 +1758,7 @@ export function ChatWindow({ roomId, onLeave, onImageView, naverTheme, naverDark
                 </div>
                 {roomTimeZone1 && (
                   <p className="text-[11px] pl-[4.5rem]" style={{ color: 'var(--text-muted)' }}>
-                    현재: {roomTimeZone1Label} ({formatCurrentTimeForZone(roomTimeZone1)})
+                    현재: {roomTimeZone1Label} ({formatCurrentTimeForZone(roomTimeZone1, clockNow)})
                   </p>
                 )}
 
@@ -1752,7 +1785,7 @@ export function ChatWindow({ roomId, onLeave, onImageView, naverTheme, naverDark
                 </div>
                 {roomTimeZone2 && (
                   <p className="text-[11px] pl-[4.5rem]" style={{ color: 'var(--text-muted)' }}>
-                    현재: {roomTimeZone2Label} ({formatCurrentTimeForZone(roomTimeZone2)})
+                    현재: {roomTimeZone2Label} ({formatCurrentTimeForZone(roomTimeZone2, clockNow)})
                   </p>
                 )}
               </div>

@@ -25,6 +25,42 @@ function normalizeTimeZone(value: string | undefined): string | null {
   }
 }
 
+async function updateRoomTimeZonesHandler(req: any, reply: any) {
+  const userId = (req.user as { sub: number }).sub;
+  const { roomId } = req.params as { roomId: string };
+  const body = updateRoomTimeZonesSchema.safeParse(req.body);
+  if (!body.success) {
+    return reply.status(400).send({ success: false, error: body.error.message });
+  }
+
+  const member = await prisma.roomMember.findUnique({
+    where: { userId_roomId: { userId, roomId: Number(roomId) } },
+  });
+  if (!member) {
+    return reply.status(404).send({ success: false, error: '채팅방 멤버가 아닙니다.' });
+  }
+
+  const normalizedTimeZone1 = normalizeTimeZone(body.data.timeZone1) ?? null;
+  const normalizedTimeZone2 = normalizeTimeZone(body.data.timeZone2) ?? null;
+
+  if (normalizedTimeZone1 && normalizedTimeZone2 && normalizedTimeZone1 === normalizedTimeZone2) {
+    return reply.status(400).send({ success: false, error: '설정시간1과 설정시간2는 서로 달라야 합니다.' });
+  }
+
+  const updated = await prisma.room.update({
+    where: { id: Number(roomId) },
+    data: {
+      roomTimeZone1: normalizedTimeZone1,
+      roomTimeZone2: normalizedTimeZone2,
+    },
+    include: {
+      members: { include: { user: { select: { id: true, username: true, avatarUrl: true, isOnline: true } } } },
+    },
+  });
+
+  return reply.send({ success: true, data: updated });
+}
+
 export async function roomRoutes(app: FastifyInstance) {
   // 인증 필요
   app.addHook('preHandler', requireAuth);
@@ -209,39 +245,7 @@ export async function roomRoutes(app: FastifyInstance) {
   });
 
   // ── 방 공통 시간대 설정 (모든 멤버 변경 가능) ──────────────────────
-  app.patch('/:roomId/time-zones', async (req, reply) => {
-    const userId = (req.user as { sub: number }).sub;
-    const { roomId } = req.params as { roomId: string };
-    const body = updateRoomTimeZonesSchema.safeParse(req.body);
-    if (!body.success) {
-      return reply.status(400).send({ success: false, error: body.error.message });
-    }
-
-    const member = await prisma.roomMember.findUnique({
-      where: { userId_roomId: { userId, roomId: Number(roomId) } },
-    });
-    if (!member) {
-      return reply.status(404).send({ success: false, error: '채팅방 멤버가 아닙니다.' });
-    }
-
-    const normalizedTimeZone1 = normalizeTimeZone(body.data.timeZone1) ?? null;
-    const normalizedTimeZone2 = normalizeTimeZone(body.data.timeZone2) ?? null;
-
-    if (normalizedTimeZone1 && normalizedTimeZone2 && normalizedTimeZone1 === normalizedTimeZone2) {
-      return reply.status(400).send({ success: false, error: '설정시간1과 설정시간2는 서로 달라야 합니다.' });
-    }
-
-    const updated = await prisma.room.update({
-      where: { id: Number(roomId) },
-      data: {
-        roomTimeZone1: normalizedTimeZone1,
-        roomTimeZone2: normalizedTimeZone2,
-      },
-      include: {
-        members: { include: { user: { select: { id: true, username: true, avatarUrl: true, isOnline: true } } } },
-      },
-    });
-
-    return reply.send({ success: true, data: updated });
-  });
+  app.patch('/:roomId/time-zones', updateRoomTimeZonesHandler);
+  // 구버전 클라이언트 오타 경로 호환
+  app.patch('/:roomId/tine-zones', updateRoomTimeZonesHandler);
 }
