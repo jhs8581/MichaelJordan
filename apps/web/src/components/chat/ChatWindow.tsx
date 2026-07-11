@@ -740,6 +740,7 @@ export function ChatWindow({ roomId, onLeave, onImageView, naverTheme, naverDark
       ),
     );
 
+    let routeMissing = false;
     try {
       const payload = {
         timeZone1: normalizedTimeZone1,
@@ -751,7 +752,14 @@ export function ChatWindow({ roomId, onLeave, onImageView, naverTheme, naverDark
       } catch (err: any) {
         // 배포 타이밍이 엇갈릴 때 구버전 오타 경로도 잠시 호환
         if (err?.response?.status === 404) {
-          res = await api.patch<{ data: Room }>(`/rooms/${roomId}/tine-zones`, payload);
+          try {
+            res = await api.patch<{ data: Room }>(`/rooms/${roomId}/tine-zones`, payload);
+          } catch (legacyErr: any) {
+            if (legacyErr?.response?.status === 404) {
+              routeMissing = true;
+            }
+            throw legacyErr;
+          }
         } else {
           throw err;
         }
@@ -774,7 +782,7 @@ export function ChatWindow({ roomId, onLeave, onImageView, naverTheme, naverDark
             : room,
         ),
       );
-      setRoomTimeZoneMsg('저장 실패');
+      setRoomTimeZoneMsg(routeMissing ? '서버 업데이트 필요' : '저장 실패');
     } finally {
       setRoomTimeZoneSaving(false);
     }
