@@ -1593,6 +1593,19 @@ export function ChatWindow({ roomId, onLeave, onImageView, naverTheme, naverDark
           >
             설정
           </button>
+          <button
+            type="button"
+            onClick={() => setRoomClockOpen((prev) => !prev)}
+            className="text-[11px] px-2 py-1 rounded-md"
+            style={{
+              background: roomClockOpen ? '#3a3f4a' : '#2b2d31',
+              color: 'var(--text-muted)',
+              border: '1px solid #3a3f4a',
+            }}
+            aria-label={roomClockOpen ? '시간 표시 접기' : '시간 표시 열기'}
+          >
+            {roomClockOpen ? '시간 접기' : '시간 열기'}
+          </button>
           <div className="view-mode-bar flex items-center rounded-md p-1" style={{ background: '#2b2d31', gap: 4 }}>
             <button
               type="button"
@@ -1633,30 +1646,33 @@ export function ChatWindow({ roomId, onLeave, onImageView, naverTheme, naverDark
         </div>
       )}
 
-      <div
-        className="flex-shrink-0 px-3 py-2 border-b"
-        style={{
-          borderColor: naverTheme ? (naverDark ? '#2e2e2e' : '#e8e8e8') : oyTheme ? (oyDark ? '#1A3030' : '#EEF0F0') : '#1e1f22',
-          background: naverTheme ? (naverDark ? '#161616' : '#ffffff') : oyTheme ? (oyDark ? '#0F2222' : '#ffffff') : 'var(--chat-bg)',
-        }}
-      >
-        <div className="flex items-center justify-end mb-2">
-          <button
-            type="button"
-            onClick={() => setRoomClockOpen((prev) => !prev)}
-            className="rounded-md px-2 py-1 text-[11px]"
-            style={{
-              background: naverTheme && !naverDark ? '#eef1f5' : oyTheme && !oyDark ? '#eff5f5' : '#2b2d31',
-              color: 'var(--text-muted)',
-              border: `1px solid ${naverTheme && !naverDark ? '#dde3ea' : oyTheme && !oyDark ? '#d9e5e5' : '#3a3f4a'}`,
-            }}
-            aria-label={roomClockOpen ? '시간 표시 접기' : '시간 표시 열기'}
-          >
-            {roomClockOpen ? '시간 접기' : '시간 열기'}
-          </button>
-        </div>
-        {roomClockOpen && (
-          <div className="grid gap-2" style={{ gridTemplateColumns: `repeat(${Math.min(roomClockItems.length, 3)}, minmax(0, 1fr))` }}>
+      {(!isMobile || roomClockOpen) && (
+        <div
+          className="flex-shrink-0 px-3 py-2 border-b"
+          style={{
+            borderColor: naverTheme ? (naverDark ? '#2e2e2e' : '#e8e8e8') : oyTheme ? (oyDark ? '#1A3030' : '#EEF0F0') : '#1e1f22',
+            background: naverTheme ? (naverDark ? '#161616' : '#ffffff') : oyTheme ? (oyDark ? '#0F2222' : '#ffffff') : 'var(--chat-bg)',
+          }}
+        >
+          {!isMobile && (
+            <div className="flex items-center justify-end mb-2">
+              <button
+                type="button"
+                onClick={() => setRoomClockOpen((prev) => !prev)}
+                className="rounded-md px-2 py-1 text-[11px]"
+                style={{
+                  background: naverTheme && !naverDark ? '#eef1f5' : oyTheme && !oyDark ? '#eff5f5' : '#2b2d31',
+                  color: 'var(--text-muted)',
+                  border: `1px solid ${naverTheme && !naverDark ? '#dde3ea' : oyTheme && !oyDark ? '#d9e5e5' : '#3a3f4a'}`,
+                }}
+                aria-label={roomClockOpen ? '시간 표시 접기' : '시간 표시 열기'}
+              >
+                {roomClockOpen ? '시간 접기' : '시간 열기'}
+              </button>
+            </div>
+          )}
+          {roomClockOpen && (
+            <div className="grid gap-2" style={{ gridTemplateColumns: `repeat(${Math.min(roomClockItems.length, 3)}, minmax(0, 1fr))` }}>
             {roomClockItems.map((clock) => (
               <div
                 key={clock.key}
@@ -1666,15 +1682,18 @@ export function ChatWindow({ roomId, onLeave, onImageView, naverTheme, naverDark
                   border: `1px solid ${naverTheme && !naverDark ? '#e1e5ea' : oyTheme && !oyDark ? '#dde8e8' : '#3a3f4a'}`,
                 }}
               >
-                <p className="text-sm font-bold" style={{ color: 'var(--text-primary)' }}>
-                  {formatCurrentTimeForZone(clock.zone, clockNow)}
-                </p>
-                <p className="text-[10px] mt-0.5 truncate" style={{ color: 'var(--text-muted)' }}>{clock.subtitle}</p>
+                <div className="flex items-center justify-between gap-2">
+                  <p className="text-sm font-bold" style={{ color: 'var(--text-primary)' }}>
+                    {formatCurrentTimeForZone(clock.zone, clockNow)}
+                  </p>
+                  <p className="text-[10px] truncate" style={{ color: 'var(--text-muted)' }}>{clock.subtitle}</p>
+                </div>
               </div>
             ))}
-          </div>
-        )}
-      </div>
+            </div>
+          )}
+        </div>
+      )}
 
       {settingsOpen && (
         <div
