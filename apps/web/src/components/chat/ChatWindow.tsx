@@ -835,7 +835,21 @@ export function ChatWindow({ roomId, onLeave, onImageView, naverTheme, naverDark
       const res = await api.get<{ data: { messages: Message[] } }>(
         `/messages/${roomId}/search?${params.toString()}`
       );
-      setSearchResults(res.data.data.messages);
+      const messagesByFilter = res.data.data.messages;
+
+      // 날짜만 선택한 검색은 해당 날짜의 첫 메시지로 즉시 이동
+      if (searchDate && !searchKeyword.trim()) {
+        const firstMessage = messagesByFilter[0];
+        if (!firstMessage) {
+          showCopyNotice('선택한 날짜의 메시지가 없습니다.');
+          setSearchResults([]);
+          return;
+        }
+        jumpToSearchResult(firstMessage);
+        return;
+      }
+
+      setSearchResults(messagesByFilter);
     } finally {
       setSearchLoading(false);
     }
@@ -1964,8 +1978,9 @@ export function ChatWindow({ roomId, onLeave, onImageView, naverTheme, naverDark
               disabled={searchLoading || (!searchKeyword.trim() && !searchDate)}
               className="rounded-md px-3 py-1.5 text-xs font-bold disabled:opacity-40"
               style={{ background: 'var(--accent)', color: '#fff' }}
+              title={searchDate && !searchKeyword.trim() ? '선택한 날짜의 첫 메시지로 이동' : '검색'}
             >
-              {searchLoading ? '...' : '검색'}
+              {searchLoading ? '...' : searchDate && !searchKeyword.trim() ? '날짜 이동' : '검색'}
             </button>
             <button type="button" onClick={() => { setSearchOpen(false); setSearchResults(null); }}
               className="text-xs" style={{ color: 'var(--text-muted)' }}>✕</button>
