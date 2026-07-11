@@ -1610,6 +1610,58 @@ export function ChatWindow({ roomId, onLeave, onImageView, naverTheme, naverDark
         )}
       </div>
 
+      {isMobile && (
+        <div
+          className="flex-shrink-0 px-4 pb-2 flex items-center justify-end gap-2"
+          style={{
+            background: naverTheme ? (naverDark ? '#161616' : '#ffffff') : oyTheme ? (oyDark ? '#0F2222' : '#ffffff') : 'var(--chat-bg)',
+            borderBottom: '1px solid #1e1f22',
+          }}
+        >
+          {/* 새로고침 버튼 */}
+          <button
+            type="button"
+            onClick={handleRefresh}
+            disabled={isRefreshing}
+            className="rounded-md p-1.5 transition-colors"
+            style={{ background: 'transparent', color: 'var(--text-muted)' }}
+            title="새로고침"
+          >
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"
+              className={isRefreshing ? 'animate-spin' : ''}>
+              <path d="M1 4v6h6"/><path d="M23 20v-6h-6"/>
+              <path d="M20.49 9A9 9 0 0 0 5.64 5.64L1 10m22 4l-4.64 4.36A9 9 0 0 1 3.51 15"/>
+            </svg>
+          </button>
+          {/* 검색 버튼 */}
+          <button
+            type="button"
+            onClick={() => { setSearchOpen((v) => !v); setSearchResults(null); setSearchKeyword(''); setSearchDate(''); }}
+            className="rounded-md p-1.5 transition-colors"
+            style={{ background: searchOpen ? '#3a3f4a' : 'transparent', color: 'var(--text-muted)' }}
+            title="채팅 검색"
+          >
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+              <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
+            </svg>
+          </button>
+          {/* 나가기 버튼 */}
+          <button
+            type="button"
+            onClick={() => setShowLeaveConfirm(true)}
+            className="rounded-md p-1.5 transition-colors"
+            style={{ background: 'transparent', color: '#ed4245' }}
+            title="채팅방 나가기"
+          >
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+              <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/>
+              <polyline points="16 17 21 12 16 7"/>
+              <line x1="21" y1="12" x2="9" y2="12"/>
+            </svg>
+          </button>
+        </div>
+      )}
+
       {(!isMobile || roomClockOpen) && (
         <div
           className="flex-shrink-0 px-3 py-2 border-b"
