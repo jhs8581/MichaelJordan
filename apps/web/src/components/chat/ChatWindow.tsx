@@ -741,10 +741,21 @@ export function ChatWindow({ roomId, onLeave, onImageView, naverTheme, naverDark
     );
 
     try {
-      const res = await api.patch<{ data: Room }>(`/rooms/${roomId}/time-zones`, {
+      const payload = {
         timeZone1: normalizedTimeZone1,
         timeZone2: normalizedTimeZone2,
-      });
+      };
+      let res;
+      try {
+        res = await api.patch<{ data: Room }>(`/rooms/${roomId}/time-zones`, payload);
+      } catch (err: any) {
+        // 배포 타이밍이 엇갈릴 때 구버전 오타 경로도 잠시 호환
+        if (err?.response?.status === 404) {
+          res = await api.patch<{ data: Room }>(`/rooms/${roomId}/tine-zones`, payload);
+        } else {
+          throw err;
+        }
+      }
 
       const updated = res.data.data;
       setRooms(
