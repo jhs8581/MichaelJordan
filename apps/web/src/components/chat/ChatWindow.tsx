@@ -830,15 +830,17 @@ export function ChatWindow({ roomId, onLeave, onImageView, naverTheme, naverDark
     setSearchLoading(true);
     try {
       const params = new URLSearchParams();
-      if (searchKeyword.trim()) params.set('keyword', searchKeyword.trim());
+      const trimmedKeyword = searchKeyword.trim();
+      if (trimmedKeyword) params.set('keyword', trimmedKeyword);
       if (searchDate) params.set('date', searchDate);
+      if (searchDate && !trimmedKeyword) params.set('firstOnly', '1');
       const res = await api.get<{ data: { messages: Message[] } }>(
         `/messages/${roomId}/search?${params.toString()}`
       );
       const messagesByFilter = res.data.data.messages;
 
       // 날짜만 선택한 검색은 해당 날짜의 첫 메시지로 즉시 이동
-      if (searchDate && !searchKeyword.trim()) {
+      if (searchDate && !trimmedKeyword) {
         const firstMessage = messagesByFilter[0];
         if (!firstMessage) {
           showCopyNotice('선택한 날짜의 메시지가 없습니다.');

@@ -189,7 +189,7 @@ export async function messageRoutes(app: FastifyInstance) {
   auth.get('/:roomId/search', async (req, reply) => {
     const userId = (req.user as { sub: number }).sub;
     const { roomId } = req.params as { roomId: string };
-    const { keyword, date } = req.query as { keyword?: string; date?: string };
+    const { keyword, date, firstOnly } = req.query as { keyword?: string; date?: string; firstOnly?: string };
 
     const member = await prisma.roomMember.findUnique({
       where: { userId_roomId: { userId, roomId: Number(roomId) } },
@@ -209,28 +209,46 @@ export async function messageRoutes(app: FastifyInstance) {
       }
     }
 
+    const messageInclude = {
+      sender: { select: { id: true, username: true, avatarUrl: true } },
+      reads: { select: { userId: true, readAt: true } },
+      replyTo: {
+        select: {
+          id: true,
+          senderId: true,
+          content: true,
+          fileUrl: true,
+          senderTimeZone: true,
+          senderLocalTime: true,
+          createdAt: true,
+          sender: { select: { id: true, username: true, avatarUrl: true } },
+        },
+      },
+    };
+
+    const trimmedKeyword = keyword?.trim();
+    const shouldReturnFirstOnly = firstOnly === '1' && !trimmedKeyword && Boolean(dateFilter);
+
+    if (shouldReturnFirstOnly) {
+      const firstMessage = await prisma.message.findFirst({
+        where: {
+          roomId: Number(roomId),
+          ...(dateFilter ? { createdAt: dateFilter } : {}),
+        },
+        include: messageInclude,
+        orderBy: { id: 'asc' },
+      });
+
+      return reply.send({ success: true, data: { messages: firstMessage ? [firstMessage] : [] } });
+    }
+
     const messages = await prisma.message.findMany({
       where: {
         roomId: Number(roomId),
-        ...(keyword?.trim() ? { content: { contains: keyword.trim() } } : {}),
+        ...(trimmedKeyword ? { content: { contains: trimmedKeyword } } : {}),
         ...(dateFilter ? { createdAt: dateFilter } : {}),
       },
-      include: {
-        sender: { select: { id: true, username: true, avatarUrl: true } },
-        reads: { select: { userId: true, readAt: true } },
-        replyTo: {
-          select: {
-            id: true,
-            senderId: true,
-            content: true,
-            fileUrl: true,
-            senderTimeZone: true,
-            senderLocalTime: true,
-            createdAt: true,
-            sender: { select: { id: true, username: true, avatarUrl: true } },
-          },
-        },
-      },
+      include: messageInclude,
       orderBy: { id: 'asc' },
       take: 100,
     });
