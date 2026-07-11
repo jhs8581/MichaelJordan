@@ -1463,10 +1463,53 @@ export function ChatWindow({ roomId, onLeave, onImageView, naverTheme, naverDark
             ? <><line x1="4" y1="9" x2="20" y2="9"/><line x1="4" y1="15" x2="20" y2="15"/><line x1="10" y1="3" x2="8" y2="21"/><line x1="16" y1="3" x2="14" y2="21"/></>
             : <><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></>}
         </svg>
-        <div className="min-w-0">
-          <span className="block font-semibold text-sm min-w-0 truncate" style={{ color: 'var(--text-primary)' }}>
-            {activeRoom?.name ?? ''}
-          </span>
+        <div className="flex items-center gap-2 min-w-0">
+          <button
+            type="button"
+            data-chat-settings-button
+            onClick={() => setSettingsOpen((current) => !current)}
+            className={isMobile ? 'text-[11px] px-2 py-1 rounded-md transition-colors' : 'text-xs px-2 py-1 rounded-md transition-colors'}
+            style={{ background: settingsOpen ? '#3a3f4a' : '#2b2d31', color: 'var(--text-muted)' }}
+          >
+            설정
+          </button>
+          <button
+            type="button"
+            onClick={() => setRoomClockOpen((prev) => !prev)}
+            className={isMobile ? 'text-[11px] px-2 py-1 rounded-md' : 'text-xs px-2 py-1 rounded-md'}
+            style={{
+              background: roomClockOpen ? '#3a3f4a' : '#2b2d31',
+              color: 'var(--text-muted)',
+              border: '1px solid #3a3f4a',
+            }}
+            aria-label={roomClockOpen ? '시간 표시 접기' : '시간 표시 열기'}
+          >
+            {roomClockOpen ? '시간 접기' : '시간 열기'}
+          </button>
+          <div className="view-mode-bar flex items-center rounded-md p-1" style={{ background: '#2b2d31', gap: 4 }}>
+            <button
+              type="button"
+              onClick={() => updateSettings({ viewMode: 'bubble' })}
+              className={isMobile ? 'text-[11px] px-2 py-1 rounded' : 'text-xs px-2 py-1 rounded'}
+              style={{
+                color: settings.viewMode === 'bubble' ? '#fff' : 'var(--text-muted)',
+                background: settings.viewMode === 'bubble' ? 'var(--accent)' : 'transparent',
+              }}
+            >
+              말풍선
+            </button>
+            <button
+              type="button"
+              onClick={() => updateSettings({ viewMode: 'memo' })}
+              className={isMobile ? 'text-[11px] px-2 py-1 rounded' : 'text-xs px-2 py-1 rounded'}
+              style={{
+                color: settings.viewMode === 'memo' ? '#fff' : 'var(--text-muted)',
+                background: settings.viewMode === 'memo' ? 'var(--accent)' : 'transparent',
+              }}
+            >
+              메모장
+            </button>
+          </div>
         </div>
         <div className="flex-1" />
         {/* 알림 음소거 버튼 */}
@@ -1520,149 +1563,52 @@ export function ChatWindow({ roomId, onLeave, onImageView, naverTheme, naverDark
             <line x1="3" y1="18" x2="21" y2="18"/>
           </svg>
         </button>
-        {/* 새로고침 버튼 */}
-        <button
-          type="button"
-          onClick={handleRefresh}
-          disabled={isRefreshing}
-          className="rounded-md p-1.5 transition-colors"
-          style={{ background: 'transparent', color: 'var(--text-muted)' }}
-          title="새로고침"
-        >
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"
-            className={isRefreshing ? 'animate-spin' : ''}>
-            <path d="M1 4v6h6"/><path d="M23 20v-6h-6"/>
-            <path d="M20.49 9A9 9 0 0 0 5.64 5.64L1 10m22 4l-4.64 4.36A9 9 0 0 1 3.51 15"/>
-          </svg>
-        </button>
-        {/* 검색 버튼 */}
-        <button
-          type="button"
-          onClick={() => { setSearchOpen((v) => !v); setSearchResults(null); setSearchKeyword(''); setSearchDate(''); }}
-          className="rounded-md p-1.5 transition-colors"
-          style={{ background: searchOpen ? '#3a3f4a' : 'transparent', color: 'var(--text-muted)' }}
-          title="채팅 검색"
-        >
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
-            <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
-          </svg>
-        </button>
-        {/* 나가기 버튼 */}
-        <button
-          type="button"
-          onClick={() => setShowLeaveConfirm(true)}
-          className="rounded-md p-1.5 transition-colors"
-          style={{ background: 'transparent', color: '#ed4245' }}
-          title="채팅방 나가기"
-        >
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
-            <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/>
-            <polyline points="16 17 21 12 16 7"/>
-            <line x1="21" y1="12" x2="9" y2="12"/>
-          </svg>
-        </button>
         {!isMobile && (
           <>
+            {/* 새로고침 버튼 */}
             <button
               type="button"
-              data-chat-settings-button
-              onClick={() => setSettingsOpen((current) => !current)}
-              className="text-xs px-2 py-1 rounded-md transition-colors"
-              style={{ background: settingsOpen ? '#3a3f4a' : 'transparent', color: 'var(--text-muted)' }}
+              onClick={handleRefresh}
+              disabled={isRefreshing}
+              className="rounded-md p-1.5 transition-colors"
+              style={{ background: 'transparent', color: 'var(--text-muted)' }}
+              title="새로고침"
             >
-              설정
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"
+                className={isRefreshing ? 'animate-spin' : ''}>
+                <path d="M1 4v6h6"/><path d="M23 20v-6h-6"/>
+                <path d="M20.49 9A9 9 0 0 0 5.64 5.64L1 10m22 4l-4.64 4.36A9 9 0 0 1 3.51 15"/>
+              </svg>
             </button>
-            <div className="view-mode-bar flex items-center rounded-md p-1" style={{ background: '#2b2d31', gap: 4 }}>
-              <button
-                type="button"
-                onClick={() => updateSettings({ viewMode: 'bubble' })}
-                className="text-xs px-2 py-1 rounded transition-colors"
-                style={{
-                  color: settings.viewMode === 'bubble' ? '#fff' : 'var(--text-muted)',
-                  background: settings.viewMode === 'bubble' ? 'var(--accent)' : 'transparent',
-                }}
-              >
-                말풍선
-              </button>
-              <button
-                type="button"
-                onClick={() => updateSettings({ viewMode: 'memo' })}
-                className="text-xs px-2 py-1 rounded transition-colors"
-                style={{
-                  color: settings.viewMode === 'memo' ? '#fff' : 'var(--text-muted)',
-                  background: settings.viewMode === 'memo' ? 'var(--accent)' : 'transparent',
-                }}
-              >
-                메모장
-              </button>
-            </div>
+            {/* 검색 버튼 */}
+            <button
+              type="button"
+              onClick={() => { setSearchOpen((v) => !v); setSearchResults(null); setSearchKeyword(''); setSearchDate(''); }}
+              className="rounded-md p-1.5 transition-colors"
+              style={{ background: searchOpen ? '#3a3f4a' : 'transparent', color: 'var(--text-muted)' }}
+              title="채팅 검색"
+            >
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+                <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
+              </svg>
+            </button>
+            {/* 나가기 버튼 */}
+            <button
+              type="button"
+              onClick={() => setShowLeaveConfirm(true)}
+              className="rounded-md p-1.5 transition-colors"
+              style={{ background: 'transparent', color: '#ed4245' }}
+              title="채팅방 나가기"
+            >
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+                <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/>
+                <polyline points="16 17 21 12 16 7"/>
+                <line x1="21" y1="12" x2="9" y2="12"/>
+              </svg>
+            </button>
           </>
         )}
       </div>
-
-      {isMobile && (
-        <div className="toolbar-mobile flex-shrink-0 flex items-center gap-2 px-3 pb-2" style={{ background: 'var(--chat-bg)', borderBottom: '1px solid #1e1f22' }}>
-          <button
-            type="button"
-            data-chat-settings-button
-            onClick={() => setSettingsOpen((current) => !current)}
-            className="settings-btn text-[11px] px-2 py-1 rounded-md"
-            style={{ background: settingsOpen ? '#3a3f4a' : '#2b2d31', color: 'var(--text-muted)' }}
-          >
-            설정
-          </button>
-          <button
-            type="button"
-            onClick={() => setRoomClockOpen((prev) => !prev)}
-            className="text-[11px] px-2 py-1 rounded-md"
-            style={{
-              background: roomClockOpen ? '#3a3f4a' : '#2b2d31',
-              color: 'var(--text-muted)',
-              border: '1px solid #3a3f4a',
-            }}
-            aria-label={roomClockOpen ? '시간 표시 접기' : '시간 표시 열기'}
-          >
-            {roomClockOpen ? '시간 접기' : '시간 열기'}
-          </button>
-          <div className="view-mode-bar flex items-center rounded-md p-1" style={{ background: '#2b2d31', gap: 4 }}>
-            <button
-              type="button"
-              onClick={() => updateSettings({ viewMode: 'bubble' })}
-              className="text-[11px] px-2 py-1 rounded"
-              style={{
-                color: settings.viewMode === 'bubble' ? '#fff' : 'var(--text-muted)',
-                background: settings.viewMode === 'bubble' ? 'var(--accent)' : 'transparent',
-              }}
-            >
-              말풍선
-            </button>
-            <button
-              type="button"
-              onClick={() => updateSettings({ viewMode: 'memo' })}
-              className="text-[11px] px-2 py-1 rounded"
-              style={{
-                color: settings.viewMode === 'memo' ? '#fff' : 'var(--text-muted)',
-                background: settings.viewMode === 'memo' ? 'var(--accent)' : 'transparent',
-              }}
-            >
-              메모장
-            </button>
-          </div>
-          {/* 테스트용 잠금 트리거 버튼 */}
-          {canLock && (
-            <button
-              type="button"
-              onContextMenu={(e) => e.preventDefault()}
-              onTouchStart={() => { longPressTimer.current = setTimeout(() => lockChat(), 2000); }}
-              onTouchEnd={() => { if (longPressTimer.current) { clearTimeout(longPressTimer.current); longPressTimer.current = null; } }}
-              onTouchMove={() => { if (longPressTimer.current) { clearTimeout(longPressTimer.current); longPressTimer.current = null; } }}
-              className="px-3 py-1 rounded-md flex-shrink-0"
-              style={{ background: 'transparent', border: 'none', marginLeft: 'auto', userSelect: 'none', minWidth: 48, minHeight: 26 }}
-            >
-            </button>
-          )}
-        </div>
-      )}
 
       {(!isMobile || roomClockOpen) && (
         <div
