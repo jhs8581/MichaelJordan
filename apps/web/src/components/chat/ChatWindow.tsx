@@ -45,8 +45,11 @@ type LockDigit = '0' | '1' | '2' | '3' | '4' | '5' | '6' | '7' | '8' | '9';
 
 const LOCK_DIGITS: LockDigit[] = ['1', '2', '3', '4', '5', '6', '7', '8', '9', '0'];
 const TIME_ZONE_OPTIONS = [
-  { value: '', label: '기기 자동' },
+  { value: '', label: '기기 자동 (괄호 시간: 한국)' },
   { value: 'Asia/Seoul', label: '한국 - 서울' },
+  { value: 'Asia/Kolkata', label: '인도 - 콜카타' },
+  { value: 'Asia/Ho_Chi_Minh', label: '베트남 - 호치민' },
+  { value: 'Asia/Bangkok', label: '태국 - 방콕' },
   { value: 'Europe/Warsaw', label: '폴란드 - 바르샤바' },
   { value: 'Europe/London', label: '영국 - 런던' },
   { value: 'Europe/Paris', label: '프랑스/독일 - 중부유럽' },
@@ -124,6 +127,8 @@ const DEFAULT_SETTINGS: ChatViewSettings = {
   showNickname: true,
   showDateSeparator: true,
 };
+
+const DEFAULT_VIEWER_TIME_ZONE = 'Asia/Seoul';
 
 function loadChatViewSettings(): ChatViewSettings {
   try {
@@ -1267,7 +1272,7 @@ export function ChatWindow({ roomId, onLeave, onImageView, naverTheme, naverDark
               naverDark={naverDark}
               oyTheme={oyTheme}
               oyDark={oyDark}
-              viewerTimeZone={user?.timeZone || getLocalTimeZone()}
+              viewerTimeZone={user?.timeZone || DEFAULT_VIEWER_TIME_ZONE}
               onImageClick={onImageView ? (url) => {
                 loadAllRoomImageItems(url)
                   .then((imageItems) => onImageView(url, imageItems))
