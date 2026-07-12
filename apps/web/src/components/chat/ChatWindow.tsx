@@ -84,6 +84,23 @@ type MessageListResponse = {
   newerCursor?: number | null;
 };
 
+type SearchThemeColors = {
+  panelBg: string;
+  panelBorder: string;
+  fieldBg: string;
+  fieldBorder: string;
+  fieldColor: string;
+  fieldPlaceholder: string;
+  resultsBg: string;
+  resultBorder: string;
+  resultBg: string;
+  resultText: string;
+  resultMuted: string;
+  resultHighlightBg: string;
+  resultHighlightText: string;
+  closeColor: string;
+};
+
 function getLocalTimeZone(): string | undefined {
   try {
     return Intl.DateTimeFormat().resolvedOptions().timeZone;
@@ -286,6 +303,11 @@ export function ChatWindow({ roomId, onLeave, onImageView, naverTheme, naverDark
     ...(roomTimeZone1 ? [{ key: 's1', zone: roomTimeZone1, subtitle: roomTimeZone1Label ?? roomTimeZone1 }] : []),
     ...(roomTimeZone2 ? [{ key: 's2', zone: roomTimeZone2, subtitle: roomTimeZone2Label ?? roomTimeZone2 }] : []),
   ];
+  const searchFieldStyle = {
+    background: '#ffffff',
+    color: '#111111',
+    border: '1px solid #cbd5e1',
+  } as const;
 
   useEffect(() => {
     setMuteOverride(null);
@@ -1389,6 +1411,90 @@ export function ChatWindow({ roomId, onLeave, onImageView, naverTheme, naverDark
   const isOyLight = Boolean(oyTheme && !oyDark);
   const isLightContextMenu = isNaverLight || isOyLight;
   const isLightSettingsPanel = isNaverLight || isOyLight;
+  const searchThemeColors: SearchThemeColors = oyTheme
+    ? (oyDark
+      ? {
+          panelBg: '#0F2222',
+          panelBorder: '#1A3030',
+          fieldBg: '#162626',
+          fieldBorder: '#2A4040',
+          fieldColor: '#E0E8E8',
+          fieldPlaceholder: '#6A9090',
+          resultsBg: '#0F2222',
+          resultBorder: '#1A3030',
+          resultBg: '#162626',
+          resultText: '#E0E8E8',
+          resultMuted: '#6A9090',
+          resultHighlightBg: '#175F5A',
+          resultHighlightText: '#FFFFFF',
+          closeColor: '#6A9090',
+        }
+      : {
+          panelBg: '#FFFFFF',
+          panelBorder: '#EEF0F0',
+          fieldBg: '#FFFFFF',
+          fieldBorder: '#DCE7E7',
+          fieldColor: '#1A1A1A',
+          fieldPlaceholder: '#6A9090',
+          resultsBg: '#F7FBFB',
+          resultBorder: '#DCE7E7',
+          resultBg: '#FFFFFF',
+          resultText: '#1A1A1A',
+          resultMuted: '#6A9090',
+          resultHighlightBg: '#C6F1EB',
+          resultHighlightText: '#0F2222',
+          closeColor: '#6A9090',
+        })
+    : naverTheme
+      ? (naverDark
+        ? {
+            panelBg: '#1C1C1C',
+            panelBorder: '#2E2E2E',
+            fieldBg: '#101216',
+            fieldBorder: '#2E2E2E',
+            fieldColor: '#E0E0E0',
+            fieldPlaceholder: '#888888',
+            resultsBg: '#111111',
+            resultBorder: '#2E2E2E',
+            resultBg: '#101216',
+            resultText: '#E0E0E0',
+            resultMuted: '#888888',
+            resultHighlightBg: '#1D4ED8',
+            resultHighlightText: '#FFFFFF',
+            closeColor: '#888888',
+          }
+        : {
+            panelBg: '#FFFFFF',
+            panelBorder: '#E8E8E8',
+            fieldBg: '#FFFFFF',
+            fieldBorder: '#D8D8D8',
+            fieldColor: '#111111',
+            fieldPlaceholder: '#777777',
+            resultsBg: '#F5F6F8',
+            resultBorder: '#D8D8D8',
+            resultBg: '#FFFFFF',
+            resultText: '#111111',
+            resultMuted: '#777777',
+            resultHighlightBg: '#D7E5FF',
+            resultHighlightText: '#111111',
+            closeColor: '#777777',
+          })
+      : {
+          panelBg: '#1F2126',
+          panelBorder: '#3A3F4A',
+          fieldBg: '#2B2D31',
+          fieldBorder: '#3A3F4A',
+          fieldColor: '#DBDEE1',
+          fieldPlaceholder: '#949BA4',
+          resultsBg: '#1F2126',
+          resultBorder: '#3A3F4A',
+          resultBg: '#2B2D31',
+          resultText: '#DBDEE1',
+          resultMuted: '#949BA4',
+          resultHighlightBg: '#5865F2',
+          resultHighlightText: '#FFFFFF',
+          closeColor: '#949BA4',
+        };
 
   // 날짜 구분선 렌더링
   function renderMessages() {
@@ -1990,7 +2096,7 @@ export function ChatWindow({ roomId, onLeave, onImageView, naverTheme, naverDark
 
       {/* 검색 패널 */}
       {searchOpen && (
-        <div className="flex-shrink-0 border-b" style={{ background: '#1f2126', borderColor: '#3a3f4a' }}>
+        <div className="flex-shrink-0 border-b" style={{ background: searchThemeColors.panelBg, borderColor: searchThemeColors.panelBorder }}>
           <div className="flex gap-2 items-center px-3 py-2">
             <input
               type="text"
@@ -1999,14 +2105,14 @@ export function ChatWindow({ roomId, onLeave, onImageView, naverTheme, naverDark
               onKeyDown={handleSearchKeyDown}
               placeholder="단어로 찾기"
               className="flex-1 rounded-md px-2 py-1.5 text-xs outline-none"
-              style={{ background: '#2b2d31', color: 'var(--text-primary)', border: '1px solid #3a3f4a' }}
+              style={{ background: searchThemeColors.fieldBg, color: searchThemeColors.fieldColor, border: `1px solid ${searchThemeColors.fieldBorder}` }}
             />
             <input
               type="date"
               value={searchDate}
               onChange={(e) => setSearchDate(e.target.value)}
               className="rounded-md px-2 py-1.5 text-xs outline-none"
-              style={{ background: '#2b2d31', color: 'var(--text-primary)', border: '1px solid #3a3f4a', colorScheme: 'dark' }}
+              style={{ background: searchThemeColors.fieldBg, color: searchThemeColors.fieldColor, border: `1px solid ${searchThemeColors.fieldBorder}`, colorScheme: oyDark || naverDark ? 'dark' : 'light' }}
             />
             <button
               type="button"
@@ -2018,13 +2124,19 @@ export function ChatWindow({ roomId, onLeave, onImageView, naverTheme, naverDark
             >
               {searchLoading ? '...' : searchDate && !searchKeyword.trim() ? '날짜 이동' : '검색'}
             </button>
-            <button type="button" onClick={() => { setSearchOpen(false); setSearchResults(null); }}
-              className="text-xs" style={{ color: 'var(--text-muted)' }}>✕</button>
+            <button
+              type="button"
+              onClick={() => { setSearchOpen(false); setSearchResults(null); }}
+              className="text-xs"
+              style={{ color: searchThemeColors.closeColor }}
+            >
+              ✕
+            </button>
           </div>
           {searchResults !== null && (
-            <div className="max-h-64 overflow-y-auto px-3 pb-2 space-y-1">
+            <div className="max-h-64 overflow-y-auto px-3 pb-2 space-y-1" style={{ background: searchThemeColors.resultsBg }}>
               {searchResults.length === 0 ? (
-                <p className="py-4 text-center text-xs" style={{ color: 'var(--text-muted)' }}>결과 없음</p>
+                <p className="py-4 text-center text-xs" style={{ color: searchThemeColors.resultMuted }}>결과 없음</p>
               ) : searchResults.map((msg) => {
                 const isMine = msg.senderId === user?.id;
                 const name = msg.sender?.username ?? (isMine ? '나' : `사용자${msg.senderId}`);
@@ -2035,22 +2147,22 @@ export function ChatWindow({ roomId, onLeave, onImageView, naverTheme, naverDark
                     type="button"
                     onClick={() => jumpToSearchResult(msg)}
                     className="w-full text-left rounded-lg px-3 py-2 transition-opacity hover:opacity-80 active:opacity-60"
-                    style={{ background: '#2b2d31', border: 'none', cursor: 'pointer', display: 'block' }}
+                    style={{ background: searchThemeColors.resultBg, border: `1px solid ${searchThemeColors.resultBorder}`, cursor: 'pointer', display: 'block' }}
                     title="해당 메시지로 이동"
                     aria-label={`${name}의 메시지로 이동: ${msg.content ?? '[이미지]'}`}
                   >
                     <div className="flex items-center gap-2 mb-0.5">
-                      <span className="text-xs font-semibold" style={{ color: isMine ? '#5865f2' : 'var(--text-primary)' }}>{name}</span>
-                      <span className="text-xs" style={{ color: 'var(--text-muted)' }}>{time}</span>
-                      <span className="ml-auto text-xs" style={{ color: 'var(--text-muted)', flexShrink: 0 }}>→ 이동</span>
+                      <span className="text-xs font-semibold" style={{ color: isMine ? 'var(--accent)' : searchThemeColors.resultText }}>{name}</span>
+                      <span className="text-xs" style={{ color: searchThemeColors.resultMuted }}>{time}</span>
+                      <span className="ml-auto text-xs" style={{ color: searchThemeColors.resultMuted, flexShrink: 0 }}>→ 이동</span>
                     </div>
                     {msg.fileUrl
-                      ? <span className="text-xs" style={{ color: 'var(--text-muted)' }}>[이미지]</span>
-                      : <p className="text-xs whitespace-pre-wrap break-words" style={{ color: 'var(--text-primary)' }}>
+                      ? <span className="text-xs" style={{ color: searchThemeColors.resultMuted }}>[이미지]</span>
+                      : <p className="text-xs whitespace-pre-wrap break-words" style={{ color: searchThemeColors.resultText }}>
                           {searchKeyword.trim()
                             ? (msg.content ?? '').split(new RegExp(`(${searchKeyword.trim()})`, 'gi')).map((part, i) =>
                                 part.toLowerCase() === searchKeyword.trim().toLowerCase()
-                                  ? <mark key={i} style={{ background: '#fde047', color: '#111', borderRadius: 2 }}>{part}</mark>
+                                  ? <mark key={i} style={{ background: searchThemeColors.resultHighlightBg, color: searchThemeColors.resultHighlightText, borderRadius: 2 }}>{part}</mark>
                                   : part
                               )
                             : renderMessageContent(msg.content ?? '')
