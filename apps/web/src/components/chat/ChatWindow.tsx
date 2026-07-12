@@ -101,6 +101,10 @@ type SearchThemeColors = {
   closeColor: string;
 };
 
+function ToolbarButtonIcon({ children }: { children: React.ReactNode }) {
+  return <span className="flex h-4 w-4 items-center justify-center">{children}</span>;
+}
+
 function getLocalTimeZone(): string | undefined {
   try {
     return Intl.DateTimeFormat().resolvedOptions().timeZone;
@@ -1495,6 +1499,20 @@ export function ChatWindow({ roomId, onLeave, onImageView, naverTheme, naverDark
           resultHighlightText: '#FFFFFF',
           closeColor: '#949BA4',
         };
+  const toolbarButtonBaseClass = isMobile
+    ? 'inline-flex h-8 items-center gap-1.5 rounded-md border px-2.5 text-[11px] font-medium transition-colors whitespace-nowrap'
+    : 'inline-flex h-8 items-center gap-1.5 rounded-md border px-2.5 text-xs font-medium transition-colors whitespace-nowrap';
+  const toolbarIconButtonClass = 'inline-flex h-8 w-8 items-center justify-center rounded-md border transition-colors';
+  const toolbarButtonStyle = (active: boolean, activeBg: string, border: string, color = 'var(--text-muted)') => ({
+    background: active ? activeBg : 'transparent',
+    borderColor: border,
+    color,
+  });
+  const toolbarIconStyle = (active: boolean, activeBg: string, border: string, color = 'var(--text-muted)') => ({
+    background: active ? activeBg : 'transparent',
+    borderColor: border,
+    color,
+  });
 
   // 날짜 구분선 렌더링
   function renderMessages() {
@@ -1624,29 +1642,37 @@ export function ChatWindow({ roomId, onLeave, onImageView, naverTheme, naverDark
             type="button"
             data-chat-settings-button
             onClick={() => setSettingsOpen((current) => !current)}
-            className={isMobile ? 'text-[11px] px-2 py-1 rounded-md transition-colors' : 'text-xs px-2 py-1 rounded-md transition-colors'}
-            style={{ background: settingsOpen ? '#3a3f4a' : '#2b2d31', color: 'var(--text-muted)' }}
+            className={toolbarButtonBaseClass}
+            style={toolbarButtonStyle(settingsOpen, naverTheme && !naverDark ? '#eef1f5' : oyTheme && !oyDark ? '#eff5f5' : '#3a3f4a', naverTheme && !naverDark ? '#dde3ea' : oyTheme && !oyDark ? '#d9e5e5' : '#3a3f4a')}
           >
-            설정
+            <ToolbarButtonIcon>
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+                <circle cx="12" cy="12" r="3"/>
+                <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06A1.65 1.65 0 0 0 15 19.4a1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09a1.65 1.65 0 0 0-1-1.51 1.65 1.65 0 0 0-1.82.33l-.06.06A2 2 0 0 1 3.31 17l.06-.06A1.65 1.65 0 0 0 4 15a1.65 1.65 0 0 0-1.51-1H2a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 3.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06A2 2 0 0 1 6.04 4.3l.06.06A1.65 1.65 0 0 0 7 5.6a1.65 1.65 0 0 0 1-1.51V4a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06A2 2 0 0 1 20.69 7l-.06.06A1.65 1.65 0 0 0 20 9c0 .66.26 1.3.73 1.77.47.47 1.11.73 1.77.73h.09a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1Z"/>
+              </svg>
+            </ToolbarButtonIcon>
+            <span>설정</span>
           </button>
           <button
             type="button"
             onClick={() => setRoomClockOpen((prev) => !prev)}
-            className={isMobile ? 'text-[11px] px-2 py-1 rounded-md' : 'text-xs px-2 py-1 rounded-md'}
-            style={{
-              background: roomClockOpen ? '#3a3f4a' : '#2b2d31',
-              color: 'var(--text-muted)',
-              border: '1px solid #3a3f4a',
-            }}
+            className={toolbarButtonBaseClass}
+            style={toolbarButtonStyle(roomClockOpen, naverTheme && !naverDark ? '#eef1f5' : oyTheme && !oyDark ? '#eff5f5' : '#3a3f4a', naverTheme && !naverDark ? '#dde3ea' : oyTheme && !oyDark ? '#d9e5e5' : '#3a3f4a')}
             aria-label={roomClockOpen ? '시간 표시 접기' : '시간 표시 열기'}
           >
-            {roomClockOpen ? '시간 접기' : '시간 열기'}
+            <ToolbarButtonIcon>
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+                <circle cx="12" cy="12" r="8"/>
+                <path d="M12 7v5l3 2"/>
+              </svg>
+            </ToolbarButtonIcon>
+            <span>{roomClockOpen ? '시간 접기' : '시간 열기'}</span>
           </button>
-          <div className="view-mode-bar flex items-center rounded-md p-1" style={{ background: '#2b2d31', gap: 4 }}>
+          <div className="view-mode-bar flex items-center rounded-md p-1 border" style={{ background: naverTheme && !naverDark ? '#eef1f5' : oyTheme && !oyDark ? '#eff5f5' : '#2b2d31', gap: 4, borderColor: naverTheme && !naverDark ? '#dde3ea' : oyTheme && !oyDark ? '#d9e5e5' : '#3a3f4a' }}>
             <button
               type="button"
               onClick={() => updateSettings({ viewMode: 'bubble' })}
-              className={isMobile ? 'text-[11px] px-2 py-1 rounded' : 'text-xs px-2 py-1 rounded'}
+              className={isMobile ? 'h-7 px-2 rounded text-[11px]' : 'h-7 px-2 rounded text-xs'}
               style={{
                 color: settings.viewMode === 'bubble' ? '#fff' : 'var(--text-muted)',
                 background: settings.viewMode === 'bubble' ? 'var(--accent)' : 'transparent',
@@ -1657,7 +1683,7 @@ export function ChatWindow({ roomId, onLeave, onImageView, naverTheme, naverDark
             <button
               type="button"
               onClick={() => updateSettings({ viewMode: 'memo' })}
-              className={isMobile ? 'text-[11px] px-2 py-1 rounded' : 'text-xs px-2 py-1 rounded'}
+              className={isMobile ? 'h-7 px-2 rounded text-[11px]' : 'h-7 px-2 rounded text-xs'}
               style={{
                 color: settings.viewMode === 'memo' ? '#fff' : 'var(--text-muted)',
                 background: settings.viewMode === 'memo' ? 'var(--accent)' : 'transparent',
@@ -1679,9 +1705,10 @@ export function ChatWindow({ roomId, onLeave, onImageView, naverTheme, naverDark
           onTouchEnd={(e) => e.stopPropagation()}
           onContextMenu={(e) => e.preventDefault()}
           disabled={!activeRoom || muteSaving}
-          className="rounded-md px-2 py-1.5 transition-colors inline-flex items-center gap-1.5 flex-shrink-0 disabled:opacity-60"
+          className="inline-flex h-8 min-w-8 items-center justify-center gap-1.5 rounded-md border px-2 transition-colors flex-shrink-0 disabled:opacity-60"
           style={{
             background: isRoomMuted ? '#ed424522' : '#3ba55d22',
+            borderColor: isRoomMuted ? '#ed424544' : '#3ba55d44',
             color: isRoomMuted ? '#ed4245' : '#57f287',
             cursor: muteSaving ? 'wait' : 'pointer',
           }}
@@ -1708,8 +1735,8 @@ export function ChatWindow({ roomId, onLeave, onImageView, naverTheme, naverDark
         <button
           type="button"
           onClick={(e) => { e.stopPropagation(); setRoomInfoOpen(true); }}
-          className="rounded-md p-1.5 transition-colors"
-          style={{ background: roomInfoOpen ? '#3a3f4a' : 'transparent', color: 'var(--text-muted)' }}
+          className={toolbarIconButtonClass}
+          style={toolbarIconStyle(roomInfoOpen, naverTheme && !naverDark ? '#eef1f5' : oyTheme && !oyDark ? '#eff5f5' : '#3a3f4a', naverTheme && !naverDark ? '#dde3ea' : oyTheme && !oyDark ? '#d9e5e5' : '#3a3f4a')}
           title="사진·링크 모아보기"
           aria-label="채팅방 정보"
         >
@@ -1726,41 +1753,50 @@ export function ChatWindow({ roomId, onLeave, onImageView, naverTheme, naverDark
               type="button"
               onClick={handleRefresh}
               disabled={isRefreshing}
-              className="rounded-md p-1.5 transition-colors"
-              style={{ background: 'transparent', color: 'var(--text-muted)' }}
+              className={toolbarButtonBaseClass}
+              style={toolbarIconStyle(isRefreshing, naverTheme && !naverDark ? '#eef1f5' : oyTheme && !oyDark ? '#eff5f5' : '#3a3f4a', naverTheme && !naverDark ? '#dde3ea' : oyTheme && !oyDark ? '#d9e5e5' : '#3a3f4a')}
               title="새로고침"
             >
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"
-                className={isRefreshing ? 'animate-spin' : ''}>
-                <path d="M1 4v6h6"/><path d="M23 20v-6h-6"/>
-                <path d="M20.49 9A9 9 0 0 0 5.64 5.64L1 10m22 4l-4.64 4.36A9 9 0 0 1 3.51 15"/>
-              </svg>
+              <ToolbarButtonIcon>
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"
+                  className={isRefreshing ? 'animate-spin' : ''}>
+                  <path d="M1 4v6h6"/><path d="M23 20v-6h-6"/>
+                  <path d="M20.49 9A9 9 0 0 0 5.64 5.64L1 10m22 4l-4.64 4.36A9 9 0 0 1 3.51 15"/>
+                </svg>
+              </ToolbarButtonIcon>
+              <span>새로고침</span>
             </button>
             {/* 검색 버튼 */}
             <button
               type="button"
               onClick={() => { setSearchOpen((v) => !v); setSearchResults(null); setSearchKeyword(''); setSearchDate(''); }}
-              className="rounded-md p-1.5 transition-colors"
-              style={{ background: searchOpen ? '#3a3f4a' : 'transparent', color: 'var(--text-muted)' }}
+              className={toolbarButtonBaseClass}
+              style={toolbarIconStyle(searchOpen, naverTheme && !naverDark ? '#eef1f5' : oyTheme && !oyDark ? '#eff5f5' : '#3a3f4a', naverTheme && !naverDark ? '#dde3ea' : oyTheme && !oyDark ? '#d9e5e5' : '#3a3f4a')}
               title="채팅 검색"
             >
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
-                <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
-              </svg>
+              <ToolbarButtonIcon>
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+                  <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
+                </svg>
+              </ToolbarButtonIcon>
+              <span>검색</span>
             </button>
             {/* 나가기 버튼 */}
             <button
               type="button"
               onClick={() => setShowLeaveConfirm(true)}
-              className="rounded-md p-1.5 transition-colors"
-              style={{ background: 'transparent', color: '#ed4245' }}
+              className={toolbarButtonBaseClass}
+              style={{ background: 'transparent', color: '#ed4245', borderColor: '#ed424533' }}
               title="채팅방 나가기"
             >
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
-                <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/>
-                <polyline points="16 17 21 12 16 7"/>
-                <line x1="21" y1="12" x2="9" y2="12"/>
-              </svg>
+              <ToolbarButtonIcon>
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+                  <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/>
+                  <polyline points="16 17 21 12 16 7"/>
+                  <line x1="21" y1="12" x2="9" y2="12"/>
+                </svg>
+              </ToolbarButtonIcon>
+              <span>나가기</span>
             </button>
           </>
         )}
@@ -1779,41 +1815,50 @@ export function ChatWindow({ roomId, onLeave, onImageView, naverTheme, naverDark
             type="button"
             onClick={handleRefresh}
             disabled={isRefreshing}
-            className="rounded-md p-1.5 transition-colors"
-            style={{ background: 'transparent', color: 'var(--text-muted)' }}
+            className={toolbarButtonBaseClass}
+            style={toolbarIconStyle(isRefreshing, naverTheme && !naverDark ? '#eef1f5' : oyTheme && !oyDark ? '#eff5f5' : '#3a3f4a', naverTheme && !naverDark ? '#dde3ea' : oyTheme && !oyDark ? '#d9e5e5' : '#3a3f4a')}
             title="새로고침"
           >
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"
-              className={isRefreshing ? 'animate-spin' : ''}>
-              <path d="M1 4v6h6"/><path d="M23 20v-6h-6"/>
-              <path d="M20.49 9A9 9 0 0 0 5.64 5.64L1 10m22 4l-4.64 4.36A9 9 0 0 1 3.51 15"/>
-            </svg>
+            <ToolbarButtonIcon>
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"
+                className={isRefreshing ? 'animate-spin' : ''}>
+                <path d="M1 4v6h6"/><path d="M23 20v-6h-6"/>
+                <path d="M20.49 9A9 9 0 0 0 5.64 5.64L1 10m22 4l-4.64 4.36A9 9 0 0 1 3.51 15"/>
+              </svg>
+            </ToolbarButtonIcon>
+            <span>새로고침</span>
           </button>
           {/* 검색 버튼 */}
           <button
             type="button"
             onClick={() => { setSearchOpen((v) => !v); setSearchResults(null); setSearchKeyword(''); setSearchDate(''); }}
-            className="rounded-md p-1.5 transition-colors"
-            style={{ background: searchOpen ? '#3a3f4a' : 'transparent', color: 'var(--text-muted)' }}
+            className={toolbarButtonBaseClass}
+            style={toolbarIconStyle(searchOpen, naverTheme && !naverDark ? '#eef1f5' : oyTheme && !oyDark ? '#eff5f5' : '#3a3f4a', naverTheme && !naverDark ? '#dde3ea' : oyTheme && !oyDark ? '#d9e5e5' : '#3a3f4a')}
             title="채팅 검색"
           >
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
-              <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
-            </svg>
+            <ToolbarButtonIcon>
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+                <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
+              </svg>
+            </ToolbarButtonIcon>
+            <span>검색</span>
           </button>
           {/* 나가기 버튼 */}
           <button
             type="button"
             onClick={() => setShowLeaveConfirm(true)}
-            className="rounded-md p-1.5 transition-colors"
-            style={{ background: 'transparent', color: '#ed4245' }}
+            className={toolbarButtonBaseClass}
+            style={{ background: 'transparent', color: '#ed4245', borderColor: '#ed424533' }}
             title="채팅방 나가기"
           >
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
-              <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/>
-              <polyline points="16 17 21 12 16 7"/>
-              <line x1="21" y1="12" x2="9" y2="12"/>
-            </svg>
+            <ToolbarButtonIcon>
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+                <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/>
+                <polyline points="16 17 21 12 16 7"/>
+                <line x1="21" y1="12" x2="9" y2="12"/>
+              </svg>
+            </ToolbarButtonIcon>
+            <span>나가기</span>
           </button>
         </div>
       )}
