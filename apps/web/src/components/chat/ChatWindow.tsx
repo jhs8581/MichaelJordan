@@ -1642,11 +1642,6 @@ export function ChatWindow({ roomId, onLeave, onImageView, naverTheme, naverDark
         onTouchEnd={isMobile && canLock ? () => { if (longPressTimer.current) { clearTimeout(longPressTimer.current); longPressTimer.current = null; } } : undefined}
         onTouchMove={isMobile && canLock ? () => { if (longPressTimer.current) { clearTimeout(longPressTimer.current); longPressTimer.current = null; } } : undefined}
       >
-        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--text-muted)" strokeWidth="2" strokeLinecap="round">
-          {activeRoom?.isGroup
-            ? <><line x1="4" y1="9" x2="20" y2="9"/><line x1="4" y1="15" x2="20" y2="15"/><line x1="10" y1="3" x2="8" y2="21"/><line x1="16" y1="3" x2="14" y2="21"/></>
-            : <><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></>}
-        </svg>
         <div className="flex items-center gap-2 min-w-0">
           <button
             type="button"
