@@ -1508,6 +1508,16 @@ export function ChatWindow({ roomId, onLeave, onImageView, naverTheme, naverDark
     borderColor: border,
     color,
   });
+  const settingsButtonStyle = toolbarButtonStyle(
+    settingsOpen,
+    oyTheme && !oyDark ? '#e9f4f3' : naverTheme && !naverDark ? '#eef1f5' : '#343842',
+    oyTheme && !oyDark ? '#cfe6e3' : naverTheme && !naverDark ? '#dde3ea' : '#454a56',
+  );
+  const clockButtonStyle = toolbarButtonStyle(
+    roomClockOpen,
+    oyTheme && !oyDark ? '#f4fbfb' : naverTheme && !naverDark ? '#f6f8fb' : '#3a3f4a',
+    oyTheme && !oyDark ? '#d9e9e8' : naverTheme && !naverDark ? '#dfe6ee' : '#4a5160',
+  );
   const toolbarIconStyle = (active: boolean, activeBg: string, border: string, color = 'var(--text-muted)') => ({
     background: active ? activeBg : 'transparent',
     borderColor: border,
@@ -1643,7 +1653,7 @@ export function ChatWindow({ roomId, onLeave, onImageView, naverTheme, naverDark
             data-chat-settings-button
             onClick={() => setSettingsOpen((current) => !current)}
             className={toolbarButtonBaseClass}
-            style={toolbarButtonStyle(settingsOpen, naverTheme && !naverDark ? '#eef1f5' : oyTheme && !oyDark ? '#eff5f5' : '#3a3f4a', naverTheme && !naverDark ? '#dde3ea' : oyTheme && !oyDark ? '#d9e5e5' : '#3a3f4a')}
+            style={settingsButtonStyle}
           >
             <ToolbarButtonIcon>
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
@@ -1657,7 +1667,7 @@ export function ChatWindow({ roomId, onLeave, onImageView, naverTheme, naverDark
             type="button"
             onClick={() => setRoomClockOpen((prev) => !prev)}
             className={toolbarButtonBaseClass}
-            style={toolbarButtonStyle(roomClockOpen, naverTheme && !naverDark ? '#eef1f5' : oyTheme && !oyDark ? '#eff5f5' : '#3a3f4a', naverTheme && !naverDark ? '#dde3ea' : oyTheme && !oyDark ? '#d9e5e5' : '#3a3f4a')}
+            style={clockButtonStyle}
             aria-label={roomClockOpen ? '시간 표시 접기' : '시간 표시 열기'}
           >
             <ToolbarButtonIcon>
@@ -1754,7 +1764,7 @@ export function ChatWindow({ roomId, onLeave, onImageView, naverTheme, naverDark
               onClick={handleRefresh}
               disabled={isRefreshing}
               className={toolbarButtonBaseClass}
-              style={toolbarIconStyle(isRefreshing, naverTheme && !naverDark ? '#eef1f5' : oyTheme && !oyDark ? '#eff5f5' : '#3a3f4a', naverTheme && !naverDark ? '#dde3ea' : oyTheme && !oyDark ? '#d9e5e5' : '#3a3f4a')}
+              style={toolbarIconStyle(isRefreshing, oyTheme && !oyDark ? '#f4fbfb' : naverTheme && !naverDark ? '#f6f8fb' : '#3a3f4a', oyTheme && !oyDark ? '#d9e9e8' : naverTheme && !naverDark ? '#dfe6ee' : '#3a3f4a')}
               title="새로고침"
             >
               <ToolbarButtonIcon>
@@ -1771,7 +1781,7 @@ export function ChatWindow({ roomId, onLeave, onImageView, naverTheme, naverDark
               type="button"
               onClick={() => { setSearchOpen((v) => !v); setSearchResults(null); setSearchKeyword(''); setSearchDate(''); }}
               className={toolbarButtonBaseClass}
-              style={toolbarIconStyle(searchOpen, naverTheme && !naverDark ? '#eef1f5' : oyTheme && !oyDark ? '#eff5f5' : '#3a3f4a', naverTheme && !naverDark ? '#dde3ea' : oyTheme && !oyDark ? '#d9e5e5' : '#3a3f4a')}
+              style={toolbarIconStyle(searchOpen, oyTheme && !oyDark ? '#f4fbfb' : naverTheme && !naverDark ? '#f6f8fb' : '#3a3f4a', oyTheme && !oyDark ? '#d9e9e8' : naverTheme && !naverDark ? '#dfe6ee' : '#3a3f4a')}
               title="채팅 검색"
             >
               <ToolbarButtonIcon>
