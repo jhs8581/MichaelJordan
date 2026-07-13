@@ -195,6 +195,7 @@ function RoomCard({ room, onClick, oy }: { room: Room; onClick: () => void; oy: 
   const lastMsg = room.messages?.[0];
   const unread = room.unreadCount ?? 0;
   const hasUnread = unread > 0 && !room.isMuted;
+  const contentUnread = (room.scheduleUnreadCount ?? 0) + (room.postUnreadCount ?? 0) + (room.commentUnreadCount ?? 0);
   const color = roomColor(room.name);
   return (
     <div onClick={onClick} onMouseDown={() => setPressed(true)} onMouseUp={() => setPressed(false)} onMouseLeave={() => setPressed(false)}
@@ -205,6 +206,7 @@ function RoomCard({ room, onClick, oy }: { room: Room; onClick: () => void; oy: 
       <div style={{ flex: 1, minWidth: 0 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 3 }}>
           <span style={{ fontSize: 14.5, fontWeight: hasUnread ? 700 : 600, color: oy.text, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{room.name}</span>
+          {contentUnread > 0 && <span style={{ fontSize: 10, color: oy.primary, fontWeight: 800, background: oy.primaryLight, borderRadius: 8, padding: '1px 6px' }}>새 글</span>}
           {room.isMuted && <span style={{ fontSize: 11 }}>🔇</span>}
         </div>
         <div style={{ fontSize: 12.5, color: hasUnread ? oy.textSub : oy.textMuted, fontWeight: hasUnread ? 500 : 400, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
@@ -313,6 +315,7 @@ export default function OliveYoungChatPage({ backRef }: { backRef?: MutableRefOb
       setSchedLoading(true); setSchedules([]);
       api.get<{ data: { schedules: Schedule[] } }>(`/schedules?roomId=${selectedRoom.id}`)
         .then(res => setSchedules(res.data.data.schedules)).catch(() => {}).finally(() => setSchedLoading(false));
+      markRoomContentRead(selectedRoom.id, 'schedule');
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [roomView, selectedRoom?.id, accessToken]);
@@ -321,11 +324,15 @@ export default function OliveYoungChatPage({ backRef }: { backRef?: MutableRefOb
       setPostsLoading(true); setPosts([]);
       api.get<{ data: { posts: Post[] } }>(`/posts?roomId=${selectedRoom.id}`)
         .then(res => setPosts(res.data.data.posts)).catch(() => {}).finally(() => setPostsLoading(false));
+      markRoomContentRead(selectedRoom.id, 'post');
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [roomView, selectedRoom?.id, accessToken]);
   useEffect(() => {
-    if (postDetail) { loadComments(postDetail.id); }
+    if (postDetail) {
+      loadComments(postDetail.id);
+      if (selectedRoom) markRoomContentRead(selectedRoom.id, 'comment');
+    }
     else { setComments([]); setCommentInput(''); setCommentEditId(null); }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [postDetail?.id]);
@@ -337,6 +344,32 @@ export default function OliveYoungChatPage({ backRef }: { backRef?: MutableRefOb
     setSelectedRoom({ ...room, unreadCount: 0 });
     setRoomView('');
     setView('chat');
+  }
+
+  function clearRoomContentUnread(roomId: number, type: 'schedule' | 'post' | 'comment' | 'all') {
+    setRooms(rooms.map((room) => {
+      if (room.id !== roomId) return room;
+      if (type === 'schedule') return { ...room, scheduleUnreadCount: 0 };
+      if (type === 'post') return { ...room, postUnreadCount: 0 };
+      if (type === 'comment') return { ...room, commentUnreadCount: 0 };
+      return { ...room, scheduleUnreadCount: 0, postUnreadCount: 0, commentUnreadCount: 0 };
+    }));
+    setSelectedRoom((current) => {
+      if (!current || current.id !== roomId) return current;
+      if (type === 'schedule') return { ...current, scheduleUnreadCount: 0 };
+      if (type === 'post') return { ...current, postUnreadCount: 0 };
+      if (type === 'comment') return { ...current, commentUnreadCount: 0 };
+      return { ...current, scheduleUnreadCount: 0, postUnreadCount: 0, commentUnreadCount: 0 };
+    });
+  }
+
+  async function markRoomContentRead(roomId: number, type: 'schedule' | 'post' | 'comment' | 'all') {
+    try {
+      await api.patch(`/rooms/${roomId}/read-content`, { type });
+      clearRoomContentUnread(roomId, type);
+    } catch {
+      // 실패 시 다음 새로고침에서 서버 상태 반영
+    }
   }
 
   function switchTab(tab: BottomTab) {
@@ -582,8 +615,14 @@ export default function OliveYoungChatPage({ backRef }: { backRef?: MutableRefOb
           </div>
           {roomView === '' && (
             <>
-              <button onClick={() => setRoomView('schedule')} title="일정" style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 18, padding: '2px 4px', lineHeight: 1, flexShrink: 0 }}>📅</button>
-              <button onClick={() => setRoomView('posts')} title="게시판" style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 18, padding: '2px 4px', lineHeight: 1, flexShrink: 0 }}>📝</button>
+              <button onClick={() => setRoomView('schedule')} title="일정" style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 18, padding: '2px 4px', lineHeight: 1, flexShrink: 0, position: 'relative' }}>
+                📅
+                {(selectedRoom.scheduleUnreadCount ?? 0) > 0 && <span style={{ position: 'absolute', top: 0, right: -2, width: 7, height: 7, borderRadius: '50%', background: '#f7685b' }} />}
+              </button>
+              <button onClick={() => setRoomView('posts')} title="게시판" style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 18, padding: '2px 4px', lineHeight: 1, flexShrink: 0, position: 'relative' }}>
+                📝
+                {((selectedRoom.postUnreadCount ?? 0) + (selectedRoom.commentUnreadCount ?? 0)) > 0 && <span style={{ position: 'absolute', top: 0, right: -2, width: 7, height: 7, borderRadius: '50%', background: '#f7685b' }} />}
+              </button>
             </>
           )}
           <DayNightBtn />

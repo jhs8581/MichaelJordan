@@ -14,6 +14,10 @@ const updateRoomTimeZonesSchema = z.object({
   timeZone2: z.string().optional(),
 });
 
+const markRoomContentReadSchema = z.object({
+  type: z.enum(['schedule', 'post', 'comment', 'all']).default('all'),
+});
+
 function normalizeTimeZone(value: string | undefined): string | null {
   const timeZone = (value ?? '').trim();
   if (!timeZone) return null;
@@ -146,10 +150,62 @@ export async function roomRoutes(app: FastifyInstance) {
     const unreadByRoom = Object.fromEntries(
       unreadRows.map((row) => [row.roomId, Number(row.unreadCount)]),
     );
+
+    const contentUnreadRows = roomIdSql
+      ? await prisma.$queryRawUnsafe<Array<{
+          roomId: number;
+          scheduleUnreadCount: number | bigint;
+          postUnreadCount: number | bigint;
+          commentUnreadCount: number | bigint;
+        }>>(
+          `SELECT
+             rm.[roomId] AS roomId,
+             (
+               SELECT COUNT_BIG(1)
+               FROM [Schedule] s
+               WHERE s.[roomId] = rm.[roomId]
+                 AND s.[createdById] <> ${Number(userId)}
+                 AND s.[createdAt] > ISNULL(rm.[lastScheduleReadAt], '1900-01-01')
+             ) AS scheduleUnreadCount,
+             (
+               SELECT COUNT_BIG(1)
+               FROM [Post] p
+               WHERE p.[roomId] = rm.[roomId]
+                 AND p.[authorId] <> ${Number(userId)}
+                 AND p.[createdAt] > ISNULL(rm.[lastPostReadAt], '1900-01-01')
+             ) AS postUnreadCount,
+             (
+               SELECT COUNT_BIG(1)
+               FROM [Comment] c
+               INNER JOIN [Post] p ON p.[id] = c.[postId]
+               WHERE p.[roomId] = rm.[roomId]
+                 AND c.[authorId] <> ${Number(userId)}
+                 AND c.[createdAt] > ISNULL(rm.[lastCommentReadAt], '1900-01-01')
+             ) AS commentUnreadCount
+           FROM [RoomMember] rm
+           WHERE rm.[userId] = ${Number(userId)}
+             AND rm.[roomId] IN (${roomIdSql})`,
+        )
+      : [];
+
+    const contentUnreadByRoom = Object.fromEntries(
+      contentUnreadRows.map((row) => [
+        row.roomId,
+        {
+          scheduleUnreadCount: Number(row.scheduleUnreadCount),
+          postUnreadCount: Number(row.postUnreadCount),
+          commentUnreadCount: Number(row.commentUnreadCount),
+        },
+      ]),
+    );
+
     const roomsWithMute = rooms.map((r) => ({
       ...r,
       isMuted: muteByRoom[r.id] ?? false,
       unreadCount: unreadByRoom[r.id] ?? 0,
+      scheduleUnreadCount: contentUnreadByRoom[r.id]?.scheduleUnreadCount ?? 0,
+      postUnreadCount: contentUnreadByRoom[r.id]?.postUnreadCount ?? 0,
+      commentUnreadCount: contentUnreadByRoom[r.id]?.commentUnreadCount ?? 0,
     }));
 
     return reply.send({ success: true, data: roomsWithMute });
@@ -242,6 +298,36 @@ export async function roomRoutes(app: FastifyInstance) {
     });
 
     return reply.send({ success: true, data: { isMuted: body.mute } });
+  });
+
+  // ── 일정/게시글/댓글 읽음 처리 ────────────────────────────────────
+  app.patch('/:roomId/read-content', async (req, reply) => {
+    const userId = (req.user as { sub: number }).sub;
+    const { roomId } = req.params as { roomId: string };
+    const parsed = markRoomContentReadSchema.safeParse(req.body);
+    if (!parsed.success) {
+      return reply.status(400).send({ success: false, error: parsed.error.message });
+    }
+
+    const member = await prisma.roomMember.findUnique({
+      where: { userId_roomId: { userId, roomId: Number(roomId) } },
+    });
+    if (!member) {
+      return reply.status(404).send({ success: false, error: '채팅방 멤버가 아닙니다.' });
+    }
+
+    const now = new Date();
+    const data: { lastScheduleReadAt?: Date; lastPostReadAt?: Date; lastCommentReadAt?: Date } = {};
+    if (parsed.data.type === 'schedule' || parsed.data.type === 'all') data.lastScheduleReadAt = now;
+    if (parsed.data.type === 'post' || parsed.data.type === 'all') data.lastPostReadAt = now;
+    if (parsed.data.type === 'comment' || parsed.data.type === 'all') data.lastCommentReadAt = now;
+
+    await prisma.roomMember.update({
+      where: { userId_roomId: { userId, roomId: Number(roomId) } },
+      data,
+    });
+
+    return reply.send({ success: true });
   });
 
   // ── 방 공통 시간대 설정 (모든 멤버 변경 가능) ──────────────────────

@@ -58,6 +58,9 @@ model RoomMember {
   roomId   Int
   joinedAt DateTime @default(now())
   isMuted  Boolean  @default(false)
+  lastScheduleReadAt DateTime?
+  lastPostReadAt     DateTime?
+  lastCommentReadAt  DateTime?
   room     Room     @relation(fields: [roomId], references: [id], onDelete: Cascade)
   user     User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 

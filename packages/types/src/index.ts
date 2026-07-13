@@ -24,6 +24,9 @@ export interface Room {
   roomTimeZone1?: string;
   roomTimeZone2?: string;
   unreadCount?: number;      // 현재 사용자가 아직 읽지 않은 메시지 수
+  scheduleUnreadCount?: number;
+  postUnreadCount?: number;
+  commentUnreadCount?: number;
   createdAt: string;
   members: RoomMember[];
   messages?: Pick<Message, 'id' | 'content' | 'createdAt' | 'senderId'>[];
