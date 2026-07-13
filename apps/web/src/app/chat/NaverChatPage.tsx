@@ -643,6 +643,10 @@ export default function NaverChatPage({ backRef }: { backRef?: MutableRefObject<
 
   // ── 채팅창 뷰 ─────────────────────────────────────────────────────────────────
   if (view === 'chat' && selectedRoom) {
+    const scheduleUnread = selectedRoom.scheduleUnreadCount ?? 0;
+    const postUnread = selectedRoom.postUnreadCount ?? 0;
+    const commentUnread = selectedRoom.commentUnreadCount ?? 0;
+    const hasContentUnread = scheduleUnread + postUnread + commentUnread > 0;
     return (
       <div style={{ maxWidth: 430, margin: '0 auto', position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, fontFamily: '"Apple SD Gothic Neo","Malgun Gothic",Arial,sans-serif', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
         <div style={{ height: HEADER_H, background: naverDark ? '#161616' : '#fff', borderBottom: `1px solid ${naverDark ? '#2e2e2e' : '#e8e8e8'}`, display: 'flex', alignItems: 'center', padding: '0 14px', gap: 10, flexShrink: 0 }}>
@@ -857,15 +861,34 @@ export default function NaverChatPage({ backRef }: { backRef?: MutableRefObject<
               )}
             </div>
           ) : (
-            <ChatWindow roomId={selectedRoom.id} onLeave={() => setView('rooms')} naverTheme naverDark={naverDark}
-              backInterceptorRef={chatBackInterceptorRef}
-              onImageView={(url, imageList, options) => {
-                const idx = imageList.findIndex((item) => item.url === url);
-                setViewingImageItems(imageList); setViewingImageIdx(idx >= 0 ? idx : 0);
-                setImageZoom(1); setImagePan({ x: 0, y: 0 });
-                setShowImageGrid(Boolean(options?.showGrid));
-              }}
-            />
+            <div style={{ height: '100%', display: 'flex', flexDirection: 'column', minHeight: 0 }}>
+              {hasContentUnread && (
+                <div style={{ margin: '8px 10px 0', borderRadius: 12, border: `1px solid ${naverDark ? '#1f5f3f' : '#b8ebd2'}`, background: naverDark ? '#12281d' : '#edf9f3', padding: '8px 10px', display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                  <span style={{ fontSize: 12, color: naverDark ? '#b7e8d1' : '#166842', fontWeight: 700 }}>새로운 방 콘텐츠가 있어요</span>
+                  {scheduleUnread > 0 && (
+                    <button onClick={() => setRoomView('schedule')} style={{ border: `1px solid ${naverDark ? '#2e8d61' : '#8fd8b8'}`, background: naverDark ? '#163425' : '#ffffff', color: naverDark ? '#d1f5e4' : '#0f6b43', borderRadius: 999, padding: '3px 10px', fontSize: 11, fontWeight: 700, cursor: 'pointer' }}>
+                      📅 일정 {scheduleUnread}개
+                    </button>
+                  )}
+                  {(postUnread + commentUnread) > 0 && (
+                    <button onClick={() => setRoomView('posts')} style={{ border: `1px solid ${naverDark ? '#2e8d61' : '#8fd8b8'}`, background: naverDark ? '#163425' : '#ffffff', color: naverDark ? '#d1f5e4' : '#0f6b43', borderRadius: 999, padding: '3px 10px', fontSize: 11, fontWeight: 700, cursor: 'pointer' }}>
+                      📝 게시글/댓글 {postUnread + commentUnread}개
+                    </button>
+                  )}
+                </div>
+              )}
+              <div style={{ flex: 1, minHeight: 0 }}>
+                <ChatWindow roomId={selectedRoom.id} onLeave={() => setView('rooms')} naverTheme naverDark={naverDark}
+                  backInterceptorRef={chatBackInterceptorRef}
+                  onImageView={(url, imageList, options) => {
+                    const idx = imageList.findIndex((item) => item.url === url);
+                    setViewingImageItems(imageList); setViewingImageIdx(idx >= 0 ? idx : 0);
+                    setImageZoom(1); setImagePan({ x: 0, y: 0 });
+                    setShowImageGrid(Boolean(options?.showGrid));
+                  }}
+                />
+              </div>
+            </div>
           )}
         </div>
         {lightbox}

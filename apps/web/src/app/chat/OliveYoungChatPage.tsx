@@ -599,6 +599,10 @@ export default function OliveYoungChatPage({ backRef }: { backRef?: MutableRefOb
   // ── 채팅창 뷰 ────────────────────────────────────────────────────────────────
   if (view === 'chat' && selectedRoom) {
     const rColor = roomColor(selectedRoom.name);
+    const scheduleUnread = selectedRoom.scheduleUnreadCount ?? 0;
+    const postUnread = selectedRoom.postUnreadCount ?? 0;
+    const commentUnread = selectedRoom.commentUnreadCount ?? 0;
+    const hasContentUnread = scheduleUnread + postUnread + commentUnread > 0;
     return (
       <div style={{ maxWidth: 430, margin: '0 auto', position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, fontFamily: '"Apple SD Gothic Neo","Malgun Gothic",Arial,sans-serif', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
         <div style={{ height: HEADER_H, background: oy.cardBg, borderBottom: `1px solid ${oy.border}`, display: 'flex', alignItems: 'center', padding: '0 16px', gap: 10, flexShrink: 0 }}>
@@ -784,18 +788,37 @@ export default function OliveYoungChatPage({ backRef }: { backRef?: MutableRefOb
               )}
             </div>
           ) : (
-            <ChatWindow
-              roomId={selectedRoom.id}
-              onLeave={() => { setView('rooms'); setActiveTab('뷰티톡'); }}
-              backInterceptorRef={chatBackInterceptorRef}
-              oyTheme oyDark={oyDark}
-              onImageView={(url, imageList, options) => {
-                const idx = imageList.findIndex((item) => item.url === url);
-                setViewingImageItems(imageList); setViewingImageIdx(idx >= 0 ? idx : 0);
-                setImageZoom(1); setImagePan({ x: 0, y: 0 });
-                setShowImageGrid(Boolean(options?.showGrid));
-              }}
-            />
+            <div style={{ height: '100%', display: 'flex', flexDirection: 'column', minHeight: 0 }}>
+              {hasContentUnread && (
+                <div style={{ margin: '8px 10px 0', borderRadius: 12, border: `1px solid ${oyDark ? '#2a6d66' : '#b5ece3'}`, background: oyDark ? '#143733' : '#ecfaf8', padding: '8px 10px', display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                  <span style={{ fontSize: 12, color: oyDark ? '#bfece6' : '#1b7469', fontWeight: 700 }}>읽지 않은 새 콘텐츠가 있어요</span>
+                  {scheduleUnread > 0 && (
+                    <button onClick={() => setRoomView('schedule')} style={{ border: `1px solid ${oyDark ? '#3b9a90' : '#90ddd1'}`, background: oyDark ? '#1a4640' : '#ffffff', color: oyDark ? '#d3f7f3' : '#0f7b6f', borderRadius: 999, padding: '3px 10px', fontSize: 11, fontWeight: 700, cursor: 'pointer' }}>
+                      📅 일정 {scheduleUnread}개
+                    </button>
+                  )}
+                  {(postUnread + commentUnread) > 0 && (
+                    <button onClick={() => setRoomView('posts')} style={{ border: `1px solid ${oyDark ? '#3b9a90' : '#90ddd1'}`, background: oyDark ? '#1a4640' : '#ffffff', color: oyDark ? '#d3f7f3' : '#0f7b6f', borderRadius: 999, padding: '3px 10px', fontSize: 11, fontWeight: 700, cursor: 'pointer' }}>
+                      📝 게시글/댓글 {postUnread + commentUnread}개
+                    </button>
+                  )}
+                </div>
+              )}
+              <div style={{ flex: 1, minHeight: 0 }}>
+                <ChatWindow
+                  roomId={selectedRoom.id}
+                  onLeave={() => { setView('rooms'); setActiveTab('뷰티톡'); }}
+                  backInterceptorRef={chatBackInterceptorRef}
+                  oyTheme oyDark={oyDark}
+                  onImageView={(url, imageList, options) => {
+                    const idx = imageList.findIndex((item) => item.url === url);
+                    setViewingImageItems(imageList); setViewingImageIdx(idx >= 0 ? idx : 0);
+                    setImageZoom(1); setImagePan({ x: 0, y: 0 });
+                    setShowImageGrid(Boolean(options?.showGrid));
+                  }}
+                />
+              </div>
+            </div>
           )}
         </div>
         {lightbox}
