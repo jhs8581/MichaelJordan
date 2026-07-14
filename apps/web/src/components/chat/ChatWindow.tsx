@@ -45,7 +45,7 @@ type LockDigit = '0' | '1' | '2' | '3' | '4' | '5' | '6' | '7' | '8' | '9';
 
 const LOCK_DIGITS: LockDigit[] = ['1', '2', '3', '4', '5', '6', '7', '8', '9', '0'];
 const TIME_ZONE_OPTIONS = [
-  { value: '', label: '기기 자동 (괄호 시간: 한국)' },
+  { value: '', label: '기기 자동 (현재 기기 시간대 사용)' },
   { value: 'Asia/Seoul', label: '한국 - 서울' },
   { value: 'Asia/Kolkata', label: '인도 - 콜카타' },
   { value: 'Asia/Ho_Chi_Minh', label: '베트남 - 호치민' },
@@ -181,8 +181,6 @@ const DEFAULT_SETTINGS: ChatViewSettings = {
   showDateSeparator: true,
 };
 
-const DEFAULT_VIEWER_TIME_ZONE = 'Asia/Seoul';
-
 function loadChatViewSettings(): ChatViewSettings {
   try {
     const raw = localStorage.getItem('chat-view-settings');
@@ -279,6 +277,7 @@ export function ChatWindow({ roomId, onLeave, onImageView, naverTheme, naverDark
   const [newerCursor, setNewerCursor] = useState<number | null>(null);
   const [loadingOlder, setLoadingOlder] = useState(false);
   const [loadingNewer, setLoadingNewer] = useState(false);
+  const viewerTimeZone = user?.timeZone || getLocalTimeZone();
   // 타이핑 중인 사용자 목록 { userId, username }
   const [typingUsers, setTypingUsers] = useState<{ userId: number; username: string }[]>([]);
   const typingTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -1554,7 +1553,7 @@ export function ChatWindow({ roomId, onLeave, onImageView, naverTheme, naverDark
           settings.timeFormat,
           msg.senderTimeZone,
           msg.senderLocalTime,
-          user?.timeZone || DEFAULT_VIEWER_TIME_ZONE,
+          viewerTimeZone,
         );
         const prefix = settings.showNickname ? `[${senderName}][${time}]` : `[${time}]`;
         items.push(
@@ -1618,7 +1617,7 @@ export function ChatWindow({ roomId, onLeave, onImageView, naverTheme, naverDark
               naverDark={naverDark}
               oyTheme={oyTheme}
               oyDark={oyDark}
-              viewerTimeZone={user?.timeZone || DEFAULT_VIEWER_TIME_ZONE}
+              viewerTimeZone={viewerTimeZone}
               onImageClick={onImageView ? (url) => {
                 loadAllRoomImageItems(url)
                   .then((imageItems) => onImageView(url, imageItems))
@@ -2200,7 +2199,7 @@ export function ChatWindow({ roomId, onLeave, onImageView, naverTheme, naverDark
                   new Date(msg.createdAt),
                   msg.senderTimeZone,
                   msg.senderLocalTime,
-                  user?.timeZone || DEFAULT_VIEWER_TIME_ZONE,
+                  viewerTimeZone,
                 );
                 return (
                   <button
