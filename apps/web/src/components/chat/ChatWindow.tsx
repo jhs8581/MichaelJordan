@@ -1549,7 +1549,13 @@ export function ChatWindow({ roomId, onLeave, onImageView, naverTheme, naverDark
       const isConsecutive = msg.senderId === lastSenderId;
       if (settings.viewMode === 'memo') {
         const senderName = msg.sender?.username ?? (isMine ? '나' : `사용자${msg.senderId}`);
-        const time = formatTime(new Date(msg.createdAt), settings.timeFormat, msg.senderTimeZone, msg.senderLocalTime);
+        const time = formatTime(
+          new Date(msg.createdAt),
+          settings.timeFormat,
+          msg.senderTimeZone,
+          msg.senderLocalTime,
+          user?.timeZone || DEFAULT_VIEWER_TIME_ZONE,
+        );
         const prefix = settings.showNickname ? `[${senderName}][${time}]` : `[${time}]`;
         items.push(
           <div
@@ -2190,7 +2196,12 @@ export function ChatWindow({ roomId, onLeave, onImageView, naverTheme, naverDark
               ) : searchResults.map((msg) => {
                 const isMine = msg.senderId === user?.id;
                 const name = msg.sender?.username ?? (isMine ? '나' : `사용자${msg.senderId}`);
-                const time = formatSearchTime(new Date(msg.createdAt), msg.senderTimeZone, msg.senderLocalTime);
+                const time = formatSearchTime(
+                  new Date(msg.createdAt),
+                  msg.senderTimeZone,
+                  msg.senderLocalTime,
+                  user?.timeZone || DEFAULT_VIEWER_TIME_ZONE,
+                );
                 return (
                   <button
                     key={msg.id}
@@ -2792,7 +2803,7 @@ export function ChatWindow({ roomId, onLeave, onImageView, naverTheme, naverDark
   );
 }
 
-function formatTime(date: Date, mode: TimeFormatMode, timeZone?: string, senderLocalTime?: string): string {
+function computeDisplayTime(date: Date, mode: TimeFormatMode, timeZone?: string, senderLocalTime?: string): string {
   if (senderLocalTime && /^\d{2}:\d{2}$/.test(senderLocalTime)) {
     if (mode === '24h') return senderLocalTime;
     const [hourText, minuteText] = senderLocalTime.split(':');
@@ -2816,7 +2827,24 @@ function formatTime(date: Date, mode: TimeFormatMode, timeZone?: string, senderL
   }
 }
 
-function formatSearchTime(date: Date, timeZone?: string, senderLocalTime?: string): string {
+function formatTime(date: Date, mode: TimeFormatMode, timeZone?: string, senderLocalTime?: string, viewerTimeZone?: string): string {
+  const senderTime = computeDisplayTime(date, mode, timeZone, senderLocalTime);
+  const validViewerTZ = getValidTimeZone(viewerTimeZone);
+  const validSenderTZ = getValidTimeZone(timeZone);
+
+  // 항상 사용자(뷰어) 기준 시간을 우선으로 표기한다.
+  if (validViewerTZ) {
+    const viewerTime = computeDisplayTime(date, mode, validViewerTZ, undefined);
+    if (validSenderTZ && validViewerTZ !== validSenderTZ && viewerTime !== senderTime) {
+      return `${viewerTime} (${senderTime})`;
+    }
+    return viewerTime;
+  }
+
+  return senderTime;
+}
+
+function formatSearchTime(date: Date, timeZone?: string, senderLocalTime?: string, viewerTimeZone?: string): string {
   const validTimeZone = getValidTimeZone(timeZone);
   let day: string;
   try {
@@ -2824,7 +2852,7 @@ function formatSearchTime(date: Date, timeZone?: string, senderLocalTime?: strin
   } catch {
     day = date.toLocaleDateString('ko-KR', { month: 'numeric', day: 'numeric' });
   }
-  const time = formatTime(date, '24h', timeZone, senderLocalTime);
+  const time = formatTime(date, '24h', timeZone, senderLocalTime, viewerTimeZone);
   return `${day} ${time}`;
 }
 

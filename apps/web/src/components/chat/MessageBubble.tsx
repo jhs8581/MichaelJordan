@@ -432,16 +432,16 @@ function computeFormattedTime(date: Date, mode: 'ampm' | '24h', timeZone?: strin
 
 function formatMessageTime(date: Date, mode: 'ampm' | '24h', timeZone?: string, senderLocalTime?: string, viewerTimeZone?: string): string {
   const senderTime = computeFormattedTime(date, mode, timeZone, senderLocalTime);
+  const validViewerTZ = getValidTimeZone(viewerTimeZone);
+  const validSenderTZ = getValidTimeZone(timeZone);
 
-  if (viewerTimeZone) {
-    const validViewerTZ = getValidTimeZone(viewerTimeZone);
-    const validSenderTZ = getValidTimeZone(timeZone);
-    if (validViewerTZ && validViewerTZ !== validSenderTZ) {
-      const viewerTime = computeFormattedTime(date, mode, viewerTimeZone, undefined);
-      if (viewerTime !== senderTime) {
-        return `${senderTime} (${viewerTime})`;
-      }
+  // 항상 사용자(뷰어) 기준 시간을 우선으로 표기한다.
+  if (validViewerTZ) {
+    const viewerTime = computeFormattedTime(date, mode, validViewerTZ, undefined);
+    if (validSenderTZ && validViewerTZ !== validSenderTZ && viewerTime !== senderTime) {
+      return `${viewerTime} (${senderTime})`;
     }
+    return viewerTime;
   }
 
   return senderTime;
