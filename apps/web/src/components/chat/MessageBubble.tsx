@@ -437,6 +437,10 @@ function formatMessageTime(date: Date, mode: 'ampm' | '24h', timeZone?: string, 
 
   // 항상 사용자(뷰어) 기준 시간을 우선으로 표기한다.
   if (validViewerTZ) {
+    // 동일 시간대라면 createdAt 재계산보다 senderLocalTime(실제 보낸 시각)을 우선한다.
+    if (validSenderTZ && validViewerTZ === validSenderTZ) {
+      return senderTime;
+    }
     const viewerTime = computeFormattedTime(date, mode, validViewerTZ, undefined);
     if (validSenderTZ && validViewerTZ !== validSenderTZ && viewerTime !== senderTime) {
       return `${viewerTime} (${senderTime})`;
