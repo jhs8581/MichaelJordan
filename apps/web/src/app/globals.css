@@ -39,6 +39,25 @@ body {
   from { transform: rotate(0deg); }
   to   { transform: rotate(360deg); }
 }
+@keyframes archive-marquee-scroll {
+  0% { transform: translateX(0); }
+  100% { transform: translateX(-50%); }
+}
+
+.archive-marquee {
+  display: inline-flex;
+  min-width: 100%;
+  white-space: nowrap;
+  animation: archive-marquee-scroll var(--archive-marquee-duration, 14s) linear infinite;
+}
+
+.archive-marquee span {
+  display: inline-block;
+  padding-right: 2.5rem;
+  font-size: 12px;
+  font-weight: 600;
+}
+
 ::-webkit-scrollbar-thumb { background: #1e1f22; border-radius: 3px; }
 ::-webkit-scrollbar-thumb:hover { background: #111214; }
 

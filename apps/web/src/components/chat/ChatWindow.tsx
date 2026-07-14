@@ -84,6 +84,29 @@ type MessageListResponse = {
   newerCursor?: number | null;
 };
 
+type RoomArchiveItem = {
+  id: number;
+  roomId: number;
+  content: string;
+  messageId?: number;
+  sourceSenderId?: number;
+  createdById: number;
+  createdAt: string;
+  isActive: boolean;
+};
+
+type RoomArchiveBoard = {
+  isEnabled: boolean;
+  isPinned: boolean;
+  pinnedItemId: number | null;
+  rotateIntervalSec: number;
+};
+
+type RoomArchiveBoardResponse = {
+  board: RoomArchiveBoard;
+  items: RoomArchiveItem[];
+};
+
 type SearchThemeColors = {
   panelBg: string;
   panelBorder: string;
@@ -209,6 +232,20 @@ export function ChatWindow({ roomId, onLeave, onImageView, naverTheme, naverDark
   const [roomTimeZoneSaving, setRoomTimeZoneSaving] = useState(false);
   const [roomTimeZoneMsg, setRoomTimeZoneMsg] = useState('');
   const [roomClockOpen, setRoomClockOpen] = useState(true);
+  const [roomArchiveOpen, setRoomArchiveOpen] = useState(true);
+  const [roomArchiveLoading, setRoomArchiveLoading] = useState(false);
+  const [roomArchiveMsg, setRoomArchiveMsg] = useState('');
+  const [roomArchiveListOpen, setRoomArchiveListOpen] = useState(false);
+  const [roomArchiveTextDraft, setRoomArchiveTextDraft] = useState('');
+  const [roomArchiveSaving, setRoomArchiveSaving] = useState(false);
+  const [archiveTickerIndex, setArchiveTickerIndex] = useState(0);
+  const [roomArchiveBoard, setRoomArchiveBoard] = useState<RoomArchiveBoard>({
+    isEnabled: true,
+    isPinned: false,
+    pinnedItemId: null,
+    rotateIntervalSec: 12,
+  });
+  const [roomArchiveItems, setRoomArchiveItems] = useState<RoomArchiveItem[]>([]);
   const rooms = useChatStore((s) => s.rooms);
   const removeRoom = useChatStore((s) => s.removeRoom);
   const setRoomMuted = useChatStore((s) => s.setRoomMuted);
@@ -306,6 +343,13 @@ export function ChatWindow({ roomId, onLeave, onImageView, naverTheme, naverDark
     ...(roomTimeZone1 ? [{ key: 's1', zone: roomTimeZone1, subtitle: roomTimeZone1Label ?? roomTimeZone1 }] : []),
     ...(roomTimeZone2 ? [{ key: 's2', zone: roomTimeZone2, subtitle: roomTimeZone2Label ?? roomTimeZone2 }] : []),
   ];
+  const activeArchiveItem = useMemo(() => {
+    if (roomArchiveItems.length === 0) return null;
+    if (roomArchiveBoard.isPinned && roomArchiveBoard.pinnedItemId) {
+      return roomArchiveItems.find((item) => item.id === roomArchiveBoard.pinnedItemId) ?? roomArchiveItems[0];
+    }
+    return roomArchiveItems[archiveTickerIndex % roomArchiveItems.length];
+  }, [roomArchiveItems, roomArchiveBoard.isPinned, roomArchiveBoard.pinnedItemId, archiveTickerIndex]);
   const searchFieldStyle = {
     background: '#ffffff',
     color: '#111111',
@@ -342,6 +386,125 @@ export function ChatWindow({ roomId, onLeave, onImageView, naverTheme, naverDark
       // 저장 실패 시 무시
     }
   }, [roomClockOpen]);
+
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem('chat-room-archive-open');
+      if (saved === '0') setRoomArchiveOpen(false);
+      if (saved === '1') setRoomArchiveOpen(true);
+    } catch {
+      // localStorage 접근 실패 시 기본값 유지
+    }
+  }, []);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem('chat-room-archive-open', roomArchiveOpen ? '1' : '0');
+    } catch {
+      // 저장 실패 시 무시
+    }
+  }, [roomArchiveOpen]);
+
+  async function loadRoomArchiveBoard(targetRoomId: number) {
+    setRoomArchiveLoading(true);
+    try {
+      const res = await api.get<{ data: RoomArchiveBoardResponse }>(`/rooms/${targetRoomId}/archive-board`);
+      setRoomArchiveBoard(res.data.data.board);
+      setRoomArchiveItems(res.data.data.items);
+      setArchiveTickerIndex(0);
+      setRoomArchiveMsg('');
+    } catch (err: any) {
+      setRoomArchiveItems([]);
+      setArchiveTickerIndex(0);
+      if (err?.response?.data?.error === 'ROOM_ARCHIVE_TABLE_MISSING') {
+        setRoomArchiveMsg('테이블 생성 필요');
+      } else {
+        setRoomArchiveMsg('불러오기 실패');
+      }
+    } finally {
+      setRoomArchiveLoading(false);
+    }
+  }
+
+  useEffect(() => {
+    if (!accessToken) return;
+    setRoomArchiveListOpen(false);
+    setRoomArchiveTextDraft('');
+    loadRoomArchiveBoard(roomId);
+  }, [roomId, accessToken]);
+
+  useEffect(() => {
+    if (!roomArchiveBoard.isEnabled || roomArchiveBoard.isPinned || roomArchiveItems.length <= 1) return;
+    const intervalMs = Math.max(5, roomArchiveBoard.rotateIntervalSec) * 1000;
+    const timer = setInterval(() => {
+      setArchiveTickerIndex((prev) => (prev + 1) % roomArchiveItems.length);
+    }, intervalMs);
+    return () => clearInterval(timer);
+  }, [roomArchiveBoard.isEnabled, roomArchiveBoard.isPinned, roomArchiveBoard.rotateIntervalSec, roomArchiveItems.length]);
+
+  async function saveRoomArchiveBoardSettings(next: Partial<RoomArchiveBoard>) {
+    setRoomArchiveSaving(true);
+    try {
+      const res = await api.patch<{ data: { board: RoomArchiveBoard } }>(`/rooms/${roomId}/archive-board/settings`, next);
+      setRoomArchiveBoard(res.data.data.board);
+      setRoomArchiveMsg('저장됨');
+      if (next.isPinned === false) setArchiveTickerIndex(0);
+    } catch (err: any) {
+      if (err?.response?.data?.error === 'ROOM_ARCHIVE_TABLE_MISSING') {
+        setRoomArchiveMsg('테이블 생성 필요');
+      } else {
+        setRoomArchiveMsg('저장 실패');
+      }
+    } finally {
+      setRoomArchiveSaving(false);
+      setTimeout(() => setRoomArchiveMsg(''), 1500);
+    }
+  }
+
+  async function addRoomArchiveItem(content: string, options?: { messageId?: number; sourceSenderId?: number }) {
+    const trimmed = content.trim();
+    if (!trimmed) return;
+    setRoomArchiveSaving(true);
+    try {
+      const res = await api.post<{ data: { item: RoomArchiveItem } }>(`/rooms/${roomId}/archive-board/items`, {
+        content: trimmed,
+        messageId: options?.messageId,
+        sourceSenderId: options?.sourceSenderId,
+      });
+      const nextItem = res.data.data.item;
+      if (nextItem) {
+        setRoomArchiveItems((prev) => [nextItem, ...prev]);
+      }
+      setRoomArchiveTextDraft('');
+      setRoomArchiveMsg('추가됨');
+    } catch (err: any) {
+      if (err?.response?.data?.error === 'ROOM_ARCHIVE_TABLE_MISSING') {
+        setRoomArchiveMsg('테이블 생성 필요');
+      } else {
+        setRoomArchiveMsg('추가 실패');
+      }
+    } finally {
+      setRoomArchiveSaving(false);
+      setTimeout(() => setRoomArchiveMsg(''), 1500);
+    }
+  }
+
+  async function removeRoomArchiveItem(itemId: number) {
+    setRoomArchiveSaving(true);
+    try {
+      await api.delete(`/rooms/${roomId}/archive-board/items/${itemId}`);
+      setRoomArchiveItems((prev) => prev.filter((item) => item.id !== itemId));
+      if (roomArchiveBoard.pinnedItemId === itemId) {
+        setRoomArchiveBoard((prev) => ({ ...prev, isPinned: false, pinnedItemId: null }));
+      }
+      setRoomArchiveMsg('삭제됨');
+    } catch {
+      setRoomArchiveMsg('삭제 실패');
+    } finally {
+      setRoomArchiveSaving(false);
+      setTimeout(() => setRoomArchiveMsg(''), 1500);
+    }
+  }
 
   useEffect(() => {
     setNextCursor(null);
@@ -1359,6 +1522,14 @@ export function ChatWindow({ roomId, onLeave, onImageView, naverTheme, naverDark
     }
   }
 
+  async function handleSaveToRoomArchive(msg: Message) {
+    setContextMenu(null);
+    const content = msg.fileUrl
+      ? `${msg.content?.trim() ? `${msg.content.trim()} ` : ''}[첨부] ${msg.fileUrl}`
+      : (msg.content ?? '');
+    await addRoomArchiveItem(content, { messageId: msg.id, sourceSenderId: msg.senderId });
+  }
+
   function handleRegisterAsPost(msg: Message) {
     setContextMenu(null);
     setPostFromMsg(msg);
@@ -1516,6 +1687,11 @@ export function ChatWindow({ roomId, onLeave, onImageView, naverTheme, naverDark
     roomClockOpen,
     oyTheme && !oyDark ? '#f4fbfb' : naverTheme && !naverDark ? '#f6f8fb' : '#3a3f4a',
     oyTheme && !oyDark ? '#d9e9e8' : naverTheme && !naverDark ? '#dfe6ee' : '#4a5160',
+  );
+  const archiveButtonStyle = toolbarButtonStyle(
+    roomArchiveOpen,
+    oyTheme && !oyDark ? '#eefaf9' : naverTheme && !naverDark ? '#eef5fb' : '#36414d',
+    oyTheme && !oyDark ? '#cfe8e6' : naverTheme && !naverDark ? '#d8e6f5' : '#4c5a6d',
   );
   const toolbarIconStyle = (active: boolean, activeBg: string, border: string, color = 'var(--text-muted)') => ({
     background: active ? activeBg : 'transparent',
@@ -1677,6 +1853,22 @@ export function ChatWindow({ roomId, onLeave, onImageView, naverTheme, naverDark
               </svg>
             </ToolbarButtonIcon>
             <span>{roomClockOpen ? '시간 접기' : '시간 열기'}</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => setRoomArchiveOpen((prev) => !prev)}
+            className={toolbarButtonBaseClass}
+            style={archiveButtonStyle}
+            aria-label={roomArchiveOpen ? '대화보관함 접기' : '대화보관함 열기'}
+          >
+            <ToolbarButtonIcon>
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+                <rect x="3" y="4" width="18" height="16" rx="2"/>
+                <line x1="8" y1="9" x2="16" y2="9"/>
+                <line x1="8" y1="13" x2="16" y2="13"/>
+              </svg>
+            </ToolbarButtonIcon>
+            <span>{roomArchiveOpen ? '보관함 접기' : '보관함 열기'}</span>
           </button>
           <div className="view-mode-bar flex items-center rounded-md p-1 border" style={{ background: naverTheme && !naverDark ? '#eef1f5' : oyTheme && !oyDark ? '#eff5f5' : '#2b2d31', gap: 4, borderColor: naverTheme && !naverDark ? '#dde3ea' : oyTheme && !oyDark ? '#d9e5e5' : '#3a3f4a' }}>
             <button
@@ -1873,7 +2065,7 @@ export function ChatWindow({ roomId, onLeave, onImageView, naverTheme, naverDark
         </div>
       )}
 
-      {(!isMobile || roomClockOpen) && (
+      {(!isMobile || roomClockOpen || roomArchiveOpen) && (
         <div
           className="flex-shrink-0 px-3 py-2 border-b"
           style={{
@@ -1882,7 +2074,7 @@ export function ChatWindow({ roomId, onLeave, onImageView, naverTheme, naverDark
           }}
         >
           {!isMobile && (
-            <div className="flex items-center justify-end mb-2">
+            <div className="flex items-center justify-end mb-2 gap-1.5">
               <button
                 type="button"
                 onClick={() => setRoomClockOpen((prev) => !prev)}
@@ -1895,6 +2087,19 @@ export function ChatWindow({ roomId, onLeave, onImageView, naverTheme, naverDark
                 aria-label={roomClockOpen ? '시간 표시 접기' : '시간 표시 열기'}
               >
                 {roomClockOpen ? '시간 접기' : '시간 열기'}
+              </button>
+              <button
+                type="button"
+                onClick={() => setRoomArchiveOpen((prev) => !prev)}
+                className="rounded-md px-2 py-1 text-[11px]"
+                style={{
+                  background: naverTheme && !naverDark ? '#eef5fb' : oyTheme && !oyDark ? '#eefaf9' : '#2b3440',
+                  color: 'var(--text-muted)',
+                  border: `1px solid ${naverTheme && !naverDark ? '#d8e6f5' : oyTheme && !oyDark ? '#cfe8e6' : '#435267'}`,
+                }}
+                aria-label={roomArchiveOpen ? '대화보관함 접기' : '대화보관함 열기'}
+              >
+                {roomArchiveOpen ? '보관함 접기' : '보관함 열기'}
               </button>
             </div>
           )}
@@ -1917,6 +2122,55 @@ export function ChatWindow({ roomId, onLeave, onImageView, naverTheme, naverDark
                 </div>
               </div>
             ))}
+            </div>
+          )}
+          {roomArchiveOpen && (
+            <div
+              className="mt-2 rounded-lg px-3 py-2"
+              style={{
+                background: naverTheme && !naverDark ? '#f4f8fc' : oyTheme && !oyDark ? '#f4fbfa' : '#25303b',
+                border: `1px solid ${naverTheme && !naverDark ? '#dce8f5' : oyTheme && !oyDark ? '#d7ebe9' : '#3f5367'}`,
+              }}
+            >
+              <div className="flex items-center justify-between gap-2 mb-1.5">
+                <p className="text-[11px] font-bold" style={{ color: 'var(--text-primary)' }}>방별 대화보관함</p>
+                <div className="flex items-center gap-1.5">
+                  {roomArchiveMsg && <span className="text-[10px]" style={{ color: roomArchiveMsg.includes('실패') ? '#ed4245' : '#57f287' }}>{roomArchiveMsg}</span>}
+                  <button
+                    type="button"
+                    onClick={() => setRoomArchiveListOpen(true)}
+                    className="rounded-md px-2 py-0.5 text-[10px]"
+                    style={{ background: 'rgba(0,0,0,0.16)', color: 'var(--text-primary)' }}
+                  >
+                    리스트
+                  </button>
+                </div>
+              </div>
+              <div className="text-[11px] mb-1" style={{ color: 'var(--text-muted)' }}>
+                {roomArchiveBoard.isPinned ? '고정 표시' : `${Math.max(5, roomArchiveBoard.rotateIntervalSec)}초마다 교체`}
+              </div>
+              <div
+                className="rounded-md px-2.5 py-2 overflow-hidden"
+                style={{
+                  background: naverTheme && !naverDark ? '#ffffff' : oyTheme && !oyDark ? '#ffffff' : '#1e2833',
+                  border: `1px solid ${naverTheme && !naverDark ? '#dde8f2' : oyTheme && !oyDark ? '#ddeceb' : '#334454'}`,
+                }}
+              >
+                {roomArchiveLoading ? (
+                  <p className="text-xs" style={{ color: 'var(--text-muted)' }}>불러오는 중...</p>
+                ) : activeArchiveItem ? (
+                  activeArchiveItem.content.length > 26 ? (
+                    <div className="archive-marquee" style={{ ['--archive-marquee-duration' as any]: `${Math.min(30, Math.max(10, activeArchiveItem.content.length * 0.45))}s` }}>
+                      <span>{activeArchiveItem.content}</span>
+                      <span aria-hidden>{activeArchiveItem.content}</span>
+                    </div>
+                  ) : (
+                    <p className="text-xs font-medium truncate" style={{ color: 'var(--text-primary)' }}>{activeArchiveItem.content}</p>
+                  )
+                ) : (
+                  <p className="text-xs" style={{ color: 'var(--text-muted)' }}>아직 등록된 보관 문장이 없습니다.</p>
+                )}
+              </div>
             </div>
           )}
         </div>
@@ -2309,6 +2563,124 @@ export function ChatWindow({ roomId, onLeave, onImageView, naverTheme, naverDark
         </div>
       )}
 
+      {roomArchiveListOpen && (
+        <div
+          className="absolute inset-0 z-40 flex items-end justify-center"
+          style={{ background: 'rgba(0,0,0,0.6)' }}
+          onClick={() => setRoomArchiveListOpen(false)}
+        >
+          <div
+            className="w-full max-w-md rounded-t-2xl border p-4"
+            style={{ background: isLightSettingsPanel ? '#ffffff' : '#17191d', borderColor: isLightSettingsPanel ? '#e2e5ea' : '#3a3f4a' }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="mb-3 flex items-center justify-between gap-2">
+              <p className="text-sm font-bold" style={{ color: 'var(--text-primary)' }}>방별 대화보관함 목록</p>
+              <button
+                type="button"
+                onClick={() => setRoomArchiveListOpen(false)}
+                className="rounded-md px-2 py-1 text-xs"
+                style={{ background: isLightSettingsPanel ? '#f5f6f8' : '#2b2d31', color: 'var(--text-muted)' }}
+              >
+                닫기
+              </button>
+            </div>
+
+            <div className="mb-3 rounded-lg border p-2.5" style={{ borderColor: isLightSettingsPanel ? '#e8ebf0' : '#3a3f4a', background: isLightSettingsPanel ? '#f8f9fc' : '#101216' }}>
+              <div className="flex items-center gap-2 mb-2">
+                <label className="flex items-center gap-1.5 text-xs" style={{ color: 'var(--text-primary)' }}>
+                  <input
+                    type="checkbox"
+                    checked={roomArchiveBoard.isPinned}
+                    onChange={(e) => saveRoomArchiveBoardSettings({ isPinned: e.target.checked, pinnedItemId: e.target.checked ? (roomArchiveBoard.pinnedItemId ?? roomArchiveItems[0]?.id ?? null) : null })}
+                    disabled={roomArchiveSaving || roomArchiveItems.length === 0}
+                  />
+                  고정 표시
+                </label>
+                <label className="ml-auto flex items-center gap-1.5 text-xs" style={{ color: 'var(--text-primary)' }}>
+                  교체 주기
+                  <select
+                    value={roomArchiveBoard.rotateIntervalSec}
+                    onChange={(e) => saveRoomArchiveBoardSettings({ rotateIntervalSec: Number(e.target.value) })}
+                    disabled={roomArchiveSaving}
+                    className="rounded px-1.5 py-1 text-xs"
+                    style={{ background: isLightSettingsPanel ? '#ffffff' : '#2b2d31', border: `1px solid ${isLightSettingsPanel ? '#dfe3ea' : '#3a3f4a'}` }}
+                  >
+                    <option value={5}>5초</option>
+                    <option value={8}>8초</option>
+                    <option value={12}>12초</option>
+                    <option value={20}>20초</option>
+                    <option value={30}>30초</option>
+                  </select>
+                </label>
+              </div>
+
+              <div className="flex gap-2">
+                <input
+                  value={roomArchiveTextDraft}
+                  onChange={(e) => setRoomArchiveTextDraft(e.target.value)}
+                  placeholder="보관 문장 직접 추가"
+                  className="flex-1 rounded-md px-2 py-1.5 text-xs outline-none"
+                  style={{ background: isLightSettingsPanel ? '#ffffff' : '#2b2d31', color: 'var(--text-primary)', border: `1px solid ${isLightSettingsPanel ? '#dfe3ea' : '#3a3f4a'}` }}
+                  maxLength={4000}
+                />
+                <button
+                  type="button"
+                  onClick={() => addRoomArchiveItem(roomArchiveTextDraft)}
+                  disabled={roomArchiveSaving || !roomArchiveTextDraft.trim()}
+                  className="rounded-md px-2.5 text-xs font-bold disabled:opacity-50"
+                  style={{ background: 'var(--accent)', color: '#fff' }}
+                >
+                  추가
+                </button>
+              </div>
+            </div>
+
+            <div className="max-h-72 overflow-y-auto space-y-2">
+              {roomArchiveItems.length === 0 ? (
+                <p className="text-xs py-6 text-center" style={{ color: 'var(--text-muted)' }}>등록된 보관 문장이 없습니다.</p>
+              ) : roomArchiveItems.map((item) => {
+                const pinned = roomArchiveBoard.pinnedItemId === item.id && roomArchiveBoard.isPinned;
+                return (
+                  <div
+                    key={item.id}
+                    className="rounded-lg border p-2"
+                    style={{
+                      background: pinned
+                        ? (isLightSettingsPanel ? '#eef5ff' : '#1f2f47')
+                        : (isLightSettingsPanel ? '#ffffff' : '#22252c'),
+                      borderColor: pinned
+                        ? (isLightSettingsPanel ? '#cfe0ff' : '#2f4d78')
+                        : (isLightSettingsPanel ? '#e5e8ef' : '#3a3f4a'),
+                    }}
+                  >
+                    <p className="text-xs whitespace-pre-wrap break-words" style={{ color: 'var(--text-primary)' }}>{item.content}</p>
+                    <div className="mt-2 flex items-center justify-end gap-1.5">
+                      <button
+                        type="button"
+                        onClick={() => saveRoomArchiveBoardSettings(pinned ? { isPinned: false, pinnedItemId: null } : { isPinned: true, pinnedItemId: item.id })}
+                        className="rounded px-2 py-1 text-[11px]"
+                        style={{ background: pinned ? '#57f28733' : '#5865f233', color: pinned ? '#57f287' : '#8ea1ff' }}
+                      >
+                        {pinned ? '고정 해제' : '고정'}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => removeRoomArchiveItem(item.id)}
+                        className="rounded px-2 py-1 text-[11px]"
+                        style={{ background: '#ed424522', color: '#ed4245' }}
+                      >
+                        삭제
+                      </button>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* 메시지 컨텍스트 메뉴 (말풍선 길게 누르기) */}
       {contextMenu && (
         <div
@@ -2362,7 +2734,16 @@ export function ChatWindow({ roomId, onLeave, onImageView, naverTheme, naverDark
               style={{ background: isLightContextMenu ? '#f5f6f8' : '#2b2d31', color: 'var(--text-primary)' }}
             >
               <span style={{ fontSize: 18 }}>🔖</span>
-              <span className="text-sm font-medium">보관함에 저장</span>
+              <span className="text-sm font-medium">개인 보관함에 저장</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => handleSaveToRoomArchive(contextMenu)}
+              className="w-full flex items-center gap-3 rounded-xl px-4 py-3 mb-2"
+              style={{ background: isLightContextMenu ? '#f0f6ff' : '#243244', color: 'var(--text-primary)' }}
+            >
+              <span style={{ fontSize: 18 }}>🗂️</span>
+              <span className="text-sm font-medium">이 방 보관함에 저장</span>
             </button>
             {!contextMenu.fileUrl && (
               <button

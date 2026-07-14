@@ -18,6 +18,19 @@ const markRoomContentReadSchema = z.object({
   type: z.enum(['schedule', 'post', 'comment', 'all']).default('all'),
 });
 
+const updateArchiveBoardSettingsSchema = z.object({
+  isEnabled: z.boolean().optional(),
+  isPinned: z.boolean().optional(),
+  pinnedItemId: z.number().int().positive().nullable().optional(),
+  rotateIntervalSec: z.number().int().min(5).max(300).optional(),
+});
+
+const createArchiveBoardItemSchema = z.object({
+  content: z.string().trim().min(1).max(4000),
+  messageId: z.number().int().positive().nullable().optional(),
+  sourceSenderId: z.number().int().positive().nullable().optional(),
+});
+
 function normalizeTimeZone(value: string | undefined): string | null {
   const timeZone = (value ?? '').trim();
   if (!timeZone) return null;
@@ -27,6 +40,25 @@ function normalizeTimeZone(value: string | undefined): string | null {
   } catch {
     return null;
   }
+}
+
+function isMissingArchiveTableError(err: unknown): boolean {
+  const text = err instanceof Error ? err.message : String(err ?? '');
+  return /Invalid object name/i.test(text) && (text.includes('RoomArchiveBoard') || text.includes('RoomArchiveItem'));
+}
+
+function normalizeArchiveBoardRow(row: {
+  isEnabled: boolean | number;
+  isPinned: boolean | number;
+  pinnedItemId: number | null;
+  rotateIntervalSec: number | null;
+} | null | undefined) {
+  return {
+    isEnabled: row ? Boolean(row.isEnabled) : true,
+    isPinned: row ? Boolean(row.isPinned) : false,
+    pinnedItemId: row?.pinnedItemId ?? null,
+    rotateIntervalSec: Math.min(300, Math.max(5, Number(row?.rotateIntervalSec ?? 12))),
+  };
 }
 
 async function updateRoomTimeZonesHandler(req: any, reply: any) {
@@ -334,4 +366,237 @@ export async function roomRoutes(app: FastifyInstance) {
   app.patch('/:roomId/time-zones', updateRoomTimeZonesHandler);
   // 구버전 클라이언트 오타 경로 호환
   app.patch('/:roomId/tine-zones', updateRoomTimeZonesHandler);
+
+  // ── 방별 대화보관함 조회 ─────────────────────────────────────────
+  app.get('/:roomId/archive-board', async (req, reply) => {
+    const userId = Number((req.user as { sub: number | string }).sub);
+    const { roomId } = req.params as { roomId: string };
+    const roomIdNum = Number(roomId);
+
+    const member = await prisma.roomMember.findUnique({
+      where: { userId_roomId: { userId, roomId: roomIdNum } },
+    });
+    if (!member) {
+      return reply.status(404).send({ success: false, error: '채팅방 멤버가 아닙니다.' });
+    }
+
+    try {
+      const boardRows = await prisma.$queryRaw<Array<{
+        isEnabled: boolean | number;
+        isPinned: boolean | number;
+        pinnedItemId: number | null;
+        rotateIntervalSec: number | null;
+      }>>`
+        SELECT TOP 1 [isEnabled], [isPinned], [pinnedItemId], [rotateIntervalSec]
+        FROM [RoomArchiveBoard]
+        WHERE [roomId] = ${roomIdNum}
+      `;
+
+      const itemRows = await prisma.$queryRaw<Array<{
+        id: number;
+        roomId: number;
+        content: string;
+        messageId: number | null;
+        sourceSenderId: number | null;
+        createdById: number;
+        createdAt: Date;
+        isActive: boolean | number;
+      }>>`
+        SELECT TOP 200 [id], [roomId], [content], [messageId], [sourceSenderId], [createdById], [createdAt], [isActive]
+        FROM [RoomArchiveItem]
+        WHERE [roomId] = ${roomIdNum} AND [isActive] = 1
+        ORDER BY [createdAt] DESC, [id] DESC
+      `;
+
+      const board = normalizeArchiveBoardRow(boardRows[0]);
+      return reply.send({
+        success: true,
+        data: {
+          board,
+          items: itemRows.map((item) => ({
+            ...item,
+            messageId: item.messageId ?? undefined,
+            sourceSenderId: item.sourceSenderId ?? undefined,
+            createdAt: item.createdAt.toISOString(),
+            isActive: Boolean(item.isActive),
+          })),
+        },
+      });
+    } catch (err) {
+      if (isMissingArchiveTableError(err)) {
+        return reply.status(501).send({ success: false, error: 'ROOM_ARCHIVE_TABLE_MISSING' });
+      }
+      throw err;
+    }
+  });
+
+  // ── 방별 대화보관함 설정 업데이트 ──────────────────────────────
+  app.patch('/:roomId/archive-board/settings', async (req, reply) => {
+    const userId = Number((req.user as { sub: number | string }).sub);
+    const { roomId } = req.params as { roomId: string };
+    const roomIdNum = Number(roomId);
+    const body = updateArchiveBoardSettingsSchema.safeParse(req.body);
+    if (!body.success) {
+      return reply.status(400).send({ success: false, error: body.error.message });
+    }
+
+    const member = await prisma.roomMember.findUnique({
+      where: { userId_roomId: { userId, roomId: roomIdNum } },
+    });
+    if (!member) {
+      return reply.status(404).send({ success: false, error: '채팅방 멤버가 아닙니다.' });
+    }
+
+    try {
+      const boardRows = await prisma.$queryRaw<Array<{
+        isEnabled: boolean | number;
+        isPinned: boolean | number;
+        pinnedItemId: number | null;
+        rotateIntervalSec: number | null;
+      }>>`
+        SELECT TOP 1 [isEnabled], [isPinned], [pinnedItemId], [rotateIntervalSec]
+        FROM [RoomArchiveBoard]
+        WHERE [roomId] = ${roomIdNum}
+      `;
+      const current = normalizeArchiveBoardRow(boardRows[0]);
+
+      const next = {
+        isEnabled: body.data.isEnabled ?? current.isEnabled,
+        isPinned: body.data.isPinned ?? current.isPinned,
+        pinnedItemId: body.data.pinnedItemId === undefined ? current.pinnedItemId : body.data.pinnedItemId,
+        rotateIntervalSec: body.data.rotateIntervalSec ?? current.rotateIntervalSec,
+      };
+
+      if (!next.isPinned) {
+        next.pinnedItemId = null;
+      }
+
+      if (next.pinnedItemId) {
+        const pinnedItemRows = await prisma.$queryRaw<Array<{ id: number }>>`
+          SELECT TOP 1 [id]
+          FROM [RoomArchiveItem]
+          WHERE [id] = ${next.pinnedItemId} AND [roomId] = ${roomIdNum} AND [isActive] = 1
+        `;
+        if (pinnedItemRows.length === 0) {
+          return reply.status(400).send({ success: false, error: '고정 대상 항목을 찾을 수 없습니다.' });
+        }
+      }
+
+      await prisma.$executeRaw`
+        IF EXISTS (SELECT 1 FROM [RoomArchiveBoard] WHERE [roomId] = ${roomIdNum})
+        BEGIN
+          UPDATE [RoomArchiveBoard]
+          SET [isEnabled] = ${next.isEnabled},
+              [isPinned] = ${next.isPinned},
+              [pinnedItemId] = ${next.pinnedItemId},
+              [rotateIntervalSec] = ${next.rotateIntervalSec},
+              [updatedAt] = ${new Date()}
+          WHERE [roomId] = ${roomIdNum}
+        END
+        ELSE
+        BEGIN
+          INSERT INTO [RoomArchiveBoard] ([roomId], [isEnabled], [isPinned], [pinnedItemId], [rotateIntervalSec], [updatedAt])
+          VALUES (${roomIdNum}, ${next.isEnabled}, ${next.isPinned}, ${next.pinnedItemId}, ${next.rotateIntervalSec}, ${new Date()})
+        END
+      `;
+
+      return reply.send({ success: true, data: { board: next } });
+    } catch (err) {
+      if (isMissingArchiveTableError(err)) {
+        return reply.status(501).send({ success: false, error: 'ROOM_ARCHIVE_TABLE_MISSING' });
+      }
+      throw err;
+    }
+  });
+
+  // ── 방별 대화보관함 항목 추가 ──────────────────────────────────
+  app.post('/:roomId/archive-board/items', async (req, reply) => {
+    const userId = Number((req.user as { sub: number | string }).sub);
+    const { roomId } = req.params as { roomId: string };
+    const roomIdNum = Number(roomId);
+    const body = createArchiveBoardItemSchema.safeParse(req.body);
+    if (!body.success) {
+      return reply.status(400).send({ success: false, error: body.error.message });
+    }
+
+    const member = await prisma.roomMember.findUnique({
+      where: { userId_roomId: { userId, roomId: roomIdNum } },
+    });
+    if (!member) {
+      return reply.status(404).send({ success: false, error: '채팅방 멤버가 아닙니다.' });
+    }
+
+    try {
+      const rows = await prisma.$queryRaw<Array<{
+        id: number;
+        roomId: number;
+        content: string;
+        messageId: number | null;
+        sourceSenderId: number | null;
+        createdById: number;
+        createdAt: Date;
+        isActive: boolean | number;
+      }>>`
+        INSERT INTO [RoomArchiveItem] ([roomId], [content], [messageId], [sourceSenderId], [createdById], [createdAt], [isActive])
+        OUTPUT Inserted.[id], Inserted.[roomId], Inserted.[content], Inserted.[messageId], Inserted.[sourceSenderId], Inserted.[createdById], Inserted.[createdAt], Inserted.[isActive]
+        VALUES (${roomIdNum}, ${body.data.content}, ${body.data.messageId ?? null}, ${body.data.sourceSenderId ?? null}, ${userId}, ${new Date()}, 1)
+      `;
+
+      return reply.status(201).send({
+        success: true,
+        data: {
+          item: rows[0]
+            ? {
+                ...rows[0],
+                messageId: rows[0].messageId ?? undefined,
+                sourceSenderId: rows[0].sourceSenderId ?? undefined,
+                createdAt: rows[0].createdAt.toISOString(),
+                isActive: Boolean(rows[0].isActive),
+              }
+            : null,
+        },
+      });
+    } catch (err) {
+      if (isMissingArchiveTableError(err)) {
+        return reply.status(501).send({ success: false, error: 'ROOM_ARCHIVE_TABLE_MISSING' });
+      }
+      throw err;
+    }
+  });
+
+  // ── 방별 대화보관함 항목 삭제(비활성) ───────────────────────────
+  app.delete('/:roomId/archive-board/items/:itemId', async (req, reply) => {
+    const userId = Number((req.user as { sub: number | string }).sub);
+    const { roomId, itemId } = req.params as { roomId: string; itemId: string };
+    const roomIdNum = Number(roomId);
+    const itemIdNum = Number(itemId);
+
+    const member = await prisma.roomMember.findUnique({
+      where: { userId_roomId: { userId, roomId: roomIdNum } },
+    });
+    if (!member) {
+      return reply.status(404).send({ success: false, error: '채팅방 멤버가 아닙니다.' });
+    }
+
+    try {
+      await prisma.$executeRaw`
+        UPDATE [RoomArchiveItem]
+        SET [isActive] = 0
+        WHERE [id] = ${itemIdNum} AND [roomId] = ${roomIdNum}
+      `;
+      await prisma.$executeRaw`
+        UPDATE [RoomArchiveBoard]
+        SET [isPinned] = CASE WHEN [pinnedItemId] = ${itemIdNum} THEN 0 ELSE [isPinned] END,
+            [pinnedItemId] = CASE WHEN [pinnedItemId] = ${itemIdNum} THEN NULL ELSE [pinnedItemId] END,
+            [updatedAt] = ${new Date()}
+        WHERE [roomId] = ${roomIdNum}
+      `;
+      return reply.send({ success: true });
+    } catch (err) {
+      if (isMissingArchiveTableError(err)) {
+        return reply.status(501).send({ success: false, error: 'ROOM_ARCHIVE_TABLE_MISSING' });
+      }
+      throw err;
+    }
+  });
 }
