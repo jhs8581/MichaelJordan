@@ -430,6 +430,55 @@ function computeFormattedTime(date: Date, mode: 'ampm' | '24h', timeZone?: strin
   }
 }
 
+function getTimeZoneOffsetMinutes(timeZone: string, date: Date): number {
+  const parts = new Intl.DateTimeFormat('en-US', {
+    timeZone,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+    hour12: false,
+  }).formatToParts(date);
+  const year = Number(parts.find((part) => part.type === 'year')?.value ?? '0');
+  const month = Number(parts.find((part) => part.type === 'month')?.value ?? '1');
+  const day = Number(parts.find((part) => part.type === 'day')?.value ?? '1');
+  const hour = Number(parts.find((part) => part.type === 'hour')?.value ?? '0');
+  const minute = Number(parts.find((part) => part.type === 'minute')?.value ?? '0');
+  const second = Number(parts.find((part) => part.type === 'second')?.value ?? '0');
+  const utcFromTzClock = Date.UTC(year, month - 1, day, hour, minute, second);
+  return Math.round((utcFromTzClock - date.getTime()) / 60000);
+}
+
+function formatClockMinutes(minutesOfDay: number, mode: 'ampm' | '24h'): string {
+  const normalized = ((minutesOfDay % 1440) + 1440) % 1440;
+  const hour24 = Math.floor(normalized / 60);
+  const minute = String(normalized % 60).padStart(2, '0');
+  if (mode === '24h') {
+    return `${String(hour24).padStart(2, '0')}:${minute}`;
+  }
+  const period = hour24 < 12 ? '오전' : '오후';
+  const hour12 = hour24 % 12 || 12;
+  return `${period} ${hour12}:${minute}`;
+}
+
+function convertSenderLocalToViewerTime(
+  senderLocalTime: string | undefined,
+  senderTimeZone: string,
+  viewerTimeZone: string,
+  referenceDate: Date,
+  mode: 'ampm' | '24h',
+): string | undefined {
+  if (!senderLocalTime || !/^\d{2}:\d{2}$/.test(senderLocalTime)) return undefined;
+  const [hourText, minuteText] = senderLocalTime.split(':');
+  const senderMinutes = Number(hourText) * 60 + Number(minuteText);
+  const senderOffset = getTimeZoneOffsetMinutes(senderTimeZone, referenceDate);
+  const viewerOffset = getTimeZoneOffsetMinutes(viewerTimeZone, referenceDate);
+  const viewerMinutes = senderMinutes - senderOffset + viewerOffset;
+  return formatClockMinutes(viewerMinutes, mode);
+}
+
 function formatMessageTime(date: Date, mode: 'ampm' | '24h', timeZone?: string, senderLocalTime?: string, viewerTimeZone?: string): string {
   const senderTime = computeFormattedTime(date, mode, timeZone, senderLocalTime);
   const validViewerTZ = getValidTimeZone(viewerTimeZone);
@@ -441,7 +490,10 @@ function formatMessageTime(date: Date, mode: 'ampm' | '24h', timeZone?: string, 
     if (validSenderTZ && validViewerTZ === validSenderTZ) {
       return senderTime;
     }
-    const viewerTime = computeFormattedTime(date, mode, validViewerTZ, undefined);
+    const viewerTime = validSenderTZ
+      ? (convertSenderLocalToViewerTime(senderLocalTime, validSenderTZ, validViewerTZ, date, mode)
+        ?? computeFormattedTime(date, mode, validViewerTZ, undefined))
+      : computeFormattedTime(date, mode, validViewerTZ, undefined);
     if (validSenderTZ && validViewerTZ !== validSenderTZ && viewerTime !== senderTime) {
       return `${viewerTime} (${senderTime})`;
     }
