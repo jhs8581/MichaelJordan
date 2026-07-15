@@ -2065,7 +2065,7 @@ export function ChatWindow({ roomId, onLeave, onImageView, naverTheme, naverDark
 
       {isMobile && (
         <div
-          className="flex-shrink-0 px-4 pb-2 flex items-center justify-end gap-2"
+          className="flex-shrink-0 px-4 pt-2 pb-2 flex items-center justify-end gap-2"
           style={{
             background: naverTheme ? (naverDark ? '#161616' : '#ffffff') : oyTheme ? (oyDark ? '#0F2222' : '#ffffff') : 'var(--chat-bg)',
             borderBottom: '1px solid #1e1f22',
