@@ -1670,7 +1670,7 @@ export function ChatWindow({ roomId, onLeave, onImageView, naverTheme, naverDark
           closeColor: '#949BA4',
         };
   const toolbarButtonBaseClass = isMobile
-    ? 'inline-flex h-8 items-center gap-1.5 rounded-md border px-2.5 text-[11px] font-medium transition-colors whitespace-nowrap'
+    ? 'inline-flex h-8 w-8 items-center justify-center rounded-md border transition-colors flex-shrink-0'
     : 'inline-flex h-8 items-center gap-1.5 rounded-md border px-2.5 text-xs font-medium transition-colors whitespace-nowrap';
   const toolbarIconButtonClass = 'inline-flex h-8 w-8 items-center justify-center rounded-md border transition-colors';
   const toolbarButtonStyle = (active: boolean, activeBg: string, border: string, color = 'var(--text-muted)') => ({
@@ -1837,7 +1837,7 @@ export function ChatWindow({ roomId, onLeave, onImageView, naverTheme, naverDark
                 <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06A1.65 1.65 0 0 0 15 19.4a1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09a1.65 1.65 0 0 0-1-1.51 1.65 1.65 0 0 0-1.82.33l-.06.06A2 2 0 0 1 3.31 17l.06-.06A1.65 1.65 0 0 0 4 15a1.65 1.65 0 0 0-1.51-1H2a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 3.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06A2 2 0 0 1 6.04 4.3l.06.06A1.65 1.65 0 0 0 7 5.6a1.65 1.65 0 0 0 1-1.51V4a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06A2 2 0 0 1 20.69 7l-.06.06A1.65 1.65 0 0 0 20 9c0 .66.26 1.3.73 1.77.47.47 1.11.73 1.77.73h.09a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1Z"/>
               </svg>
             </ToolbarButtonIcon>
-            <span>설정</span>
+            {!isMobile && <span>설정</span>}
           </button>
           <button
             type="button"
@@ -1852,7 +1852,7 @@ export function ChatWindow({ roomId, onLeave, onImageView, naverTheme, naverDark
                 <path d="M12 7v5l3 2"/>
               </svg>
             </ToolbarButtonIcon>
-            <span>{roomClockOpen ? '시간 접기' : '시간 열기'}</span>
+            {!isMobile && <span>{roomClockOpen ? '시간 접기' : '시간 열기'}</span>}
           </button>
           <button
             type="button"
@@ -1868,9 +1868,9 @@ export function ChatWindow({ roomId, onLeave, onImageView, naverTheme, naverDark
                 <line x1="8" y1="13" x2="16" y2="13"/>
               </svg>
             </ToolbarButtonIcon>
-            <span>{roomArchiveOpen ? '보관함 접기' : '보관함 열기'}</span>
+            {!isMobile && <span>{roomArchiveOpen ? '보관함 접기' : '보관함 열기'}</span>}
           </button>
-          <div className="view-mode-bar flex items-center rounded-md p-1 border" style={{ background: naverTheme && !naverDark ? '#eef1f5' : oyTheme && !oyDark ? '#eff5f5' : '#2b2d31', gap: 4, borderColor: naverTheme && !naverDark ? '#dde3ea' : oyTheme && !oyDark ? '#d9e5e5' : '#3a3f4a' }}>
+          <div className="view-mode-bar flex items-center rounded-md p-1 border flex-shrink-0" style={{ background: naverTheme && !naverDark ? '#eef1f5' : oyTheme && !oyDark ? '#eff5f5' : '#2b2d31', gap: 4, borderColor: naverTheme && !naverDark ? '#dde3ea' : oyTheme && !oyDark ? '#d9e5e5' : '#3a3f4a' }}>
             <button
               type="button"
               onClick={() => updateSettings({ viewMode: 'bubble' })}
