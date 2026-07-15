@@ -1083,11 +1083,25 @@ export function ChatWindow({ roomId, onLeave, onImageView, naverTheme, naverDark
   }
 
   function jumpToSearchResult(msg: Message) {
-    setSearchOpen(false);
-    setSearchResults(null);
     const el = messageRefs.current[msg.id];
     if (el) {
-      jumpToMessage(msg.id);
+      const container = scrollContainerRef.current;
+      if (container) {
+        const targetTop = Math.max(0, el.offsetTop - Math.floor(container.clientHeight * 0.35));
+        container.scrollTo({ top: targetTop, behavior: 'auto' });
+      } else {
+        el.scrollIntoView({ behavior: 'auto', block: 'center' });
+      }
+      requestAnimationFrame(() => {
+        el.animate(
+          [
+            { backgroundColor: 'rgba(88,101,242,0.0)' },
+            { backgroundColor: 'rgba(88,101,242,0.28)' },
+            { backgroundColor: 'rgba(88,101,242,0.0)' },
+          ],
+          { duration: 800, easing: 'ease-out' },
+        );
+      });
     } else {
       loadMessagesAround(msg.id);
     }
@@ -2053,7 +2067,7 @@ export function ChatWindow({ roomId, onLeave, onImageView, naverTheme, naverDark
             {/* 검색 버튼 */}
             <button
               type="button"
-              onClick={() => { setSearchOpen((v) => !v); setSearchResults(null); setSearchKeyword(''); setSearchDate(''); }}
+              onClick={() => { setSearchOpen((v) => !v); }}
               className={toolbarButtonBaseClass}
               style={toolbarIconStyle(searchOpen, oyTheme && !oyDark ? '#f4fbfb' : naverTheme && !naverDark ? '#f6f8fb' : '#3a3f4a', oyTheme && !oyDark ? '#d9e9e8' : naverTheme && !naverDark ? '#dfe6ee' : '#3a3f4a')}
               title="채팅 검색"
@@ -2115,7 +2129,7 @@ export function ChatWindow({ roomId, onLeave, onImageView, naverTheme, naverDark
           {/* 검색 버튼 */}
           <button
             type="button"
-            onClick={() => { setSearchOpen((v) => !v); setSearchResults(null); setSearchKeyword(''); setSearchDate(''); }}
+            onClick={() => { setSearchOpen((v) => !v); }}
             className={toolbarButtonBaseClass}
             style={toolbarIconStyle(searchOpen, naverTheme && !naverDark ? '#eef1f5' : oyTheme && !oyDark ? '#eff5f5' : '#3a3f4a', naverTheme && !naverDark ? '#dde3ea' : oyTheme && !oyDark ? '#d9e5e5' : '#3a3f4a')}
             title="채팅 검색"
@@ -2517,7 +2531,7 @@ export function ChatWindow({ roomId, onLeave, onImageView, naverTheme, naverDark
             </button>
             <button
               type="button"
-              onClick={() => { setSearchOpen(false); setSearchResults(null); }}
+              onClick={() => { setSearchOpen(false); }}
               className="text-xs"
               style={{ color: searchThemeColors.closeColor }}
             >
