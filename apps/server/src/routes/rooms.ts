@@ -183,8 +183,10 @@ export async function roomRoutes(app: FastifyInstance) {
       unreadRows.map((row) => [row.roomId, Number(row.unreadCount)]),
     );
 
-    const contentUnreadRows = roomIdSql
-      ? await prisma.$queryRawUnsafe<Array<{
+    const contentUnreadRows = await (async () => {
+      if (!roomIdSql) return [];
+      try {
+        return await prisma.$queryRawUnsafe<Array<{
           roomId: number;
           scheduleUnreadCount: number | bigint;
           postUnreadCount: number | bigint;
@@ -217,8 +219,11 @@ export async function roomRoutes(app: FastifyInstance) {
            FROM [RoomMember] rm
            WHERE rm.[userId] = ${Number(userId)}
              AND rm.[roomId] IN (${roomIdSql})`,
-        )
-      : [];
+        );
+      } catch {
+        return [];
+      }
+    })();
 
     const contentUnreadByRoom = Object.fromEntries(
       contentUnreadRows.map((row) => [
