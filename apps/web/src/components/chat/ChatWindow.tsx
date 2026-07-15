@@ -1669,10 +1669,12 @@ export function ChatWindow({ roomId, onLeave, onImageView, naverTheme, naverDark
           resultHighlightText: '#FFFFFF',
           closeColor: '#949BA4',
         };
-  const toolbarButtonBaseClass = isMobile
+  const toolbarButtonBaseClass = 'inline-flex h-8 items-center gap-1.5 rounded-md border px-2.5 text-xs font-medium transition-colors whitespace-nowrap';
+  const toolbarIconButtonClass = 'inline-flex h-8 w-8 items-center justify-center rounded-md border transition-colors';
+  // 모바일 헤더 1행의 설정·시간·보관함 버튼 — 아이콘 전용
+  const mobileHeaderIconButtonClass = isMobile
     ? 'inline-flex h-8 w-8 items-center justify-center rounded-md border transition-colors flex-shrink-0'
     : 'inline-flex h-8 items-center gap-1.5 rounded-md border px-2.5 text-xs font-medium transition-colors whitespace-nowrap';
-  const toolbarIconButtonClass = 'inline-flex h-8 w-8 items-center justify-center rounded-md border transition-colors';
   const toolbarButtonStyle = (active: boolean, activeBg: string, border: string, color = 'var(--text-muted)') => ({
     background: active ? activeBg : 'transparent',
     borderColor: border,
@@ -1828,7 +1830,7 @@ export function ChatWindow({ roomId, onLeave, onImageView, naverTheme, naverDark
             type="button"
             data-chat-settings-button
             onClick={() => setSettingsOpen((current) => !current)}
-            className={toolbarButtonBaseClass}
+            className={mobileHeaderIconButtonClass}
             style={settingsButtonStyle}
           >
             <ToolbarButtonIcon>
@@ -1842,7 +1844,7 @@ export function ChatWindow({ roomId, onLeave, onImageView, naverTheme, naverDark
           <button
             type="button"
             onClick={() => setRoomClockOpen((prev) => !prev)}
-            className={toolbarButtonBaseClass}
+            className={mobileHeaderIconButtonClass}
             style={clockButtonStyle}
             aria-label={roomClockOpen ? '시간 표시 접기' : '시간 표시 열기'}
           >
@@ -1857,7 +1859,7 @@ export function ChatWindow({ roomId, onLeave, onImageView, naverTheme, naverDark
           <button
             type="button"
             onClick={() => setRoomArchiveOpen((prev) => !prev)}
-            className={toolbarButtonBaseClass}
+            className={mobileHeaderIconButtonClass}
             style={archiveButtonStyle}
             aria-label={roomArchiveOpen ? '대화보관함 접기' : '대화보관함 열기'}
           >
