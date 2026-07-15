@@ -1871,14 +1871,16 @@ export function ChatWindow({ roomId, onLeave, onImageView, naverTheme, naverDark
     <div className="relative flex flex-col h-full" style={{ background: 'var(--chat-bg)' }} {...(naverTheme ? { 'data-ntheme': '', ...(naverDark ? { 'data-ndark': '' } : {}) } : {})} {...(oyTheme ? { 'data-oytheme': '', ...(oyDark ? { 'data-oydark': '' } : {}) } : {})}>
       {/* 채널 헤더 — 모바일: 헤더 길게 누르면 잠금 */}
       <div
-        className="flex items-center gap-2 px-4 py-3 border-b shadow-md flex-shrink-0"
+        className={isMobile
+          ? 'flex items-center gap-2 px-4 py-3 border-b shadow-md flex-shrink-0'
+          : 'flex items-center flex-wrap gap-2 px-4 py-3 border-b shadow-md flex-shrink-0'}
         style={{ borderColor: naverTheme ? (naverDark ? '#2e2e2e' : '#e8e8e8') : oyTheme ? (oyDark ? '#1A3030' : '#EEF0F0') : '#1e1f22', background: naverTheme ? (naverDark ? '#161616' : '#ffffff') : oyTheme ? (oyDark ? '#0F2222' : '#ffffff') : 'var(--chat-bg)' }}
         onContextMenu={isMobile && canLock ? (e) => e.preventDefault() : undefined}
         onTouchStart={isMobile && canLock ? () => { longPressTimer.current = setTimeout(() => lockChat(), 2000); } : undefined}
         onTouchEnd={isMobile && canLock ? () => { if (longPressTimer.current) { clearTimeout(longPressTimer.current); longPressTimer.current = null; } } : undefined}
         onTouchMove={isMobile && canLock ? () => { if (longPressTimer.current) { clearTimeout(longPressTimer.current); longPressTimer.current = null; } } : undefined}
       >
-        <div className="flex items-center gap-2 min-w-0">
+        <div className={isMobile ? 'flex items-center gap-2 min-w-0' : 'flex items-center gap-2 flex-wrap'}>
           <button
             type="button"
             data-chat-settings-button
@@ -1894,37 +1896,39 @@ export function ChatWindow({ roomId, onLeave, onImageView, naverTheme, naverDark
             </ToolbarButtonIcon>
             {!isMobile && <span>설정</span>}
           </button>
-          <button
-            type="button"
-            onClick={() => setRoomClockOpen((prev) => !prev)}
-            className={mobileHeaderIconButtonClass}
-            style={clockButtonStyle}
-            aria-label={roomClockOpen ? '시간 표시 접기' : '시간 표시 열기'}
-          >
-            <ToolbarButtonIcon>
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
-                <circle cx="12" cy="12" r="8"/>
-                <path d="M12 7v5l3 2"/>
-              </svg>
-            </ToolbarButtonIcon>
-            {!isMobile && <span>{roomClockOpen ? '시간 접기' : '시간 열기'}</span>}
-          </button>
-          <button
-            type="button"
-            onClick={() => setRoomArchiveOpen((prev) => !prev)}
-            className={mobileHeaderIconButtonClass}
-            style={archiveButtonStyle}
-            aria-label={roomArchiveOpen ? '대화보관함 접기' : '대화보관함 열기'}
-          >
-            <ToolbarButtonIcon>
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
-                <rect x="3" y="4" width="18" height="16" rx="2"/>
-                <line x1="8" y1="9" x2="16" y2="9"/>
-                <line x1="8" y1="13" x2="16" y2="13"/>
-              </svg>
-            </ToolbarButtonIcon>
-            {!isMobile && <span>{roomArchiveOpen ? '보관함 접기' : '보관함 열기'}</span>}
-          </button>
+          {isMobile && (
+            <>
+              <button
+                type="button"
+                onClick={() => setRoomClockOpen((prev) => !prev)}
+                className={mobileHeaderIconButtonClass}
+                style={clockButtonStyle}
+                aria-label={roomClockOpen ? '시간 표시 접기' : '시간 표시 열기'}
+              >
+                <ToolbarButtonIcon>
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+                    <circle cx="12" cy="12" r="8"/>
+                    <path d="M12 7v5l3 2"/>
+                  </svg>
+                </ToolbarButtonIcon>
+              </button>
+              <button
+                type="button"
+                onClick={() => setRoomArchiveOpen((prev) => !prev)}
+                className={mobileHeaderIconButtonClass}
+                style={archiveButtonStyle}
+                aria-label={roomArchiveOpen ? '대화보관함 접기' : '대화보관함 열기'}
+              >
+                <ToolbarButtonIcon>
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+                    <rect x="3" y="4" width="18" height="16" rx="2"/>
+                    <line x1="8" y1="9" x2="16" y2="9"/>
+                    <line x1="8" y1="13" x2="16" y2="13"/>
+                  </svg>
+                </ToolbarButtonIcon>
+              </button>
+            </>
+          )}
           <div className="view-mode-bar flex items-center rounded-md p-1 border flex-shrink-0" style={{ background: naverTheme && !naverDark ? '#eef1f5' : oyTheme && !oyDark ? '#eff5f5' : '#2b2d31', gap: 4, borderColor: naverTheme && !naverDark ? '#dde3ea' : oyTheme && !oyDark ? '#d9e5e5' : '#3a3f4a' }}>
             <button
               type="button"
@@ -1950,7 +1954,7 @@ export function ChatWindow({ roomId, onLeave, onImageView, naverTheme, naverDark
             </button>
           </div>
         </div>
-        <div className="flex-1" />
+        <div className={isMobile ? 'flex-1' : 'ml-auto'} />
         {/* 알림 음소거 버튼 */}
         <button
           type="button"
