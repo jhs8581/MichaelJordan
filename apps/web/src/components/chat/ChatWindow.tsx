@@ -1208,9 +1208,57 @@ export function ChatWindow({ roomId, onLeave, onImageView, naverTheme, naverDark
     }, 2500);
   }
 
+  // 이미지 파일을 Canvas로 리사이즈 + JPEG 압축 (최대 2048px, 품질 0.82)
+  async function compressImageFile(file: File): Promise<File> {
+    const VIDEO_EXTS = /\.(mp4|webm|mov|m4v|avi)$/i;
+    if (VIDEO_EXTS.test(file.name)) return file; // 동영상은 그대로
+    if (!file.type.startsWith('image/')) return file;
+    // GIF는 압축 시 애니메이션 소실 → 그대로
+    if (file.type === 'image/gif') return file;
+
+    return new Promise((resolve) => {
+      const MAX_PX = 2048;
+      const QUALITY = 0.82;
+      const img = new Image();
+      const objectUrl = URL.createObjectURL(file);
+      img.onload = () => {
+        URL.revokeObjectURL(objectUrl);
+        let { width, height } = img;
+        if (width <= MAX_PX && height <= MAX_PX && file.size < 300 * 1024) {
+          resolve(file); // 이미 작으면 그대로
+          return;
+        }
+        if (width > height && width > MAX_PX) {
+          height = Math.round((height * MAX_PX) / width);
+          width = MAX_PX;
+        } else if (height > MAX_PX) {
+          width = Math.round((width * MAX_PX) / height);
+          height = MAX_PX;
+        }
+        const canvas = document.createElement('canvas');
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext('2d')!;
+        ctx.drawImage(img, 0, 0, width, height);
+        canvas.toBlob(
+          (blob) => {
+            if (!blob) { resolve(file); return; }
+            const ext = file.name.replace(/\.[^.]+$/, '') + '.jpg';
+            resolve(new File([blob], ext, { type: 'image/jpeg' }));
+          },
+          'image/jpeg',
+          QUALITY,
+        );
+      };
+      img.onerror = () => { URL.revokeObjectURL(objectUrl); resolve(file); };
+      img.src = objectUrl;
+    });
+  }
+
   async function doUpload(file: File): Promise<string> {
+    const compressed = await compressImageFile(file);
     const formData = new FormData();
-    formData.append('file', file);
+    formData.append('file', compressed);
     // api(axios) 인스턴스 사용 → 인터셉터가 최신 토큰 자동 주입 + 401 시 refresh 후 재시도
     const res = await api.post<{ success: boolean; data?: { url: string } }>(
       '/messages/upload',
@@ -1251,28 +1299,33 @@ export function ChatWindow({ roomId, onLeave, onImageView, naverTheme, naverDark
       await uploadFile(files[0]);
       return;
     }
-    // 다중 파일 업로드
+    // 다중 파일 병렬 업로드
     if (!accessToken) return;
     setUploading(true);
     setUploadError('');
     const socket = getSocket();
-    // 이미지 업로드 시작 시 캐시 무효화
     allRoomImagesRef.current = null;
-    for (let i = 0; i < files.length; i++) {
-      setUploadProgress(`${i + 1}/${files.length}`);
-      try {
-        const url = await doUpload(files[i]);
-        socket.emit('message:send', { roomId, content: '', fileUrl: url, ...getMessageSendMeta(user?.timeZone) });
-        requestAnimationFrame(() => {
-          const el = scrollContainerRef.current;
-          if (el) el.scrollTop = el.scrollHeight;
-        });
-      } catch (err) {
-        const msg = err instanceof Error ? err.message : '네트워크 오류로 업로드 실패';
-        setUploadError(msg);
-        setTimeout(() => setUploadError(''), 4000);
-      }
-    }
+    setUploadProgress(`0/${files.length}`);
+    let done = 0;
+    await Promise.all(
+      files.map(async (file) => {
+        try {
+          const url = await doUpload(file);
+          socket.emit('message:send', { roomId, content: '', fileUrl: url, ...getMessageSendMeta(user?.timeZone) });
+          requestAnimationFrame(() => {
+            const el = scrollContainerRef.current;
+            if (el) el.scrollTop = el.scrollHeight;
+          });
+        } catch (err) {
+          const msg = err instanceof Error ? err.message : '네트워크 오류로 업로드 실패';
+          setUploadError(msg);
+          setTimeout(() => setUploadError(''), 4000);
+        } finally {
+          done += 1;
+          setUploadProgress(`${done}/${files.length}`);
+        }
+      }),
+    );
     setUploadProgress('');
     setUploading(false);
   }
