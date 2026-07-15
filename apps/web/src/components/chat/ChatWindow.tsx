@@ -700,8 +700,14 @@ export function ChatWindow({ roomId, onLeave, onImageView, naverTheme, naverDark
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   // roomId가 바뀔 때마다 "아직 초기 스크롤 안 했음" 으로 리셋
   const hasScrolledToBottom = useRef(false);
+  const suppressAutoNewerLoadRef = useRef(false);
+  const suppressAutoNewerLoadUntilRef = useRef(0);
+  const previousScrollTopRef = useRef(0);
   useEffect(() => {
     hasScrolledToBottom.current = false;
+    suppressAutoNewerLoadRef.current = false;
+    suppressAutoNewerLoadUntilRef.current = 0;
+    previousScrollTopRef.current = 0;
   }, [roomId]);
 
   useEffect(() => {
@@ -1046,6 +1052,11 @@ export function ChatWindow({ roomId, onLeave, onImageView, naverTheme, naverDark
           setSearchResults([]);
           return;
         }
+        // 날짜 이동 직후에는 하단 자동 연속 로딩을 잠깐 막고,
+        // 사용자가 실제로 아래로 스크롤할 때 다시 활성화한다.
+        suppressAutoNewerLoadRef.current = true;
+        suppressAutoNewerLoadUntilRef.current = Date.now() + 700;
+        previousScrollTopRef.current = 0;
         jumpToSearchResult(firstMessage);
         return;
       }
@@ -1091,6 +1102,18 @@ export function ChatWindow({ roomId, onLeave, onImageView, naverTheme, naverDark
   function handleScrollContainerScroll() {
     const el = scrollContainerRef.current;
     if (!el) return;
+    const prevScrollTop = previousScrollTopRef.current;
+    const scrolledDown = el.scrollTop > prevScrollTop + 2;
+    previousScrollTopRef.current = el.scrollTop;
+
+    if (
+      suppressAutoNewerLoadRef.current
+      && Date.now() >= suppressAutoNewerLoadUntilRef.current
+      && scrolledDown
+    ) {
+      suppressAutoNewerLoadRef.current = false;
+    }
+
     const distFromBottom = el.scrollHeight - el.scrollTop - el.clientHeight;
     setShowScrollBtn(distFromBottom > 120);
 
@@ -1116,7 +1139,7 @@ export function ChatWindow({ roomId, onLeave, onImageView, naverTheme, naverDark
         .finally(() => setLoadingOlder(false));
     }
 
-    if (distFromBottom < 80 && newerCursor && !loadingNewer) {
+    if (distFromBottom < 80 && newerCursor && !loadingNewer && !suppressAutoNewerLoadRef.current) {
       setLoadingNewer(true);
       const prevScrollHeight = el.scrollHeight;
       const prevScrollTop = el.scrollTop;
